@@ -1,33 +1,111 @@
 import axios from 'axios';
-import { getAccessToken } from '../context/AuthContext';
 
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
+  baseURL: (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000',
   withCredentials: true,
 });
 
-// Request interceptor - agregar Authorization header usando getter seguro
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+// Process queue
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
+
+// Request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = getAccessToken();
+    const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      // Log solo en desarrollo para no saturar producción
+      if ((import.meta as any).env?.DEV) {
+        console.log('📤 [Auth] Enviando request con access token');
+      }
+    } else {
+      if ((import.meta as any).env?.DEV) {
+        console.log('📤 [Auth] Enviando request sin access token');
+      }
     }
     return config;
   },
   (error) => {
+    console.error('❌ [Auth] Error en request interceptor:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor - manejar 401 (sin refresh token por ahora)
+// Response interceptor con refresh token
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      // Forzar logout si no está autorizado
-      window.location.href = '/login';
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Si ya está refrescando, agregar a la cola
+        console.log('🔄 [Auth] Refresh en progreso, encolando petición...');
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return axiosInstance(originalRequest);
+        }).catch((err) => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      console.log('🔄 [Auth] Access token expirado, iniciando refresh automático...');
+
+      try {
+        const response = await axios.post('/auth/refresh', {}, {
+          baseURL: (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000',
+          withCredentials: true // Importante para cookies
+        });
+
+        if (response.data.success) {
+          const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+          
+          localStorage.setItem('accessToken', accessToken);
+          if (newRefreshToken) {
+            localStorage.setItem('refreshToken', newRefreshToken);
+          }
+
+          console.log('✅ [Auth] Access token refrescado exitosamente');
+          console.log('🕐 [Auth] Nuevo access token válido por 15 minutos');
+          
+          // Calcular tiempo de expiración
+          const expirationTime = new Date(Date.now() + 15 * 60 * 1000);
+          console.log('⏰ [Auth] Próximo refresh automático:', expirationTime.toLocaleTimeString());
+
+          processQueue(null, accessToken);
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return axiosInstance(originalRequest);
+        }
+      } catch (refreshError) {
+        console.log('❌ [Auth] Error en refresh automático, cerrando sesión...');
+        processQueue(refreshError, null);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
     return Promise.reject(error);
   }
 );

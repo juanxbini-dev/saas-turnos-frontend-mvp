@@ -28,7 +28,9 @@ export const authService = {
   },
 
   async refresh(): Promise<LoginResponse> {
-    const response = await axiosInstance.post('/auth/refresh');
+    const response = await axiosInstance.post('/auth/refresh', {}, {
+      withCredentials: true // Importante para enviar cookies
+    });
     
     // Backend devuelve {success: true, data: {...}}
     if (response.data.success) {

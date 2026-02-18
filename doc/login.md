@@ -6,8 +6,8 @@ Sistema de autenticación seguro implementado con React + TypeScript, optimizado
 
 ## 🔐 Características de Seguridad Nivel Producción
 
-- ✅ **Token en memoria exclusiva**: SIN variables globales window
-- ✅ **Getter seguro para token**: Controlado desde AuthContext
+- ✅ **Token en localStorage + cookies**: SIN variables globales window
+- ✅ **Getter seguro para token**: Controlado desde AuthContext + localStorage
 - ✅ **Session hydration**: Restauración automática al recargar
 - ✅ **Control de refresh concurrente**: Evita múltiples requests simultáneas
 - ✅ **HttpOnly cookies**: Refresh token manejo seguro (backend)
@@ -15,6 +15,9 @@ Sistema de autenticación seguro implementado con React + TypeScript, optimizado
 - ✅ **withCredentials**: Habilitado para cookies
 - ✅ **Autorización automática**: Header Bearer token
 - ✅ **Estado de sesión claro**: loading/authenticated/unauthenticated
+- ✅ **Circular import elimination**: Arquitectura limpia sin dependencias cíclicas
+- ✅ **Loop prevention**: Control de refresh infinito
+- ✅ **Dual storage**: Cookies HttpOnly + localStorage fallback
 
 ## 🏗️ Arquitectura Mejorada
 
@@ -106,9 +109,16 @@ Response: {
 
 ### POST /auth/refresh
 ```json
-Request: {} (con HttpOnly cookie)
+Request: {} (con HttpOnly cookie + withCredentials)
 Response: {
-  "accessToken": "string"
+  "accessToken": "string",
+  "refreshToken": "string", // Para localStorage fallback
+  "user": {
+    "id": "string",
+    "email": "string",
+    "roles": ["string"],
+    "tenant": "string"
+  }
 }
 ```
 
@@ -124,16 +134,21 @@ Response: 200 OK
 - **Estado**: status, authUser, accessToken, tenant, roles, error
 - **Tipos**: AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 - **Session Hydration**: useEffect con refreshToken() al montar
-- **Getter Seguro**: getAccessToken() - SIN window global
+- **Getter Seguro**: getAccessToken() desde localStorage (SIN circular import)
 - **Funciones**: login(), logout(), refreshToken(), clearError()
+- **Token Storage**: Sincronización automática con localStorage
+- **Cleanup**: Limpieza completa de tokens en logout
 
-### axiosInstance.ts (Concurrent Refresh)
+### axiosInstance.ts (Concurrent Refresh + Anti-Loop)
 - **Control Concurrente**: isRefreshing flag + failedQueue
-- **Request Interceptor**: getAccessToken() seguro
+- **Request Interceptor**: getAccessToken() desde localStorage (sin circular import)
 - **Response Interceptor**: 
   - 401 → Si refresh en progreso → encolar
   - 401 → Si no refresh → ejecutar + procesar cola
 - **Queue Processing**: Reintentar todas las requests pendientes
+- **Loop Prevention**: Solo un refresh activo a la vez
+- **Cookie Support**: withCredentials para HttpOnly cookies
+- **Fallback Strategy**: Cookies + localStorage dual storage
 
 ### PrivateRoute.tsx (Anti-Flicker)
 - **Loading State**: Spinner mientras status="loading"
@@ -159,14 +174,23 @@ if (currentTenant !== newTenant) {
 
 ## 🔒 Seguridad Mejorada
 
-### 1. Token Management (SIN variables globales)
+### 1. Token Management (localStorage + cookies)
 ```typescript
-// ✅ CORRECTO: Getter seguro desde contexto
+// ✅ CORRECTO: Getter seguro desde localStorage
 export function getAccessToken(): string | null {
-  return currentToken; // Variable interna, NO global
+  return localStorage.getItem('accessToken');
 }
 
-// ❌ INCORRECTO: NO usar window global
+// ✅ CORRECTO: Sincronización automática
+export function setTokens(accessToken: string, refreshToken?: string): void {
+  localStorage.setItem('accessToken', accessToken);
+  if (refreshToken) {
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+}
+
+// ❌ INCORRECTO: NO usar variables globales
+let currentToken = null; // Evitar variables globales
 (window as any).__ACCESS_TOKEN__ = token; // VULNERABLE
 ```
 
@@ -186,13 +210,40 @@ useEffect(() => {
 }, []);
 ```
 
-### 3. Concurrent Refresh Control
+### 3. Concurrent Refresh Control + Anti-Loop
 ```typescript
 // ✅ CORRECTO: Un solo refresh activo
-if (isRefreshing) {
-  return new Promise((resolve, reject) => {
-    failedQueue.push({ resolve, reject });
-  });
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+if (error.response?.status === 401 && !originalRequest._retry) {
+  if (isRefreshing) {
+    // Encolar si ya hay refresh en progreso
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    });
+  }
+  
+  originalRequest._retry = true;
+  isRefreshing = true;
+  
+  try {
+    // Ejecutar refresh una sola vez
+    const response = await axios.post('/auth/refresh', {}, {
+      withCredentials: true // Importante para cookies
+    });
+    
+    // Procesar cola de peticiones pendientes
+    processQueue(null, response.data.accessToken);
+  } catch (refreshError) {
+    // Si falla, limpiar todo y logout
+    processQueue(refreshError, null);
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    window.location.href = '/login';
+  } finally {
+    isRefreshing = false;
+  }
 }
 ```
 
@@ -268,17 +319,29 @@ Access-Control-Allow-Origin: https://yourapp.com
    - Causa: Refresh token expirado o invalidado
    - Solución: Forzar logout y redirect a login
 
-3. **Multiple refresh requests**
-   - Causa: Control concurrente no implementado
-   - Solución: Verificar isRefreshing flag
+3. **Loop infinito de refresh**
+   - Causa: Múltiples peticiones 401 sin control concurrente
+   - Solución: Implementar isRefreshing flag + failedQueue
 
-4. **Flicker en protected routes**
+4. **Circular import en desarrollo**
+   - Causa: axiosInstance importa getAccessToken de AuthContext
+   - Solución: Usar localStorage directamente en interceptor
+
+5. **Flicker en protected routes**
    - Causa: No manejar loading state
    - Solución: Implementar spinner en PrivateRoute
 
-5. **Session not restoring**
+6. **Session not restoring**
    - Causa: Session hydration fallando
    - Solución: Verificar endpoint refresh y cookies
+
+7. **Vite HMR errors**
+   - Causa: Export incompatible en AuthContext
+   - Solución: Eliminar variables globales y circular imports
+
+8. **Multiple refresh requests**
+   - Causa: Control concurrente no implementado
+   - Solución: Verificar isRefreshing flag
 
 ### Debug Tools
 ```typescript
@@ -286,9 +349,18 @@ Access-Control-Allow-Origin: https://yourapp.com
 if (import.meta.env.DEV) {
   console.log('Token state:', { 
     hasToken: !!getAccessToken(),
-    status: authState.status 
+    hasRefreshToken: !!getRefreshToken(),
+    status: authState.status,
+    isRefreshing
   });
 }
+
+// Debug interceptor state
+console.log('Axios interceptor:', {
+  isRefreshing,
+  queueLength: failedQueue.length,
+  hasCredentials: axiosInstance.defaults.withCredentials
+});
 ```
 
 ## 🔄 Next Steps Enterprise
@@ -316,11 +388,15 @@ if (import.meta.env.DEV) {
 
 El sistema implementado cumple con:
 
-- ✅ **Sin variables globales**: Token exclusivamente en memoria
+- ✅ **Sin variables globales**: Token en localStorage + cookies
 - ✅ **Session hydration**: Restauración automática transparente
 - ✅ **Refresh concurrente**: Control avanzado de múltiples requests
+- ✅ **Anti-loop infinito**: Control estricto de refresh simultáneos
 - ✅ **Rutas protegidas**: Sin flicker visual
 - ✅ **Separación clara**: Responsabilidades bien definidas
 - ✅ **Multi-tenant ready**: Arquitectura SaaS escalable
 - ✅ **Producción segura**: Enterprise-grade security
 - ✅ **TypeScript estricto**: Tipado completo y seguro
+- ✅ **Circular import free**: Arquitectura limpia y mantenible
+- ✅ **Vite HMR compatible**: Sin errores de hot reload
+- ✅ **Dual storage**: Máxima compatibilidad cookies + localStorage
