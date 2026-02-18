@@ -2,6 +2,8 @@ import axiosInstance from '../api/axiosInstance';
 
 export interface LoginResponse {
   accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
   user: {
     id: string;
     email: string;
@@ -26,12 +28,22 @@ export const authService = {
   },
 
   async refresh(): Promise<LoginResponse> {
-    // TODO: Implementar cuando el backend tenga refresh token
-    throw new Error('Refresh token no implementado aún');
+    const response = await axiosInstance.post('/auth/refresh');
+    
+    // Backend devuelve {success: true, data: {...}}
+    if (response.data.success) {
+      return response.data.data;
+    } else {
+      throw new Error(response.data.message || 'Error al refrescar token');
+    }
   },
 
   async logout(): Promise<void> {
-    // TODO: Implementar cuando el backend tenga logout
-    throw new Error('Logout no implementado aún');
+    const response = await axiosInstance.post('/auth/logout');
+    
+    // Backend devuelve {success: true, message}
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Error al cerrar sesión');
+    }
   },
 };

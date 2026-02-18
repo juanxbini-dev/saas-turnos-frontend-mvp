@@ -14,6 +14,7 @@ interface AuthState {
   status: AuthStatus;
   authUser: User | null;
   accessToken: string | null;
+  refreshToken: string | null;
   tenant: string | null;
   roles: string[];
   error: string | null;
@@ -21,19 +22,20 @@ interface AuthState {
 
 type AuthAction =
   | { type: 'SESSION_LOADING' }
-  | { type: 'SESSION_SUCCESS'; payload: { user: User; accessToken: string } }
+  | { type: 'SESSION_SUCCESS'; payload: { user: User; accessToken: string; refreshToken?: string } }
   | { type: 'SESSION_FAILURE' }
   | { type: 'LOGIN_START' }
-  | { type: 'LOGIN_SUCCESS'; payload: { user: User; accessToken: string } }
+  | { type: 'LOGIN_SUCCESS'; payload: { user: User; accessToken: string; refreshToken: string } }
   | { type: 'LOGIN_FAILURE'; payload: string }
   | { type: 'LOGOUT' }
-  | { type: 'REFRESH_SUCCESS'; payload: { accessToken: string } }
+  | { type: 'REFRESH_SUCCESS'; payload: { accessToken: string; refreshToken?: string } }
   | { type: 'CLEAR_ERROR' };
 
 const initialState: AuthState = {
   status: 'loading',
   authUser: null,
   accessToken: null,
+  refreshToken: null,
   tenant: null,
   roles: [],
   error: null,
@@ -49,6 +51,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         status: 'authenticated',
         authUser: action.payload.user,
         accessToken: action.payload.accessToken,
+        refreshToken: action.payload.refreshToken || null,
         tenant: action.payload.user.tenant,
         roles: action.payload.user.roles,
         error: null,
@@ -59,6 +62,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         status: 'unauthenticated',
         authUser: null,
         accessToken: null,
+        refreshToken: null,
         tenant: null,
         roles: [],
         error: null,
@@ -71,6 +75,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         status: 'authenticated',
         authUser: action.payload.user,
         accessToken: action.payload.accessToken,
+        refreshToken: action.payload.refreshToken,
         tenant: action.payload.user.tenant,
         roles: action.payload.user.roles,
         error: null,
@@ -81,6 +86,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         status: 'unauthenticated',
         authUser: null,
         accessToken: null,
+        refreshToken: null,
         tenant: null,
         roles: [],
         error: action.payload,
@@ -94,6 +100,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
       return {
         ...state,
         accessToken: action.payload.accessToken,
+        refreshToken: action.payload.refreshToken || state.refreshToken,
       };
     case 'CLEAR_ERROR':
       return {
@@ -112,15 +119,21 @@ interface AuthContextType {
   refreshToken: () => Promise<void>;
   clearError: () => void;
   getAccessToken: () => string | null;
+  getRefreshToken: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 // Getter seguro para el token - NO expone el token globalmente
 let currentToken: string | null = null;
+let currentRefreshToken: string | null = null;
 
 export function getAccessToken(): string | null {
   return currentToken;
+}
+
+export function getRefreshToken(): string | null {
+  return currentRefreshToken;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -130,6 +143,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   React.useEffect(() => {
     currentToken = state.accessToken;
   }, [state.accessToken]);
+
+  // Actualizar refresh token local cuando cambia en el estado
+  React.useEffect(() => {
+    currentRefreshToken = state.refreshToken;
+  }, [state.refreshToken]);
 
   // Session hydration al montar el componente
   React.useEffect(() => {
@@ -143,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           payload: {
             user: response.user,
             accessToken: response.accessToken,
+            refreshToken: response.refreshToken
           },
         });
       } catch (error) {
@@ -163,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         payload: {
           user: response.user,
           accessToken: response.accessToken,
+          refreshToken: response.refreshToken
         },
       });
     } catch (error: any) {
@@ -180,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Logout error:', error);
     } finally {
       currentToken = null;
+      currentRefreshToken = null;
       dispatch({ type: 'LOGOUT' });
     }
   };
@@ -187,12 +208,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshToken = async () => {
     try {
       const response = await authService.refresh();
+      
       dispatch({
         type: 'REFRESH_SUCCESS',
-        payload: { accessToken: response.accessToken },
+        payload: {
+          accessToken: response.accessToken,
+          refreshToken: response.refreshToken
+        },
       });
     } catch (error) {
       currentToken = null;
+      currentRefreshToken = null;
       dispatch({ type: 'LOGOUT' });
       throw error;
     }
@@ -210,7 +236,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         refreshToken,
         clearError,
-        getAccessToken: () => currentToken,
+        getAccessToken,
+        getRefreshToken
       }}
     >
       {children}
