@@ -10,7 +10,7 @@ const loginSchema = z.object({
   email: z
     .string()
     .min(1, 'El email es requerido')
-    .email('Formato de email inválido'),
+    .regex(/^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Formato inválido. Use: usuario@empresa.com'),
   password: z
     .string()
     .min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -74,7 +74,7 @@ export function LoginForm({
           trigger('email');
         }}
         error={errors.email?.message}
-        placeholder="tu@email.com"
+        placeholder="usuario@empresa.com"
         disabled={loading}
       />
 

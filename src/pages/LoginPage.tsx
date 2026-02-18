@@ -33,9 +33,17 @@ function LoginPage() {
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
             Iniciar Sesión
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-4">
             Sistema de gestión de turnos
           </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-blue-800">
+              <strong>Formato de usuario:</strong> usuario@empresa.com
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              Ejemplo: test_admin@testempresa.com
+            </p>
+          </div>
         </div>
 
         <LoginForm

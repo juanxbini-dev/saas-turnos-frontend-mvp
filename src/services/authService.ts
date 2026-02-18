@@ -16,15 +16,22 @@ export const authService = {
       email,
       password,
     });
-    return response.data;
+    
+    // Backend devuelve {success: true, data: {...}}
+    if (response.data.success) {
+      return response.data.data;
+    } else {
+      throw new Error(response.data.message || 'Error de autenticación');
+    }
   },
 
   async refresh(): Promise<LoginResponse> {
-    const response = await axiosInstance.post('/auth/refresh');
-    return response.data;
+    // TODO: Implementar cuando el backend tenga refresh token
+    throw new Error('Refresh token no implementado aún');
   },
 
   async logout(): Promise<void> {
-    await axiosInstance.post('/auth/logout');
+    // TODO: Implementar cuando el backend tenga logout
+    throw new Error('Logout no implementado aún');
   },
 };
