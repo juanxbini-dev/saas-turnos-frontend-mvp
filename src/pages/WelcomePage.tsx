@@ -1,8 +1,22 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/ui/Button';
 
 function WelcomePage() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      // Incluso si falla, redirigir a login
+      navigate('/login');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -15,12 +29,18 @@ function WelcomePage() {
             Sistema de gestión de turnos
           </p>
           <div className="space-y-4">
-            <button 
-              onClick={() => navigate('/login')}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-200"
+            <Button 
+              onClick={() => navigate('/dashboard')}
+              className="bg-green-600 hover:bg-green-700"
             >
-              Iniciar Sesión
-            </button>
+              Ir al Dashboard
+            </Button>
+            <Button 
+              onClick={handleLogout}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Cerrar Sesión
+            </Button>
             <button className="w-full bg-gray-200 text-gray-800 py-3 px-4 rounded-lg hover:bg-gray-300 transition duration-200">
               Registrarse
             </button>

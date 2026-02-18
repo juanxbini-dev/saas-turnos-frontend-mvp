@@ -32,7 +32,7 @@ type AuthAction =
   | { type: 'CLEAR_ERROR' };
 
 const initialState: AuthState = {
-  status: 'unauthenticated',  // Cambiado de 'loading' a 'unauthenticated'
+  status: 'unauthenticated',  // Evitar loop de hydration
   authUser: null,
   accessToken: null,
   refreshToken: null,
@@ -185,6 +185,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           refreshToken: response.refreshToken
         },
       });
+      
+      // Redirigir automáticamente al dashboard después del login exitoso
+      window.location.href = '/dashboard';
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Error al iniciar sesión';
       dispatch({ type: 'LOGIN_FAILURE', payload: errorMessage });
