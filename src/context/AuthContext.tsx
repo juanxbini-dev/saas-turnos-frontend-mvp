@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { authService } from '../services/authService';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -124,53 +124,74 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Getter seguro para el token - NO expone el token globalmente
-let currentToken: string | null = null;
-let currentRefreshToken: string | null = null;
-
+// Funciones para acceder a tokens desde localStorage
 export function getAccessToken(): string | null {
-  return currentToken;
+  return localStorage.getItem('accessToken');
 }
 
 export function getRefreshToken(): string | null {
-  return currentRefreshToken;
+  return localStorage.getItem('refreshToken');
+}
+
+// Funciones para guardar tokens
+export function setTokens(accessToken: string, refreshToken?: string): void {
+  localStorage.setItem('accessToken', accessToken);
+  if (refreshToken) {
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+}
+
+// Función para limpiar tokens
+export function clearTokens(): void {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Actualizar token local cuando cambia en el estado
-  React.useEffect(() => {
-    currentToken = state.accessToken;
-  }, [state.accessToken]);
+  // Sincronizar estado con localStorage al montar
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+    
+    console.log('🔍 [Auth] Verificando sesión al montar...');
+    console.log('📱 [Auth] Token encontrado:', !!token);
+    console.log('🔄 [Auth] Refresh token encontrado:', !!refreshToken);
+    
+    if (token && refreshToken) {
+      // Intentar refrescar la sesión para validar el token
+      const hydrateSession = async () => {
+        try {
+          console.log('🔄 [Auth] Hidratando sesión...');
+          dispatch({ type: 'SESSION_LOADING' });
+          const response = await authService.refresh();
+          
+          dispatch({
+            type: 'SESSION_SUCCESS',
+            payload: {
+              user: response.user,
+              accessToken: response.accessToken,
+              refreshToken: response.refreshToken
+            },
+          });
+          
+          console.log('✅ [Auth] Sesión hidratada exitosamente');
+          console.log('👤 [Auth] Usuario:', response.user.email);
+          console.log('🕐 [Auth] Access token válido por 15 minutos');
+        } catch (error) {
+          console.log('❌ [Auth] Error hidratando sesión, limpiando tokens...');
+          clearTokens();
+          dispatch({ type: 'SESSION_FAILURE' });
+        }
+      };
 
-  // Actualizar refresh token local cuando cambia en el estado
-  React.useEffect(() => {
-    currentRefreshToken = state.refreshToken;
-  }, [state.refreshToken]);
-
-  // Session hydration al montar el componente
-  // React.useEffect(() => {
-  //   const hydrateSession = async () => {
-  //     try {
-  //       dispatch({ type: 'SESSION_LOADING' });
-  //       const response = await authService.refresh();
-        
-  //       dispatch({
-  //         type: 'SESSION_SUCCESS',
-  //         payload: {
-  //           user: response.user,
-  //           accessToken: response.accessToken,
-  //           refreshToken: response.refreshToken
-  //         },
-  //       });
-  //     } catch (error) {
-  //       dispatch({ type: 'SESSION_FAILURE' });
-  //     }
-  //   };
-
-  //   hydrateSession();
-  // }, []);
+      hydrateSession();
+    } else {
+      console.log('🚫 [Auth] No hay tokens, usuario no autenticado');
+      dispatch({ type: 'SESSION_FAILURE' });
+    }
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
@@ -185,6 +206,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           refreshToken: response.refreshToken
         },
       });
+      
+      // Guardar tokens en localStorage
+      setTokens(response.accessToken, response.refreshToken);
+      
+      console.log('✅ [Auth] Login exitoso');
+      console.log('👤 [Auth] Usuario:', response.user.email);
+      console.log('🏢 [Auth] Tenant:', response.user.tenant);
+      console.log('🔐 [Auth] Access token generado (15 min de validez)');
+      console.log('🔄 [Auth] Refresh token generado (7 días de validez)');
+      
+      // Calcular tiempo de expiración
+      const expirationTime = new Date(Date.now() + 15 * 60 * 1000);
+      console.log('⏰ [Auth] Primer refresh automático:', expirationTime.toLocaleTimeString());
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Error al iniciar sesión';
       dispatch({ type: 'LOGIN_FAILURE', payload: errorMessage });
@@ -199,9 +233,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Even if logout fails, clear local state
       console.error('Logout error:', error);
     } finally {
-      currentToken = null;
-      currentRefreshToken = null;
+      clearTokens();
       dispatch({ type: 'LOGOUT' });
+      console.log('🚪 [Auth] Sesión cerrada, tokens eliminados');
     }
   };
 
@@ -216,10 +250,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           refreshToken: response.refreshToken
         },
       });
+      
+      // Actualizar tokens en localStorage
+      setTokens(response.accessToken, response.refreshToken);
+      
+      console.log('✅ [Auth] Refresh manual exitoso');
+      console.log('🔐 [Auth] Nuevo access token (15 min de validez)');
+      
+      // Calcular tiempo de expiración
+      const expirationTime = new Date(Date.now() + 15 * 60 * 1000);
+      console.log('⏰ [Auth] Próximo refresh automático:', expirationTime.toLocaleTimeString());
     } catch (error) {
-      currentToken = null;
-      currentRefreshToken = null;
+      clearTokens();
       dispatch({ type: 'LOGOUT' });
+      console.log('❌ [Auth] Error en refresh manual, cerrando sesión...');
       throw error;
     }
   };
