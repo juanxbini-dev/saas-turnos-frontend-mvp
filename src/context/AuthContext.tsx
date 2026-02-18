@@ -32,7 +32,7 @@ type AuthAction =
   | { type: 'CLEAR_ERROR' };
 
 const initialState: AuthState = {
-  status: 'loading',
+  status: 'unauthenticated',  // Cambiado de 'loading' a 'unauthenticated'
   authUser: null,
   accessToken: null,
   refreshToken: null,
@@ -150,27 +150,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.refreshToken]);
 
   // Session hydration al montar el componente
-  React.useEffect(() => {
-    const hydrateSession = async () => {
-      try {
-        dispatch({ type: 'SESSION_LOADING' });
-        const response = await authService.refresh();
+  // React.useEffect(() => {
+  //   const hydrateSession = async () => {
+  //     try {
+  //       dispatch({ type: 'SESSION_LOADING' });
+  //       const response = await authService.refresh();
         
-        dispatch({
-          type: 'SESSION_SUCCESS',
-          payload: {
-            user: response.user,
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken
-          },
-        });
-      } catch (error) {
-        dispatch({ type: 'SESSION_FAILURE' });
-      }
-    };
+  //       dispatch({
+  //         type: 'SESSION_SUCCESS',
+  //         payload: {
+  //           user: response.user,
+  //           accessToken: response.accessToken,
+  //           refreshToken: response.refreshToken
+  //         },
+  //       });
+  //     } catch (error) {
+  //       dispatch({ type: 'SESSION_FAILURE' });
+  //     }
+  //   };
 
-    hydrateSession();
-  }, []);
+  //   hydrateSession();
+  // }, []);
 
   const login = async (email: string, password: string) => {
     try {
