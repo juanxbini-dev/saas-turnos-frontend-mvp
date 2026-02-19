@@ -1,16 +1,19 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-interface PrivateRouteProps {
-  children: React.ReactNode;
-}
-
-export function PrivateRoute({ children }: PrivateRouteProps) {
+export function PrivateRoute() {
   const { state } = useAuth();
+
+  useEffect(() => {
+    console.log('🔐 [PrivateRoute] Verificando autenticación...');
+    console.log('📊 [PrivateRoute] Estado:', state.status);
+    console.log('👤 [PrivateRoute] Usuario:', state.authUser?.email || 'No autenticado');
+  }, [state.status, state.authUser]);
 
   // Mostrar spinner mientras se hidrata la sesión
   if (state.status === 'loading') {
+    console.log('⏳ [PrivateRoute] Mostrando spinner de carga...');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -23,9 +26,11 @@ export function PrivateRoute({ children }: PrivateRouteProps) {
 
   // Redirigir a login si no está autenticado
   if (state.status === 'unauthenticated') {
+    console.log('🚫 [PrivateRoute] No autenticado, redirigiendo a /login');
     return <Navigate to="/login" replace />;
   }
 
-  // Renderizar children si está autenticado
-  return <>{children}</>;
+  // Renderizar Outlet si está autenticado
+  console.log('✅ [PrivateRoute] Autenticado, renderizando Outlet');
+  return <Outlet />;
 }
