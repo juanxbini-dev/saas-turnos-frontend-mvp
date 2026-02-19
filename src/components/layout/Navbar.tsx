@@ -1,56 +1,49 @@
-import React, { useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { LogoutButton } from '../ui/LogoutButton';
 
 interface NavbarProps {
-  mobileMenuOpen: boolean;
-  onToggleMobileMenu: () => void;
+  mobileOpen: boolean;
+  onToggleMobile: () => void;
 }
 
-const Navbar = ({ mobileMenuOpen, onToggleMobileMenu }: NavbarProps) => {
+const Navbar = ({ mobileOpen, onToggleMobile }: NavbarProps) => {
   const { state } = useAuth();
 
-  useEffect(() => {
-    console.log('🔝 [Navbar] Estado autenticación:', state.status);
-    console.log('👤 [Navbar] Usuario:', state.authUser?.email || 'No autenticado');
-    console.log('📱 [Navbar] Estado mobile menu:', mobileMenuOpen);
-  }, [state.status, state.authUser, mobileMenuOpen]);
+  const userInitial = state.authUser?.email?.charAt(0).toUpperCase() ?? 'U';
+  const userEmail   = state.authUser?.email ?? 'Invitado';
 
   return (
-    <nav className="h-16 bg-gray-900 text-white flex items-center px-6 justify-between">
-      <div className="flex items-center space-x-4">
+    <nav className="h-16 bg-gray-900 text-white flex items-center px-4 lg:px-6 justify-between flex-shrink-0 z-30">
+
+      {/* Izquierda: botón mobile + logo */}
+      <div className="flex items-center gap-3">
         <button
-          onClick={onToggleMobileMenu}
+          onClick={onToggleMobile}
           className="lg:hidden p-2 rounded-md hover:bg-gray-800 transition-colors"
-          aria-label="Toggle menu"
+          aria-label="Abrir menú"
         >
-          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
-        <div className="text-xl font-bold">
-          Turnos System
-        </div>
+        <span className="text-lg font-bold tracking-tight">Turnos System</span>
       </div>
-      
-      <div className="flex items-center space-x-4">
-        <div className="text-sm">
-          {state.status === 'authenticated' ? (
-            <span className="text-gray-300">
-              {state.authUser?.email || 'Usuario'}
-            </span>
-          ) : (
-            <span className="text-gray-400">Invitado</span>
-          )}
+
+      {/* Derecha: info usuario + logout */}
+      <div className="flex items-center gap-3">
+        <span className="hidden sm:block text-sm text-gray-400 truncate max-w-[180px]">
+          {userEmail}
+        </span>
+
+        {/* Avatar inicial */}
+        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+          <span className="text-xs font-semibold">{userInitial}</span>
         </div>
-        <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center">
-          <span className="text-xs font-medium">
-            {state.authUser?.email?.charAt(0).toUpperCase() || 'U'}
-          </span>
-        </div>
+
         {state.status === 'authenticated' && (
-          <LogoutButton variant="header" className="ml-2" />
+          <LogoutButton variant="header" />
         )}
       </div>
+
     </nav>
   );
 };

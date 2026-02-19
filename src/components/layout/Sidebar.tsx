@@ -1,168 +1,138 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Menu, 
-  X,
+import {
+  LayoutDashboard,
   Calendar,
   Users,
-  Settings
+  User,
+  Package,
+  Wrench,
+  UserCircle,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface SidebarProps {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   mobileOpen: boolean;
-  onToggleMobile: () => void;
+  onCloseMobile: () => void;
 }
 
-const Sidebar = ({ mobileOpen, onToggleMobile }: SidebarProps) => {
-  const [collapsed, setCollapsed] = useState(false);
+const menuItems = [
+  { path: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'     },
+  { path: '/turnos',       icon: Calendar,        label: 'Turnos'        },
+  { path: '/usuarios',     icon: Users,           label: 'Usuarios'      },
+  { path: '/clientes',     icon: User,            label: 'Clientes'      },
+  { path: '/productos',    icon: Package,         label: 'Productos'     },
+  { path: '/servicios',    icon: Wrench,          label: 'Servicios'     },
+  { path: '/perfil',       icon: UserCircle,      label: 'Perfil'        },
+];
+
+// Contenido reutilizable en desktop y mobile
+const SidebarContent = ({
+  collapsed,
+  onToggleCollapsed,
+  isMobile = false,
+}: {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  isMobile?: boolean;
+}) => (
+  <div className="flex flex-col h-full">
+    {/* Header */}
+    <div className="flex items-center justify-between px-3 border-b border-gray-700 h-16 flex-shrink-0">
+      {(!collapsed || isMobile) && (
+        <span className="text-sm font-semibold text-gray-200 truncate">Menú</span>
+      )}
+      {/* Botón colapsar solo en desktop */}
+      {!isMobile && (
+        <button
+          onClick={onToggleCollapsed}
+          className="ml-auto p-1.5 rounded-md hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+          aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+        >
+          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        </button>
+      )}
+    </div>
+
+    {/* Links */}
+    <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
+      {menuItems.map(({ path, icon: Icon, label }) => (
+        <NavLink
+          key={path}
+          to={path}
+          className={({ isActive }) =>
+            [
+              'flex items-center rounded-md px-2 py-2.5 text-sm font-medium transition-colors',
+              collapsed && !isMobile ? 'justify-center' : 'gap-3',
+              isActive
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            ].join(' ')
+          }
+          title={collapsed && !isMobile ? label : undefined}
+        >
+          <Icon size={20} className="flex-shrink-0" />
+          {(!collapsed || isMobile) && <span className="truncate">{label}</span>}
+        </NavLink>
+      ))}
+    </nav>
+  </div>
+);
+
+const Sidebar = ({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }: SidebarProps) => {
   const location = useLocation();
-  const sidebarRef = React.useRef<HTMLElement>(null);
 
   useEffect(() => {
-    // Forzar actualización del estilo
-    if (sidebarRef.current) {
-      const transform = mobileOpen ? 'translateX(0)' : 'translateX(-100%)';
-      sidebarRef.current.style.transform = transform;
-    }
-  }, [collapsed, location.pathname, mobileOpen]);
-
-  const toggleCollapsed = () => {
-    console.log('🔄 [Sidebar] Toggle collapsed:', !collapsed);
-    setCollapsed(!collapsed);
-  };
-
-  // Cerrar sidebar en mobile cuando cambia la ruta (pero no en la carga inicial)
-  useEffect(() => {
-    if (window.innerWidth < 1024 && mobileOpen && location.pathname !== '/dashboard') {
-      onToggleMobile();
-    }
-  }, [location.pathname, mobileOpen, onToggleMobile]);
-
-  // Cerrar sidebar en mobile cuando se redimensiona a desktop
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 1024 && mobileOpen) {
-        onToggleMobile();
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [mobileOpen, onToggleMobile]);
-
-  const menuItems = [
-    {
-      path: '/dashboard',
-      icon: LayoutDashboard,
-      label: 'Dashboard'
-    },
-    {
-      path: '/appointments',
-      icon: Calendar,
-      label: 'Turnos'
-    },
-    {
-      path: '/users',
-      icon: Users,
-      label: 'Usuarios'
-    },
-    {
-      path: '/settings',
-      icon: Settings,
-      label: 'Configuración'
-    }
-  ];
-
-  const sidebarClasses = `
-        fixed lg:static inset-y-0 left-0 z-[60]
-        bg-gray-800 text-white
-        transform transition-transform duration-300 ease-in-out
-        ${collapsed ? 'w-16' : 'w-60'}
-        ${mobileOpen 
-          ? 'translate-x-0' 
-          : '-translate-x-full'
-        }
-        lg:translate-x-0
-      `;
-      
-      console.log('🎨 [Sidebar] Clases CSS aplicadas:', sidebarClasses.trim());
-      console.log('📱 [Sidebar] mobileOpen:', mobileOpen, 'collapsed:', collapsed);
-
-  const transformStyle = mobileOpen ? 'translateX(0)' : 'translateX(-100%)';
-      console.log('🎯 [Sidebar] Estilo transform:', transformStyle, 'mobileOpen:', mobileOpen);
+    onCloseMobile();
+  }, [location.pathname]);
 
   return (
     <>
-      {/* Overlay para mobile */}
-      {mobileOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-[50] lg:hidden"
-          onClick={onToggleMobile}
-        />
-      )}
-      
-      {/* Sidebar */}
-      <aside 
-        ref={sidebarRef}
-        className={sidebarClasses}
-        style={{
-          transform: transformStyle
-        }}
+      {/* ── DESKTOP ───────────────────────────────────────────────────
+          Elemento estático en el flujo flex.
+          Su ancho empuja al main. Solo visible en lg+.
+      ──────────────────────────────────────────────────────────────── */}
+      <aside
+        className={[
+          'hidden lg:flex flex-col flex-shrink-0',
+          'bg-gray-800 text-white',
+          'transition-[width] duration-300 ease-in-out',
+          collapsed ? 'w-16' : 'w-60',
+        ].join(' ')}
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          {!collapsed && (
-            <h2 className="text-lg font-semibold">Menú</h2>
-          )}
-          <button
-            onClick={collapsed ? toggleCollapsed : onToggleMobile}
-            className="p-2 rounded-md hover:bg-gray-700 transition-colors"
-            aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-          >
-            {collapsed ? <Menu size={20} /> : <X size={20} />}
-          </button>
-        </div>
+        <SidebarContent collapsed={collapsed} onToggleCollapsed={onToggleCollapsed} />
+      </aside>
 
-        <nav className="p-4">
-          <ul className="space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    className={({ isActive }) => `
-                      flex items-center space-x-3 px-3 py-2 rounded-md transition-colors
-                      ${isActive 
-                        ? 'bg-blue-600 text-white' 
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                      }
-                      ${collapsed ? 'justify-center' : ''}
-                    `}
-                  >
-                    <Icon size={20} />
-                    {!collapsed && (
-                      <span className="text-sm font-medium">{item.label}</span>
-                    )}
-                  </NavLink>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+      {/* ── MOBILE ────────────────────────────────────────────────────
+          Fixed sobre el contenido. Solo visible en <lg.
+          Overlay oscuro + panel que entra desde la izquierda.
+      ──────────────────────────────────────────────────────────────── */}
 
-        {/* Botón de toggle para desktop (siempre visible cuando está colapsado) */}
-        {collapsed && (
-          <div className="absolute bottom-4 left-0 right-0 px-2">
-            <button
-              onClick={toggleCollapsed}
-              className="w-full p-2 rounded-md hover:bg-gray-700 transition-colors flex justify-center"
-              aria-label="Expandir sidebar"
-            >
-              <Menu size={20} />
-            </button>
-          </div>
-        )}
+      {/* Overlay */}
+      <div
+        className={[
+          'fixed inset-0 bg-black/50 z-40 lg:hidden',
+          'transition-opacity duration-300',
+          mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
+        ].join(' ')}
+        onClick={onCloseMobile}
+      />
+
+      {/* Panel */}
+      <aside
+        className={[
+          'fixed inset-y-0 left-0 z-50 w-60',
+          'flex flex-col lg:hidden',
+          'bg-gray-800 text-white',
+          'transition-transform duration-300 ease-in-out',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        ].join(' ')}
+      >
+        <SidebarContent collapsed={false} onToggleCollapsed={onToggleCollapsed} isMobile />
       </aside>
     </>
   );
