@@ -135,10 +135,26 @@ export function getRefreshToken(): string | null {
 
 // Funciones para guardar tokens
 export function setTokens(accessToken: string, refreshToken?: string): void {
+  console.log('🔍 [Debug] setTokens llamado con:', {
+    accessToken: accessToken ? 'presente' : 'ausente',
+    refreshToken: refreshToken ? 'presente' : 'ausente'
+  });
+  
   localStorage.setItem('accessToken', accessToken);
+  console.log('🔍 [Debug] Access token guardado en localStorage');
+  
   if (refreshToken) {
     localStorage.setItem('refreshToken', refreshToken);
+    console.log('🔍 [Debug] Refresh token guardado en localStorage');
+  } else {
+    console.log('⚠️ [Debug] Refresh token es undefined/null, no se guarda');
   }
+  
+  // Verificación final
+  console.log('🔍 [Debug] Estado final localStorage:', {
+    access: localStorage.getItem('accessToken'),
+    refresh: localStorage.getItem('refreshToken')
+  });
 }
 
 // Función para limpiar tokens
@@ -158,6 +174,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔍 [Auth] Verificando sesión al montar...');
     console.log('📱 [Auth] Token encontrado:', !!token);
     console.log('🔄 [Auth] Refresh token encontrado:', !!refreshToken);
+    console.log('🔍 [Debug] Estado localStorage completo:', {
+      access: token,
+      refresh: refreshToken,
+      accessLength: token?.length,
+      refreshLength: refreshToken?.length
+    });
     
     if (token && refreshToken) {
       // Intentar refrescar la sesión para validar el token
@@ -207,8 +229,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       
+      console.log('🔍 [Auth] Login response completo:', response);
+      console.log('🔍 [Auth] Refresh token en response:', response.refreshToken);
+      
       // Guardar tokens en localStorage
+      console.log('🔍 [Debug] Antes de guardar tokens:', {
+        access: localStorage.getItem('accessToken'),
+        refresh: localStorage.getItem('refreshToken')
+      });
+      
       setTokens(response.accessToken, response.refreshToken);
+      
+      console.log('🔍 [Debug] Después de guardar tokens:', {
+        access: localStorage.getItem('accessToken'),
+        refresh: localStorage.getItem('refreshToken')
+      });
       
       console.log('✅ [Auth] Login exitoso');
       console.log('👤 [Auth] Usuario:', response.user.email);
