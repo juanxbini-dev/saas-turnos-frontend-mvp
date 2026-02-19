@@ -11,6 +11,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  FlaskConical,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -22,12 +23,13 @@ interface SidebarProps {
 
 const menuItems = [
   { path: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'     },
-  { path: '/turnos',       icon: Calendar,        label: 'Turnos'        },
+  { path: '/perfil',       icon: UserCircle,      label: 'Perfil'        },
   { path: '/usuarios',     icon: Users,           label: 'Usuarios'      },
+  { path: '/turnos',       icon: Calendar,        label: 'Turnos'        },
+  { path: '/servicios',    icon: Wrench,          label: 'Servicios'     },
   { path: '/clientes',     icon: User,            label: 'Clientes'      },
   { path: '/productos',    icon: Package,         label: 'Productos'     },
-  { path: '/servicios',    icon: Wrench,          label: 'Servicios'     },
-  { path: '/perfil',       icon: UserCircle,      label: 'Perfil'        },
+  { path: '/test-component', icon: FlaskConical,   label: 'Test Lab'     },
 ];
 
 // Contenido reutilizable en desktop y mobile

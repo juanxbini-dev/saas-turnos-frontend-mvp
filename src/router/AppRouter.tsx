@@ -9,6 +9,7 @@ import TurnosPage from '../pages/TurnosPage';
 import PerfilPage from '../pages/PerfilPage';
 import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
+import TestComponentPage from '../pages/TestComponentPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import Layout from '../components/layout/Layout';
 
@@ -27,6 +28,7 @@ const AppRouter = () => {
           <Route path="/perfil" element={<PerfilPage />} />
           <Route path="/productos" element={<ProductosPage />} />
           <Route path="/servicios" element={<ServiciosPage />} />
+          <Route path="/test-component" element={<TestComponentPage />} />
         </Route>
       </Route>
     </Routes>
