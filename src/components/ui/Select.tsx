@@ -1,19 +1,26 @@
 import React, { forwardRef } from 'react';
 import { LucideIcon } from 'lucide-react';
 
-export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'prefix'> {
+export interface SelectOption {
+  value: string;
+  label: string;
+}
+
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'prefix'> {
   label?: string;
   error?: string;
   help?: string;
+  options: SelectOption[];
   prefix?: string | LucideIcon;
 }
 
-// Input de texto con label, errores y soporte para prefix
-export const Input = forwardRef<HTMLInputElement, InputProps>(
+// Select con estilo consistente al Input y opciones dinámicas
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ 
     label, 
     error, 
     help, 
+    options, 
     prefix: Prefix, 
     className = '',
     ...props 
@@ -21,7 +28,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const hasPrefix = !!Prefix;
     const isIconPrefix = typeof Prefix !== 'string';
     
-    const inputClasses = [
+    const selectClasses = [
       'w-full px-3 py-2 border rounded-lg shadow-sm transition-colors',
       'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
       error 
@@ -51,11 +58,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             </div>
           )}
           
-          <input
+          <select
             ref={ref}
-            className={inputClasses}
+            className={selectClasses}
             {...props}
-          />
+          >
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
         
         {error && (
@@ -74,58 +87,62 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   }
 );
 
-Input.displayName = 'Input';
+Select.displayName = 'Select';
 
 /*
 Ejemplos de uso:
 
-// Input básico con label
-<Input 
-  label="Nombre completo"
-  value={name}
-  onChange={(e) => setName(e.target.value)}
-  placeholder="Ingresa tu nombre"
+// Select básico con label
+<Select 
+  label="Categoría"
+  options={[
+    { value: 'electronics', label: 'Electrónica' },
+    { value: 'clothing', label: 'Ropa' },
+    { value: 'food', label: 'Alimentos' }
+  ]}
+  value={category}
+  onChange={(e) => setCategory(e.target.value)}
 />
 
-// Input con error
-<Input 
-  label="Email"
-  value={email}
-  onChange={(e) => setEmail(e.target.value)}
-  error="El email es inválido"
-  placeholder="email@ejemplo.com"
+// Select con error
+<Select 
+  label="País"
+  options={countryOptions}
+  value={country}
+  onChange={(e) => setCountry(e.target.value)}
+  error="Debes seleccionar un país"
 />
 
-// Input con texto de ayuda
-<Input 
-  label="Contraseña"
-  type="password"
-  value={password}
-  onChange={(e) => setPassword(e.target.value)}
-  help="Mínimo 8 caracteres"
+// Select con texto de ayuda
+<Select 
+  label="Prioridad"
+  options={[
+    { value: 'low', label: 'Baja' },
+    { value: 'medium', label: 'Media' },
+    { value: 'high', label: 'Alta' }
+  ]}
+  value={priority}
+  onChange={(e) => setPriority(e.target.value)}
+  help="Selecciona la prioridad de la tarea"
 />
 
-// Input con prefix de texto
-<Input 
-  label="Teléfono"
-  prefix="+54"
-  value={phone}
-  onChange={(e) => setPhone(e.target.value)}
-  placeholder="11 1234 5678"
+// Select con icono prefix
+<Select 
+  label="Moneda"
+  prefix={DollarSignIcon}
+  options={[
+    { value: 'usd', label: 'USD - Dólar Americano' },
+    { value: 'eur', label: 'EUR - Euro' },
+    { value: 'ars', label: 'ARS - Peso Argentino' }
+  ]}
+  value={currency}
+  onChange={(e) => setCurrency(e.target.value)}
 />
 
-// Input con icono prefix
-<Input 
-  label="Buscar"
-  prefix={SearchIcon}
-  value={search}
-  onChange={(e) => setSearch(e.target.value)}
-  placeholder="Buscar productos..."
-/>
-
-// Input deshabilitado
-<Input 
+// Select deshabilitado
+<Select 
   label="Campo deshabilitado"
+  options={options}
   value={value}
   disabled
   onChange={() => {}}
