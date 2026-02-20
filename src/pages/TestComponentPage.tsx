@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useErrorHandler } from '../hooks/useErrorHandler';
+import { useToast } from '../hooks/useToast';
 
 interface TestComponentProps {
   // Props para componentes de prueba
@@ -61,6 +62,113 @@ function AsyncErrorComponent() {
       >
         Lanzar Error Async
       </button>
+    </div>
+  );
+}
+
+// Componente para probar el sistema de toasts
+function ToastTestComponent() {
+  const toast = useToast();
+  const [toastIds, setToastIds] = useState<string[]>([]);
+
+  const addToastId = (id: string) => {
+    setToastIds(prev => [...prev, id]);
+  };
+
+  const handleSuccess = () => {
+    const id = toast.success('Operación completada exitosamente');
+    addToastId(id);
+  };
+
+  const handleError = () => {
+    const id = toast.error('Error de conexión con el servidor');
+    addToastId(id);
+  };
+
+  const handleWarning = () => {
+    const id = toast.warning('Los cambios no se han guardado');
+    addToastId(id);
+  };
+
+  const handleInfo = () => {
+    const id = toast.info('Actualizando datos...');
+    addToastId(id);
+  };
+
+  const handlePersistentError = () => {
+    const id = toast.error('Tu sesión expiró', { persistent: true });
+    addToastId(id);
+  };
+
+  const handleDismissLast = () => {
+    if (toastIds.length > 0) {
+      const lastId = toastIds[toastIds.length - 1];
+      toast.dismiss(lastId);
+      setToastIds(prev => prev.slice(0, -1));
+    }
+  };
+
+  const handleDismissAll = () => {
+    toast.dismissAll();
+    setToastIds([]);
+  };
+
+  return (
+    <div className="p-4 bg-purple-100 border border-purple-400 rounded">
+      <p className="text-purple-800 font-medium mb-3">🔔 Sistema de Toasts</p>
+      
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <button 
+          onClick={handleSuccess}
+          className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+        >
+          Success
+        </button>
+        <button 
+          onClick={handleError}
+          className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+        >
+          Error
+        </button>
+        <button 
+          onClick={handleWarning}
+          className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600"
+        >
+          Warning
+        </button>
+        <button 
+          onClick={handleInfo}
+          className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+        >
+          Info
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-2">
+        <button 
+          onClick={handlePersistentError}
+          className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+        >
+          Error Persistente
+        </button>
+        <button 
+          onClick={handleDismissLast}
+          className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600"
+        >
+          Cerrar Último
+        </button>
+      </div>
+      
+      <button 
+        onClick={handleDismissAll}
+        className="w-full mt-2 bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
+      >
+        Cerrar Todos
+      </button>
+      
+      <div className="mt-3 text-xs text-purple-600">
+        Toasts activos: {toastIds.length}
+      </div>
     </div>
   );
 }
@@ -150,16 +258,13 @@ function TestComponentPage() {
               </div>
             </div>
 
-            {/* API Test Area */}
+            {/* Toast Test Area */}
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                API Test Area
+                🔔 Toast Service
               </h3>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 min-h-[200px] flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <p className="mb-2">🌐 Área de prueba para APIs</p>
-                  <p className="text-sm">Inserta aquí tus llamadas API para testing</p>
-                </div>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 min-h-[200px]">
+                <ToastTestComponent />
               </div>
             </div>
 
