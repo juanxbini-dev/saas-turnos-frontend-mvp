@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFetch } from '../hooks/useFetch';
 import axiosInstance from '../api/axiosInstance';
@@ -7,6 +8,7 @@ import { UsuariosTabla } from '../components/usuarios/UsuariosTabla';
 import { UsuariosMobileList } from '../components/usuarios/UsuariosMobileList';
 import { EditarUsuarioModal } from '../components/usuarios/EditarUsuarioModal';
 import { CambiarRolModal } from '../components/usuarios/CambiarRolModal';
+import { Button, Modal } from '../components/ui';
 import { Usuario } from '../types/usuario.types';
 import { cacheService } from '../cache/cache.service';
 import { buildKey } from '../cache/key.builder';
@@ -18,6 +20,7 @@ function UsuariosPage() {
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const [rolTarget, setRolTarget] = useState<Usuario | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [isRolModalOpen, setIsRolModalOpen] = useState(false);
 
   // Obtener usuarios con caché
@@ -114,7 +117,16 @@ function UsuariosPage() {
           </div>
 
           {/* Formulario de creación */}
-          <CrearUsuarioForm onSuccess={handleModalSuccess} />
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">Usuarios</h2>
+            <Button
+              variant="primary"
+              leftIcon={UserPlus}
+              onClick={() => setIsCrearModalOpen(true)}
+            >
+              Nuevo usuario
+            </Button>
+          </div>
 
           {/* Tabla de usuarios - Desktop */}
           <UsuariosTabla
@@ -154,6 +166,20 @@ function UsuariosPage() {
             }}
             onSuccess={handleModalSuccess}
           />
+
+          <Modal
+            isOpen={isCrearModalOpen}
+            onClose={() => setIsCrearModalOpen(false)}
+            title="Nuevo usuario"
+            size="md"
+          >
+            <CrearUsuarioForm
+              onSuccess={() => {
+                revalidate();
+                setIsCrearModalOpen(false);
+              }}
+            />
+          </Modal>
         </div>
       </main>
     </div>
