@@ -6,7 +6,8 @@ export const ENTITIES = {
   CATEGORIES: 'categories',
   NOTIFICATIONS: 'notifications',
   SETTINGS: 'settings',
-  PROFILE: 'profile'
+  PROFILE: 'profile',
+  USUARIOS: 'usuarios'
 } as const;
 
 function decodeJWT(token: string): any | null {

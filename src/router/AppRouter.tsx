@@ -11,6 +11,7 @@ import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
 import TestComponentPage from '../pages/TestComponentPage';
 import { PrivateRoute } from '../components/PrivateRoute';
+import { AdminRoute } from '../components/AdminRoute';
 import Layout from '../components/layout/Layout';
 
 const AppRouter = () => {
@@ -22,7 +23,11 @@ const AppRouter = () => {
       <Route element={<PrivateRoute />}>
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/usuarios" element={<UsuariosPage />} />
+          <Route path="/usuarios" element={
+            <AdminRoute>
+              <UsuariosPage />
+            </AdminRoute>
+          } />
           <Route path="/clientes" element={<ClientesPage />} />
           <Route path="/turnos" element={<TurnosPage />} />
           <Route path="/perfil" element={<PerfilPage />} />

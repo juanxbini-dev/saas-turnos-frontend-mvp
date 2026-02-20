@@ -68,7 +68,8 @@ export function LoginForm({
         label="Email"
         type="email"
         value={email}
-        onChange={(value) => {
+        onChange={(e) => {
+          const value = e.target.value;
           onEmailChange(value);
           setValue('email', value);
           trigger('email');
@@ -82,7 +83,8 @@ export function LoginForm({
         label="Contraseña"
         type="password"
         value={password}
-        onChange={(value) => {
+        onChange={(e) => {
+          const value = e.target.value;
           onPasswordChange(value);
           setValue('password', value);
           trigger('password');

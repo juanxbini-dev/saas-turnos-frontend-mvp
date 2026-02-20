@@ -10,6 +10,7 @@ export { Card } from './Card';
 export { Badge } from './Badge';
 export { Spinner } from './Spinner';
 export { Avatar } from './Avatar';
+export { Tabs } from './Tabs';
 
 // Re-exportar tipos para uso en TypeScript
 export type { ButtonProps } from './Button';
