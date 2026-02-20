@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export function PrivateRoute() {
   const { state } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     console.log('🔐 [PrivateRoute] Verificando autenticación...');
@@ -27,7 +28,8 @@ export function PrivateRoute() {
   // Redirigir a login si no está autenticado
   if (state.status === 'unauthenticated') {
     console.log('🚫 [PrivateRoute] No autenticado, redirigiendo a /login');
-    return <Navigate to="/login" replace />;
+    console.log('📍 [PrivateRoute] Guardando ruta actual:', location.pathname);
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   // Renderizar Outlet si está autenticado

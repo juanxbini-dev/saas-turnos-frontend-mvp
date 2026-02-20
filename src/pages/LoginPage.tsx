@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LoginForm } from '../components/forms/LoginForm';
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { state, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // Obtener la ruta intentada del estado de navegación
+  const from = location.state?.from || '/dashboard';
+
   const handleSubmit = async () => {
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate(from, { replace: true });
     } catch (error) {
       // El error ya se maneja en el AuthContext
       console.error('Login failed:', error);
@@ -22,9 +26,9 @@ function LoginPage() {
   // Redirigir si ya está autenticado
   React.useEffect(() => {
     if (state.authUser) {
-      navigate('/dashboard');
+      navigate(from, { replace: true });
     }
-  }, [state.authUser, navigate]);
+  }, [state.authUser, navigate, from]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
