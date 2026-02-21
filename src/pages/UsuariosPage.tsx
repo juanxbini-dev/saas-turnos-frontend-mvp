@@ -129,22 +129,26 @@ function UsuariosPage() {
           </div>
 
           {/* Tabla de usuarios - Desktop */}
-          <UsuariosTabla
-            usuarios={usuarios || []}
-            loading={loading}
-            onEdit={handleEdit}
-            onCambiarRol={handleCambiarRol}
-            onToggleActivo={handleToggleActivo}
-          />
+          <div className="hidden lg:block">
+            <UsuariosTabla
+              usuarios={usuarios || []}
+              loading={loading}
+              onEdit={handleEdit}
+              onCambiarRol={handleCambiarRol}
+              onToggleActivo={handleToggleActivo}
+            />
+          </div>
 
           {/* Lista móvil */}
-          <UsuariosMobileList
-            usuarios={usuarios || []}
-            loading={loading}
-            onEdit={handleEdit}
-            onCambiarRol={handleCambiarRol}
-            onToggleActivo={handleToggleActivo}
-          />
+          <div className="lg:hidden">
+            <UsuariosMobileList
+              usuarios={usuarios || []}
+              loading={loading}
+              onEdit={handleEdit}
+              onCambiarRol={handleCambiarRol}
+              onToggleActivo={handleToggleActivo}
+            />
+          </div>
 
           {/* Modales */}
           <EditarUsuarioModal

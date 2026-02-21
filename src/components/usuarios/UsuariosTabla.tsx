@@ -19,9 +19,9 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
 }) => {
   const columns: Array<any> = [
     {
-      key: 'usuario',
+      key: 'nombre',
       header: 'Usuario',
-      render: (usuario: Usuario) => {
+      render: (nombre: string, usuario: Usuario) => {
         if (!usuario) return null;
         return (
           <div className="flex items-center space-x-3">
@@ -39,19 +39,19 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
       }
     },
     {
-      key: 'rol',
+      key: 'roles',
       header: 'Rol',
-      render: (usuario: Usuario) => {
+      render: (roles: string[], usuario: Usuario) => {
         if (!usuario || !usuario.roles) return null;
         return (
-          <div className="flex space-x-1">
+          <div className="flex flex-wrap gap-1">
             {usuario.roles.map((rol) => (
               <Badge
                 key={rol}
                 variant={rol === 'admin' ? 'blue' : 'gray'}
                 size="sm"
               >
-                {rol === 'admin' ? 'Admin' : 'Staff'}
+                {rol}
               </Badge>
             ))}
           </div>
@@ -59,9 +59,9 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
       }
     },
     {
-      key: 'estado',
+      key: 'activo',
       header: 'Estado',
-      render: (usuario: Usuario) => {
+      render: (activo: boolean, usuario: Usuario) => {
         if (!usuario) return null;
         return (
           <Badge
@@ -74,17 +74,19 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
       }
     },
     {
-      key: 'ultimo_login',
+      key: 'last_login',
       header: 'Último Login',
-      render: (usuario: Usuario) => {
+      render: (last_login: string, usuario: Usuario) => {
         if (!usuario) return null;
         return (
-          <span className="text-sm text-gray-600">
-            {usuario.last_login
-              ? new Date(usuario.last_login).toLocaleDateString('es-AR', {
+          <span className="text-sm text-gray-500">
+            {usuario.last_login 
+              ? new Date(usuario.last_login).toLocaleString('es-ES', {
                   day: '2-digit',
                   month: '2-digit',
-                  year: 'numeric'
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
                 })
               : 'Nunca'
             }
@@ -93,21 +95,21 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
       }
     },
     {
-      key: 'acciones',
+      key: 'id',
       header: 'Acciones',
-      render: (usuario: Usuario) => {
+      render: (id: string, usuario: Usuario) => {
         if (!usuario) return null;
         return (
           <div className="flex space-x-2">
             <Button
-              variant="ghost"
+              variant="primary"
               size="sm"
               onClick={() => onEdit(usuario)}
             >
               Editar
             </Button>
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={() => onCambiarRol(usuario)}
             >
@@ -128,14 +130,12 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
   ];
 
   return (
-    <div className="hidden lg:block">
-      <Table
-        columns={columns}
-        data={usuarios}
-        loading={loading}
-        emptyMessage="No hay usuarios para mostrar"
-        className="mt-4"
-      />
-    </div>
+    <Table
+      columns={columns}
+      data={usuarios}
+      loading={loading}
+      emptyMessage="No hay usuarios para mostrar"
+      className="mt-4"
+    />
   );
 };
