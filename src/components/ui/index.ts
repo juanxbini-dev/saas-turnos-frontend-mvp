@@ -13,6 +13,7 @@ export { Badge } from './Badge';
 export { Spinner } from './Spinner';
 export { Avatar } from './Avatar';
 export { Tabs } from './Tabs';
+export { EmptyState } from './EmptyState';
 
 // Re-exportar tipos para uso en TypeScript
 export type { ButtonProps } from './Button';
