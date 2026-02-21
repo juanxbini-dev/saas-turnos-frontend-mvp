@@ -18,7 +18,6 @@ function LoginPage() {
       await login(email, password);
       navigate(from, { replace: true });
     } catch (error) {
-      // El error ya se maneja en el AuthContext
       console.error('Login failed:', error);
     }
   };

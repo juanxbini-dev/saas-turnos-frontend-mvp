@@ -135,26 +135,11 @@ export function getRefreshToken(): string | null {
 
 // Funciones para guardar tokens
 export function setTokens(accessToken: string, refreshToken?: string): void {
-  console.log('🔍 [Debug] setTokens llamado con:', {
-    accessToken: accessToken ? 'presente' : 'ausente',
-    refreshToken: refreshToken ? 'presente' : 'ausente'
-  });
-  
   localStorage.setItem('accessToken', accessToken);
-  console.log('🔍 [Debug] Access token guardado en localStorage');
   
   if (refreshToken) {
     localStorage.setItem('refreshToken', refreshToken);
-    console.log('🔍 [Debug] Refresh token guardado en localStorage');
-  } else {
-    console.log('⚠️ [Debug] Refresh token es undefined/null, no se guarda');
   }
-  
-  // Verificación final
-  console.log('🔍 [Debug] Estado final localStorage:', {
-    access: localStorage.getItem('accessToken'),
-    refresh: localStorage.getItem('refreshToken')
-  });
 }
 
 // Función para limpiar tokens
@@ -171,21 +156,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
     
-    console.log('🔍 [Auth] Verificando sesión al montar...');
-    console.log('📱 [Auth] Token encontrado:', !!token);
-    console.log('🔄 [Auth] Refresh token encontrado:', !!refreshToken);
-    console.log('🔍 [Debug] Estado localStorage completo:', {
-      access: token,
-      refresh: refreshToken,
-      accessLength: token?.length,
-      refreshLength: refreshToken?.length
-    });
-    
     if (token && refreshToken) {
-      // Intentar refrescar la sesión para validar el token
       const hydrateSession = async () => {
         try {
-          console.log('🔄 [Auth] Hidratando sesión...');
           dispatch({ type: 'SESSION_LOADING' });
           const response = await authService.refresh();
           
@@ -197,12 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               refreshToken: response.refreshToken
             },
           });
-          
-          console.log('✅ [Auth] Sesión hidratada exitosamente');
-          console.log('👤 [Auth] Usuario:', response.user.email);
-          console.log('🕐 [Auth] Access token válido por 15 minutos');
         } catch (error) {
-          console.log('❌ [Auth] Error hidratando sesión, limpiando tokens...');
           clearTokens();
           dispatch({ type: 'SESSION_FAILURE' });
         }
@@ -210,7 +178,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       hydrateSession();
     } else {
-      console.log('🚫 [Auth] No hay tokens, usuario no autenticado');
       dispatch({ type: 'SESSION_FAILURE' });
     }
   }, []);
@@ -229,31 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       
-      console.log('🔍 [Auth] Login response completo:', response);
-      console.log('🔍 [Auth] Refresh token en response:', response.refreshToken);
-      
-      // Guardar tokens en localStorage
-      console.log('🔍 [Debug] Antes de guardar tokens:', {
-        access: localStorage.getItem('accessToken'),
-        refresh: localStorage.getItem('refreshToken')
-      });
-      
       setTokens(response.accessToken, response.refreshToken);
-      
-      console.log('🔍 [Debug] Después de guardar tokens:', {
-        access: localStorage.getItem('accessToken'),
-        refresh: localStorage.getItem('refreshToken')
-      });
-      
-      console.log('✅ [Auth] Login exitoso');
-      console.log('👤 [Auth] Usuario:', response.user.email);
-      console.log('🏢 [Auth] Tenant:', response.user.tenant);
-      console.log('🔐 [Auth] Access token generado (15 min de validez)');
-      console.log('🔄 [Auth] Refresh token generado (7 días de validez)');
-      
-      // Calcular tiempo de expiración
-      const expirationTime = new Date(Date.now() + 15 * 60 * 1000);
-      console.log('⏰ [Auth] Primer refresh automático:', expirationTime.toLocaleTimeString());
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Error al iniciar sesión';
       dispatch({ type: 'LOGIN_FAILURE', payload: errorMessage });
@@ -265,12 +208,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authService.logout();
     } catch (error) {
-      // Even if logout fails, clear local state
       console.error('Logout error:', error);
     } finally {
       clearTokens();
       dispatch({ type: 'LOGOUT' });
-      console.log('🚪 [Auth] Sesión cerrada, tokens eliminados');
     }
   };
 
@@ -286,19 +227,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       
-      // Actualizar tokens en localStorage
       setTokens(response.accessToken, response.refreshToken);
-      
-      console.log('✅ [Auth] Refresh manual exitoso');
-      console.log('🔐 [Auth] Nuevo access token (15 min de validez)');
-      
-      // Calcular tiempo de expiración
-      const expirationTime = new Date(Date.now() + 15 * 60 * 1000);
-      console.log('⏰ [Auth] Próximo refresh automático:', expirationTime.toLocaleTimeString());
     } catch (error) {
       clearTokens();
       dispatch({ type: 'LOGOUT' });
-      console.log('❌ [Auth] Error en refresh manual, cerrando sesión...');
       throw error;
     }
   };

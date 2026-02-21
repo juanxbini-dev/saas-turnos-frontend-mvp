@@ -70,7 +70,8 @@ class ToastService {
   }
 
   private addToast(type: ToastType, message: string, options?: ToastOptions): string {
-    const id = crypto.randomUUID();
+    // Generar ID único compatible con todos los navegadores
+    const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const duration = options?.persistent ? 0 : this.getDefaultDuration(type);
 
     const toast: Toast = {

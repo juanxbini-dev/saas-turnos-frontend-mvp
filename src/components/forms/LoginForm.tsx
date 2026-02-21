@@ -63,7 +63,7 @@ export function LoginForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4" autoComplete="off">
       <Input
         label="Email"
         type="email"
@@ -77,6 +77,8 @@ export function LoginForm({
         error={errors.email?.message}
         placeholder="usuario@empresa.com"
         disabled={loading}
+        autoComplete="off"
+        readOnly={loading}
       />
 
       <Input
@@ -92,6 +94,8 @@ export function LoginForm({
         error={errors.password?.message}
         placeholder="••••••••"
         disabled={loading}
+        autoComplete="new-password"
+        readOnly={loading}
       />
 
       {error && <ErrorMessage message={error} />}
