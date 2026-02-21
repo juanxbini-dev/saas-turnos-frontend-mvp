@@ -14,6 +14,8 @@ export { Spinner } from './Spinner';
 export { Avatar } from './Avatar';
 export { Tabs } from './Tabs';
 export { EmptyState } from './EmptyState';
+export { Pagination } from './Pagination';
+export { DataControls } from './DataControls';
 
 // Re-exportar tipos para uso en TypeScript
 export type { ButtonProps } from './Button';

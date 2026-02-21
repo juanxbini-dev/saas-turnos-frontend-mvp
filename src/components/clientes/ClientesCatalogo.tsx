@@ -1,7 +1,7 @@
 import React from 'react';
-import { Table, Button, Badge, Card } from '../ui';
+import { Table, Button, Badge, Card, DataControls, EmptyState } from '../ui';
 import { Cliente } from '../../types/cliente.types';
-import { Edit, Power } from 'lucide-react';
+import { Edit, Power, Users } from 'lucide-react';
 
 interface ClientesCatalogoProps {
   clientes: Cliente[];
@@ -171,38 +171,58 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
     );
   }
 
+  // Estado vacío inicial sin datos
   if (clientes.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-gray-500 mb-4">
-          No hay clientes disponibles
-        </div>
-        {isAdmin && (
-          <div className="text-sm text-gray-400">
-            Crea tu primer cliente usando el botón "Nuevo cliente"
-          </div>
-        )}
-      </div>
+      <EmptyState
+        icon={Users}
+        title="No hay clientes"
+        message={isAdmin ? "Creá tu primer cliente usando el botón 'Nuevo cliente'" : "No hay clientes disponibles"}
+      />
     );
   }
 
   return (
-    <>
-      {/* Tabla para desktop */}
-      <div className="hidden lg:block">
-        <Table
-          columns={columns}
-          data={clientes}
-          loading={loading}
-        />
-      </div>
+    <DataControls
+      data={clientes}
+      searchFields={['nombre', 'email', 'telefono']}
+      sortOptions={[
+        { value: 'nombre', label: 'Nombre' },
+        { value: 'email', label: 'Email' },
+        { value: 'created_at', label: 'Fecha de creación' },
+        { value: 'activo', label: 'Estado' },
+      ]}
+      defaultSort="nombre"
+      pageSize={10}
+    >
+      {(filteredData) => (
+        <>
+          {/* Desktop */}
+          <div className="hidden lg:block">
+            <Table 
+              columns={columns} 
+              data={filteredData} 
+              loading={loading}
+              emptyMessage="No se encontraron clientes con los filtros aplicados"
+            />
+          </div>
 
-      {/* Cards para mobile */}
-      <div className="block lg:hidden">
-        {clientes.map((cliente) => (
-          <ClienteCard key={cliente.id} cliente={cliente} />
-        ))}
-      </div>
-    </>
+          {/* Mobile */}
+          <div className="block lg:hidden">
+            {filteredData.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="No hay clientes"
+                message="No se encontraron clientes con los filtros aplicados"
+              />
+            ) : (
+              filteredData.map(cliente => (
+                <ClienteCard key={cliente.id} cliente={cliente} />
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </DataControls>
   );
 };
