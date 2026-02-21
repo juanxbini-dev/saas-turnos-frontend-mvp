@@ -7,7 +7,9 @@ export const ENTITIES = {
   NOTIFICATIONS: 'notifications',
   SETTINGS: 'settings',
   PROFILE: 'profile',
-  USUARIOS: 'usuarios'
+  USUARIOS: 'usuarios',
+  SERVICIOS: 'servicios',
+  MIS_SERVICIOS: 'mis-servicios'
 } as const;
 
 function decodeJWT(token: string): any | null {
