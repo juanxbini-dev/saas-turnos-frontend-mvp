@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Input, Select, Button, Textarea } from '../ui';
 import { ExcepcionDia } from '../../types/turno.types';
+import { disponibilidadService } from '../../services/disponibilidad.service';
+import { useAuth } from '../../context/AuthContext';
+import { cacheService } from '../../cache/cache.service';
+import { buildKey } from '../../cache/key.builder';
+import { ENTITIES } from '../../cache/key.builder';
 
 interface ExcepcionModalProps {
   excepcion: ExcepcionDia | null;
@@ -15,6 +20,8 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  const { state: authUser } = useAuth();
+  
   const [formData, setFormData] = useState({
     fecha: excepcion?.fecha || '',
     disponible: excepcion?.disponible ?? true,
@@ -26,6 +33,19 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  // Reset form data when excepcion prop changes
+  useEffect(() => {
+    setFormData({
+      fecha: excepcion?.fecha || '',
+      disponible: excepcion?.disponible ?? true,
+      hora_inicio: excepcion?.hora_inicio || '',
+      hora_fin: excepcion?.hora_fin || '',
+      intervalo_minutos: excepcion?.intervalo_minutos?.toString() || '30',
+      notas: excepcion?.notas || ''
+    });
+    setErrors({});
+  }, [excepcion]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -59,13 +79,57 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
 
     setLoading(true);
     try {
-      // Aquí iría la lógica para guardar la excepción
-      console.log('Guardando excepción:', formData);
+      const dataForService = {
+        fecha: formData.fecha,
+        disponible: formData.disponible,
+        ...(formData.disponible && {
+          hora_inicio: formData.hora_inicio,
+          hora_fin: formData.hora_fin,
+          intervalo_minutos: parseInt(formData.intervalo_minutos)
+        }),
+        notas: formData.notas || undefined
+      };
+
+      console.log('🔍 [ExcepcionModal] Guardando excepción:', dataForService);
+      console.log('🔍 [ExcepcionModal] excepcion:', excepcion);
+      console.log('🔍 [ExcepcionModal] Es edición?', !!excepcion);
+      
+      if (excepcion) {
+        // Editar excepción existente
+        console.log('🔍 [ExcepcionModal] Editando excepción ID:', excepcion.id);
+        await disponibilidadService.updateExcepcion(excepcion.id, dataForService);
+        console.log('✅ [ExcepcionModal] Excepción actualizada');
+      } else {
+        // Crear nueva excepción
+        console.log('🔍 [ExcepcionModal] Creando nueva excepción');
+        await disponibilidadService.createExcepcion(dataForService);
+        console.log('✅ [ExcepcionModal] Excepción creada');
+      }
+      
+      // Invalidar caché relacionado de forma segura
+      try {
+        const configKey = buildKey(ENTITIES.CONFIGURACION);
+        const slotsKey = buildKey(ENTITIES.SLOTS);
+        
+        console.log('🔍 [ExcepcionModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey);
+        
+        if (configKey && configKey.trim()) {
+          cacheService.invalidateByPrefix(configKey);
+          console.log('✅ [ExcepcionModal] Caché CONFIGURACION invalidado');
+        }
+        if (slotsKey && slotsKey.trim()) {
+          cacheService.invalidateByPrefix(slotsKey);
+          console.log('✅ [ExcepcionModal] Caché SLOTS invalidado');
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ [ExcepcionModal] Error al invalidar caché:', cacheError);
+        // No bloquear el flujo principal si falla la invalidación del caché
+      }
       
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Error al guardar excepción:', error);
+      console.error('💥 [ExcepcionModal] Error al guardar excepción:', error);
     } finally {
       setLoading(false);
     }
@@ -118,7 +182,7 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
           </label>
           <Select
             value={formData.disponible.toString()}
-            onChange={(value) => handleChange('disponible', value === 'true')}
+            onChange={(e) => handleChange('disponible', e.target.value === 'true')}
             options={opcionesDisponible}
           />
         </div>
@@ -161,7 +225,7 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
               </label>
               <Select
                 value={formData.intervalo_minutos}
-                onChange={(value) => handleChange('intervalo_minutos', value)}
+                onChange={(e) => handleChange('intervalo_minutos', e.target.value)}
                 options={intervalos}
               />
             </div>

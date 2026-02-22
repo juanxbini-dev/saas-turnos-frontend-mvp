@@ -9,9 +9,12 @@ import {
 
 export const disponibilidadService = {
   async getDisponibilidadMes(profesionalId: string, mes: number, año: number): Promise<string[]> {
+    console.log('🔍 [disponibilidadService] getDisponibilidadMes - Llamando a API:', { profesionalId, mes, año });
     const response = await axiosInstance.get(`/api/turnos/disponibilidad/${profesionalId}/mes`, {
       params: { mes, año }
     });
+    console.log('🔍 [disponibilidadService] getDisponibilidadMes - Respuesta completa:', response.data);
+    console.log('🔍 [disponibilidadService] getDisponibilidadMes - Datos:', response.data.data);
     return response.data.data;
   },
 
@@ -69,7 +72,6 @@ export const disponibilidadService = {
 
   // CRUD Vacaciones
   async createVacacion(data: {
-    profesional_id: string;
     fecha: string;
     fecha_fin?: string;
     tipo: 'vacacion' | 'feriado' | 'personal' | 'enfermedad';
@@ -90,7 +92,6 @@ export const disponibilidadService = {
 
   // CRUD Excepciones
   async createExcepcion(data: {
-    profesional_id: string;
     fecha: string;
     disponible: boolean;
     hora_inicio?: string;

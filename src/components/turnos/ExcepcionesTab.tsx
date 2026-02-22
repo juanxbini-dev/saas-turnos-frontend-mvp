@@ -56,22 +56,38 @@ export const ExcepcionesTab: React.FC<ExcepcionesTabProps> = ({
   const formatDate = (fecha: string) => {
     if (!fecha) return 'Fecha no disponible';
     
+    console.log('🔍 [ExcepcionesTab] Formateando fecha:', fecha);
+    
     try {
-      const date = new Date(fecha + 'T00:00:00');
+      // Intentar diferentes formatos de fecha
+      let date: Date;
+      
+      // Si la fecha tiene formato YYYY-MM-DD, agregar tiempo para evitar problemas de timezone
+      if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        date = new Date(fecha + 'T12:00:00');
+      } else {
+        date = new Date(fecha);
+      }
+      
+      console.log('🔍 [ExcepcionesTab] Fecha parseada:', date, 'getTime():', date.getTime());
       
       // Validar que la fecha sea válida
       if (isNaN(date.getTime())) {
+        console.error('❌ [ExcepcionesTab] Fecha inválida:', fecha);
         return 'Fecha inválida';
       }
       
-      return date.toLocaleDateString('es-ES', {
+      const formatted = date.toLocaleDateString('es-ES', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       });
+      
+      console.log('✅ [ExcepcionesTab] Fecha formateada:', formatted);
+      return formatted;
     } catch (error) {
-      console.error('Error formateando fecha:', fecha, error);
+      console.error('💥 [ExcepcionesTab] Error formateando fecha:', fecha, error);
       return 'Error en fecha';
     }
   };

@@ -20,6 +20,8 @@ export const Calendar: React.FC<CalendarProps> = ({
   currentAño,
   loading = false
 }) => {
+  console.log('🔍 [Calendar] Props recibidos:', { availableDates, selectedDate, currentMes, currentAño, loading });
+  
   const getDaysInMonth = (mes: number, año: number) => {
     return new Date(año, mes, 0).getDate();
   };
@@ -34,7 +36,9 @@ export const Calendar: React.FC<CalendarProps> = ({
   };
 
   const isDateAvailable = (date: string) => {
-    return availableDates.includes(date);
+    const available = availableDates.includes(date);
+    console.log(`🔍 [Calendar] isDateAvailable(${date}): ${available}`);
+    return available;
   };
 
   const isDateSelected = (date: string) => {
@@ -91,8 +95,8 @@ export const Calendar: React.FC<CalendarProps> = ({
           className={`
             p-2 text-center rounded-full cursor-pointer transition-colors
             ${selected ? 'bg-blue-600 text-white' : ''}
-            ${available && !selected && !isPast ? 'hover:bg-blue-50' : ''}
-            ${!available || isPast ? 'text-gray-300 cursor-not-allowed' : ''}
+            ${available && !selected && !isPast ? 'bg-green-100 text-green-800 hover:bg-green-200 font-medium' : ''}
+            ${!available || isPast ? 'text-gray-300 cursor-not-allowed bg-gray-50' : ''}
             ${isToday && !selected ? 'font-bold border-2 border-blue-300' : ''}
           `}
         >
@@ -127,7 +131,7 @@ export const Calendar: React.FC<CalendarProps> = ({
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={handlePreviousMonth}
-          disabled={!isCurrentMonth || currentMes > today.getMonth() + 1}
+          disabled={currentMes < today.getMonth() + 1 && currentAño <= today.getFullYear()}
           className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="w-5 h-5" />

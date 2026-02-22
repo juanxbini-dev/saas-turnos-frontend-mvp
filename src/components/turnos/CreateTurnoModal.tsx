@@ -3,8 +3,8 @@ import { Modal, Button, Input, Textarea, Card, Spinner } from '../ui';
 import { Calendar, TimeSlots } from '../ui';
 import { useDisponibilidad } from '../../hooks/useDisponibilidad';
 import { useFetch } from '../../hooks/useFetch';
-import { buildKey } from '../../cache/key.builder';
-import { ENTITIES } from '../../cache/key.builder';
+import { buildKey, ENTITIES } from '../../cache/key.builder';
+import { cacheService } from '../../cache/cache.service';
 import { disponibilidadService, turnoService, clienteService } from '../../services';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
@@ -49,9 +49,19 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   const [notas, setNotas] = useState('');
   const [loading, setLoading] = useState(false);
   
+  // Estados para creación de cliente
+  const [showCreateCliente, setShowCreateCliente] = useState(false);
+  const [newCliente, setNewCliente] = useState({
+    nombre: '',
+    email: '',
+    telefono: ''
+  });
+  const [creatingCliente, setCreatingCliente] = useState(false);
+  
   const { state: authUser } = useAuth();
-  const { toast } = useToast();
+  const toast = useToast();
   const isAdmin = authUser?.roles.includes('admin');
+  const user = authUser?.authUser;
 
   // Hook de disponibilidad
   const {
@@ -67,7 +77,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     handleDateSelect,
     handleSlotSelect,
     reset: resetDisponibilidad
-  } = useDisponibilidad(selectedProfesional?.id || '');
+  } = useDisponibilidad(selectedProfesional?.id || null);
 
   // Obtener profesionales (solo admin)
   const {
@@ -76,7 +86,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   } = useFetch(
     buildKey(ENTITIES.PROFESIONALES),
     () => disponibilidadService.getProfesionales({ limit: 100 }),
-    { enabled: isAdmin }
+    isAdmin ? { ttl: 300 } : undefined
   );
 
   // Obtener servicios del profesional
@@ -86,9 +96,30 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     revalidate: revalidateServicios
   } = useFetch(
     selectedProfesional ? buildKey(ENTITIES.SERVICIOS, selectedProfesional.id) : null,
-    () => selectedProfesional ? disponibilidadService.getServiciosProfesional(selectedProfesional.id) : Promise.resolve([]),
+    () => {
+      console.log('🔍 [CreateTurnoModal] Solicitando servicios para profesional:', selectedProfesional?.id);
+      return selectedProfesional ? disponibilidadService.getServiciosProfesional(selectedProfesional.id) : Promise.resolve([]);
+    },
     { enabled: !!selectedProfesional }
   );
+
+  // Debug: log cuando los servicios cambian
+  React.useEffect(() => {
+    console.log('🔍 [CreateTurnoModal] Servicios recibidos:', servicios);
+    if (servicios && servicios.length > 0) {
+      servicios.forEach((servicio, index) => {
+        console.log(`🔍 [CreateTurnoModal] Servicio ${index + 1}:`, {
+          id: servicio.id,
+          nombre: servicio.nombre,
+          descripcion: servicio.descripcion,
+          precio: servicio.precio,
+          precio_personalizado: servicio.precio_personalizado,
+          duracion_minutos: servicio.duracion_minutos,
+          duracion_personalizada: servicio.duracion_personalizada
+        });
+      });
+    }
+  }, [servicios]);
 
   // Obtener clientes
   const {
@@ -141,7 +172,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       await turnoService.createTurno({
         cliente_id: selectedCliente.id,
         usuario_id: selectedProfesional.id,
-        servicio_id: selectedServicio.id,
+        servicio_id: selectedServicio.servicio_id,
         fecha: selectedDate,
         hora: selectedSlot,
         notas
@@ -167,6 +198,46 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     resetDisponibilidad();
     setClienteSearch('');
     setShowClienteDropdown(false);
+    // Resetear estados de creación de cliente
+    setShowCreateCliente(false);
+    setNewCliente({ nombre: '', email: '', telefono: '' });
+    setCreatingCliente(false);
+  };
+
+  const handleCreateCliente = async () => {
+    if (!newCliente.nombre.trim() || !newCliente.email.trim()) {
+      toast.error('Nombre y email son requeridos');
+      return;
+    }
+
+    setCreatingCliente(true);
+    try {
+      const createdCliente = await clienteService.createCliente({
+        nombre: newCliente.nombre,
+        email: newCliente.email,
+        telefono: newCliente.telefono || undefined
+      });
+
+      // Seleccionar automáticamente el cliente creado
+      setSelectedCliente({
+        id: createdCliente.id,
+        nombre: createdCliente.nombre,
+        email: createdCliente.email
+      });
+
+      // Resetear formulario de creación
+      setNewCliente({ nombre: '', email: '', telefono: '' });
+      setShowCreateCliente(false);
+
+      // Invalidar caché de clientes
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.CLIENTES));
+
+      toast.success('Cliente creado y seleccionado');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || error.message || 'Error al crear cliente');
+    } finally {
+      setCreatingCliente(false);
+    }
   };
 
   const handleClose = () => {
@@ -195,7 +266,9 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const formatFecha = (fecha: string) => {
-    const date = new Date(fecha + 'T00:00:00');
+    // Si la fecha ya incluye timestamp, usarla directamente
+    // Si es solo fecha, agregar tiempo para evitar problemas de timezone
+    const date = fecha.includes('T') ? new Date(fecha) : new Date(fecha + 'T00:00:00');
     return date.toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
@@ -205,11 +278,27 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const getPrecio = () => {
-    return selectedServicio?.precio_personalizado || selectedServicio?.precio || 0;
+    console.log('🔍 [CreateTurnoModal] getPrecio() - selectedServicio:', selectedServicio);
+    const precio = selectedServicio?.precio || 0;
+    console.log('🔍 [CreateTurnoModal] getPrecio():', {
+      selectedServicio_exists: !!selectedServicio,
+      precio_personalizado: selectedServicio?.precio_personalizado,
+      precio_final: selectedServicio?.precio,
+      precio_calculado: precio
+    });
+    return precio;
   };
 
   const getDuracion = () => {
-    return selectedServicio?.duracion_personalizada || selectedServicio?.duracion_minutos || 0;
+    console.log('🔍 [CreateTurnoModal] getDuracion() - selectedServicio:', selectedServicio);
+    const duracion = selectedServicio?.duracion_minutos || 0;
+    console.log('🔍 [CreateTurnoModal] getDuracion():', {
+      selectedServicio_exists: !!selectedServicio,
+      duracion_personalizada: selectedServicio?.duracion_personalizada,
+      duracion_final: selectedServicio?.duracion_minutos,
+      duracion_calculada: duracion
+    });
+    return duracion;
   };
 
   return (
@@ -217,7 +306,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title="Crear nuevo turno"
-      size="xl"
+      size="lg"
     >
       {/* Progress indicator */}
       <div className="flex items-center justify-center mb-6">
@@ -271,11 +360,24 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                   profesionalesData?.profesionales?.map((profesional: Profesional) => (
                     <Card
                       key={profesional.id}
-                      className="cursor-pointer hover:bg-blue-50 border-2 hover:border-blue-300"
+                      className={`cursor-pointer hover:bg-blue-50 border-2 transition-all ${
+                        selectedProfesional?.id === profesional.id
+                          ? 'bg-blue-100 border-blue-500'
+                          : 'border-gray-200 hover:border-blue-300'
+                      }`}
                       onClick={() => setSelectedProfesional(profesional)}
                     >
-                      <div className="font-medium">{profesional.nombre}</div>
-                      <div className="text-sm text-gray-500">@{profesional.username}</div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium">{profesional.nombre}</div>
+                          <div className="text-sm text-gray-500">@{profesional.username}</div>
+                        </div>
+                        {selectedProfesional?.id === profesional.id && (
+                          <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center">
+                            ✓
+                          </div>
+                        )}
+                      </div>
                     </Card>
                   ))
                 )}
@@ -284,7 +386,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
           ) : (
             <Card className="bg-blue-50 border-blue-200">
               <div className="text-center">
-                <div className="font-medium text-blue-900">{user?.nombre}</div>
+                <div className="font-medium text-blue-900">{user?.email}</div>
                 <div className="text-sm text-blue-700">Turno asignado a vos</div>
               </div>
             </Card>
@@ -295,6 +397,14 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       {/* Step 2 - Servicio */}
       {step === 2 && (
         <div className="space-y-4">
+          {/* Mostrar profesional seleccionado */}
+          <Card className="bg-gray-50 border-gray-200">
+            <div className="text-sm text-gray-600 mb-1">Profesional seleccionado:</div>
+            <div className="font-medium text-gray-900">
+              {selectedProfesional?.nombre} @{selectedProfesional?.username}
+            </div>
+          </Card>
+          
           {loadingServicios ? (
             <div className="flex justify-center py-4">
               <Spinner />
@@ -319,10 +429,10 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                   <div className="text-sm text-gray-500">{servicio.descripcion}</div>
                   <div className="mt-2 flex justify-between">
                     <span className="text-sm font-medium">
-                      ${getPrecio()}
+                      ${servicio.precio || 0}
                     </span>
                     <span className="text-sm text-gray-500">
-                      {getDuracion()} min
+                      {servicio.duracion_minutos || 0} min
                     </span>
                   </div>
                 </Card>
@@ -335,6 +445,22 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       {/* Step 3 - Fecha y hora */}
       {step === 3 && (
         <div className="space-y-6">
+          {/* Mostrar profesional y servicio seleccionados */}
+          <div className="grid grid-cols-2 gap-4">
+            <Card className="bg-gray-50 border-gray-200">
+              <div className="text-sm text-gray-600 mb-1">Profesional:</div>
+              <div className="font-medium text-gray-900">
+                {selectedProfesional?.nombre} @{selectedProfesional?.username}
+              </div>
+            </Card>
+            <Card className="bg-gray-50 border-gray-200">
+              <div className="text-sm text-gray-600 mb-1">Servicio:</div>
+              <div className="font-medium text-gray-900">
+                {selectedServicio?.nombre}
+              </div>
+            </Card>
+          </div>
+
           <Calendar
             availableDates={availableDates}
             selectedDate={selectedDate}
@@ -398,6 +524,99 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           </div>
 
+          {/* Opción de crear nuevo cliente */}
+          {!selectedCliente && !showCreateCliente && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setShowCreateCliente(true)}
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                + Crear nuevo cliente
+              </button>
+            </div>
+          )}
+
+          {/* Formulario de creación de cliente */}
+          {showCreateCliente && (
+            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-medium text-gray-900">Nuevo cliente</h4>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateCliente(false);
+                    setNewCliente({ nombre: '', email: '', telefono: '' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre *
+                </label>
+                <Input
+                  type="text"
+                  value={newCliente.nombre}
+                  onChange={(e) => setNewCliente(prev => ({ ...prev, nombre: e.target.value }))}
+                  placeholder="Nombre del cliente"
+                  disabled={creatingCliente}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email *
+                </label>
+                <Input
+                  type="email"
+                  value={newCliente.email}
+                  onChange={(e) => setNewCliente(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="email@ejemplo.com"
+                  disabled={creatingCliente}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Teléfono
+                </label>
+                <Input
+                  type="tel"
+                  value={newCliente.telefono}
+                  onChange={(e) => setNewCliente(prev => ({ ...prev, telefono: e.target.value }))}
+                  placeholder="+54 9 11 1234-5678"
+                  disabled={creatingCliente}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowCreateCliente(false);
+                    setNewCliente({ nombre: '', email: '', telefono: '' });
+                  }}
+                  disabled={creatingCliente}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleCreateCliente}
+                  loading={creatingCliente}
+                  disabled={!newCliente.nombre.trim() || !newCliente.email.trim()}
+                >
+                  Crear y seleccionar
+                </Button>
+              </div>
+            </div>
+          )}
+
           {selectedCliente && (
             <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
               <div>
@@ -426,14 +645,37 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
           </div>
 
           {/* Resumen */}
-          <Card className="bg-gray-50">
-            <h4 className="font-medium mb-3">Resumen del turno</h4>
-            <div className="space-y-2 text-sm">
-              <div><strong>Profesional:</strong> {selectedProfesional?.nombre}</div>
-              <div><strong>Servicio:</strong> {selectedServicio?.nombre} - ${getPrecio()}</div>
-              <div><strong>Fecha:</strong> {selectedDate && formatFecha(selectedDate)}</div>
-              <div><strong>Hora:</strong> {selectedSlot}</div>
-              <div><strong>Cliente:</strong> {selectedCliente?.nombre}</div>
+          <Card className="bg-gray-50 border-gray-200">
+            <h4 className="font-medium mb-3 text-gray-900">Resumen del turno</h4>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Profesional:</span>
+                <span className="font-medium">{selectedProfesional?.nombre} @{selectedProfesional?.username}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Servicio:</span>
+                <span className="font-medium">{selectedServicio?.nombre}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Duración:</span>
+                <span className="font-medium">{getDuracion()} min</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Precio:</span>
+                <span className="font-medium">${getPrecio()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Fecha:</span>
+                <span className="font-medium">{selectedDate && formatFecha(selectedDate)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Hora:</span>
+                <span className="font-medium">{selectedSlot}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Cliente:</span>
+                <span className="font-medium">{selectedCliente?.nombre}</span>
+              </div>
             </div>
           </Card>
         </div>

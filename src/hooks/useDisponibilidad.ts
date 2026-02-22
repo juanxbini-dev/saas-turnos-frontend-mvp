@@ -4,22 +4,36 @@ import { buildKey } from '../cache/key.builder';
 import { ENTITIES } from '../cache/key.builder';
 import { disponibilidadService } from '../services/disponibilidad.service';
 
-export const useDisponibilidad = (profesionalId: string) => {
+export const useDisponibilidad = (profesionalId: string | null) => {
+  console.log('🔍 [useDisponibilidad] Hook inicializado con profesionalId:', profesionalId);
+  
   const [mes, setMes] = useState(new Date().getMonth() + 1);
   const [año, setAño] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   // Obtener días disponibles del mes
+  console.log('🔍 [useDisponibilidad] Configurando useFetch con:', { profesionalId, mes, año });
+  const cacheKey = profesionalId ? buildKey(ENTITIES.DISPONIBILIDAD, profesionalId, `${mes}-${año}`) : null;
+  console.log('🔍 [useDisponibilidad] Cache key:', cacheKey);
+  
+  // Forzar nueva petición (sin caché)
   const {
     data: availableDates,
     loading: loadingDates,
     error: datesError,
     revalidate: revalidateDates
   } = useFetch(
-    buildKey(ENTITIES.DISPONIBILIDAD, profesionalId, `${mes}-${año}`),
-    () => disponibilidadService.getDisponibilidadMes(profesionalId, mes, año),
-    { ttl: 300 } // 5 minutos
+    cacheKey,
+    () => {
+      console.log('🔍 [useDisponibilidad] Fetcher llamado con:', { profesionalId, mes, año });
+      if (!profesionalId) {
+        console.log('🔍 [useDisponibilidad] profesionalId es null, retornando array vacío');
+        return Promise.resolve([]);
+      }
+      return disponibilidadService.getDisponibilidadMes(profesionalId, mes, año);
+    },
+    { ttl: 1 } // 1 segundo para forzar nueva petición
   );
 
   // Obtener slots disponibles para una fecha específica
@@ -30,11 +44,12 @@ export const useDisponibilidad = (profesionalId: string) => {
     revalidate: revalidateSlots
   } = useFetch(
     selectedDate ? buildKey(ENTITIES.SLOTS, profesionalId, selectedDate) : null,
-    () => selectedDate ? disponibilidadService.getSlotsDisponibles(profesionalId, selectedDate as string) : Promise.resolve([]),
+    () => selectedDate ? disponibilidadService.getSlotsDisponibles(profesionalId!, selectedDate) : Promise.resolve([]),
     { ttl: 300, enabled: !!selectedDate }
   );
 
   const handleMonthChange = useCallback((newMes: number, newAño: number) => {
+    console.log('🔍 [useDisponibilidad] handleMonthChange called:', { newMes, newAño });
     setMes(newMes);
     setAño(newAño);
     setSelectedDate(null);
@@ -54,6 +69,12 @@ export const useDisponibilidad = (profesionalId: string) => {
     setSelectedDate(null);
     setSelectedSlot(null);
   }, []);
+
+  // Función temporal para debugging
+  const forceRefresh = useCallback(() => {
+    console.log('🔍 [useDisponibilidad] Force refresh llamado');
+    revalidateDates();
+  }, [revalidateDates]);
 
   return {
     // Estado
@@ -82,6 +103,7 @@ export const useDisponibilidad = (profesionalId: string) => {
     
     // Revalidations
     revalidateDates,
-    revalidateSlots
+    revalidateSlots,
+    forceRefresh  // Temporal para debugging
   };
 };

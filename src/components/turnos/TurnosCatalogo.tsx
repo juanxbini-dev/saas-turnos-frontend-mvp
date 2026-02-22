@@ -29,7 +29,9 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
   };
 
   const formatFecha = (fecha: string) => {
-    const date = new Date(fecha + 'T00:00:00');
+    // Si la fecha ya incluye timestamp, usarla directamente
+    // Si es solo fecha, agregar tiempo para evitar problemas de timezone
+    const date = fecha.includes('T') ? new Date(fecha) : new Date(fecha + 'T00:00:00');
     return date.toLocaleDateString('es-ES', {
       day: '2-digit',
       month: '2-digit',

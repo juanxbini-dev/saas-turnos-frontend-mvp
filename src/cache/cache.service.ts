@@ -75,9 +75,15 @@ class CacheService {
   }
 
   invalidateByPrefix(prefix: string): void {
+    // Validar que prefix no sea nulo o indefinido
+    if (!prefix) {
+      console.warn('⚠️ [CacheService] invalidateByPrefix llamado con prefix inválido:', prefix);
+      return;
+    }
+    
     // Limpiar de memoria
     for (const [key] of this.memoryCache) {
-      if (key.startsWith(prefix)) {
+      if (key && key.startsWith(prefix)) {
         this.memoryCache.delete(key);
       }
     }

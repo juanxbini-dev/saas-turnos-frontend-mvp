@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Input, Select, Button, Textarea } from '../ui';
 import { DiasVacacion } from '../../types/turno.types';
+import { disponibilidadService } from '../../services/disponibilidad.service';
+import { useAuth } from '../../context/AuthContext';
+import { cacheService } from '../../cache/cache.service';
+import { buildKey } from '../../cache/key.builder';
+import { ENTITIES } from '../../cache/key.builder';
 
 interface VacacionModalProps {
   vacacion: DiasVacacion | null;
@@ -15,6 +20,8 @@ export const VacacionModal: React.FC<VacacionModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  const { state: authUser } = useAuth();
+  
   const [formData, setFormData] = useState({
     fecha: vacacion?.fecha || '',
     fecha_fin: vacacion?.fecha_fin || '',
@@ -24,6 +31,17 @@ export const VacacionModal: React.FC<VacacionModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  // Reset form data when vacacion prop changes
+  useEffect(() => {
+    setFormData({
+      fecha: vacacion?.fecha || '',
+      fecha_fin: vacacion?.fecha_fin || '',
+      tipo: vacacion?.tipo || 'vacacion',
+      motivo: vacacion?.motivo || ''
+    });
+    setErrors({});
+  }, [vacacion]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -49,13 +67,53 @@ export const VacacionModal: React.FC<VacacionModalProps> = ({
 
     setLoading(true);
     try {
-      // Aquí iría la lógica para guardar la vacación
-      console.log('Guardando vacación:', formData);
+      const dataForService = {
+        fecha: formData.fecha,
+        fecha_fin: formData.fecha_fin || undefined,
+        tipo: formData.tipo,
+        motivo: formData.motivo || undefined
+      };
+
+      console.log('🔍 [VacacionModal] Guardando vacación:', dataForService);
+      console.log('🔍 [VacacionModal] vacacion:', vacacion);
+      console.log('🔍 [VacacionModal] Es edición?', !!vacacion);
+      
+      if (vacacion) {
+        // Editar vacación existente
+        console.log('🔍 [VacacionModal] Editando vacación ID:', vacacion.id);
+        await disponibilidadService.updateVacacion(vacacion.id, dataForService);
+        console.log('✅ [VacacionModal] Vacación actualizada');
+      } else {
+        // Crear nueva vacación
+        console.log('🔍 [VacacionModal] Creando nueva vacación');
+        await disponibilidadService.createVacacion(dataForService);
+        console.log('✅ [VacacionModal] Vacación creada');
+      }
+      
+      // Invalidar caché relacionado de forma segura
+      try {
+        const configKey = buildKey(ENTITIES.CONFIGURACION);
+        const slotsKey = buildKey(ENTITIES.SLOTS);
+        
+        console.log('🔍 [VacacionModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey);
+        
+        if (configKey && configKey.trim()) {
+          cacheService.invalidateByPrefix(configKey);
+          console.log('✅ [VacacionModal] Caché CONFIGURACION invalidado');
+        }
+        if (slotsKey && slotsKey.trim()) {
+          cacheService.invalidateByPrefix(slotsKey);
+          console.log('✅ [VacacionModal] Caché SLOTS invalidado');
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ [VacacionModal] Error al invalidar caché:', cacheError);
+        // No bloquear el flujo principal si falla la invalidación del caché
+      }
       
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Error al guardar vacación:', error);
+      console.error('💥 [VacacionModal] Error al guardar vacación:', error);
     } finally {
       setLoading(false);
     }
@@ -121,7 +179,7 @@ export const VacacionModal: React.FC<VacacionModalProps> = ({
           </label>
           <Select
             value={formData.tipo}
-            onChange={(value) => handleChange('tipo', value)}
+            onChange={(e) => handleChange('tipo', e.target.value)}
             options={tipos}
           />
         </div>

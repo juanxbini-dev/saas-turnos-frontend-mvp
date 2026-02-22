@@ -42,7 +42,6 @@ export interface DisponibilidadSemanal {
   hora_fin: string;
   intervalo_minutos: number;
   activo: boolean;
-  empresa_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -54,7 +53,6 @@ export interface DiasVacacion {
   fecha_fin: string | null;
   tipo: 'vacacion' | 'feriado' | 'personal' | 'enfermedad';
   motivo: string | null;
-  empresa_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -68,7 +66,6 @@ export interface ExcepcionDia {
   hora_fin: string | null;
   intervalo_minutos: number | null;
   notas: string | null;
-  empresa_id: string;
   created_at: string;
   updated_at: string;
 }

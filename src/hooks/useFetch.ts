@@ -7,13 +7,22 @@ import { cacheService } from '../cache/cache.service';
 import { buildKey } from '../cache/key.builder';
 
 export function useFetch<T>(
-  key: string, 
+  key: string | null, 
   fetcher: () => Promise<T>, 
   options?: CacheOptions
 ): FetchState<T> & { revalidate: () => void } {
   const { ttl, persist, revalidateOnFocus } = options || {};
   
   const [state, setState] = useState<FetchState<T>>(() => {
+    // Si no hay key, no usar caché
+    if (!key) {
+      return {
+        data: null,
+        loading: true,
+        error: null
+      };
+    }
+    
     // Si hay ttl, inicializar con datos del caché si existen
     if (ttl) {
       const cachedData = cacheService.get<T>(key, persist);
@@ -37,33 +46,30 @@ export function useFetch<T>(
   fetcherRef.current = fetcher;
 
   const revalidate = useCallback(async () => {
+    console.log(' [useFetch] revalidate called for key:', key);
     // Solo mostrar loading si no hay datos actuales
     setState(prev => ({ ...prev, loading: !prev.data, error: null }));
     
     try {
+      console.log(' [useFetch] Calling fetcher for key:', key);
       const data = await fetcherRef.current();
+      console.log(' [useFetch] Fetcher success for key:', key, data);
       
       // Si hay ttl, actualizar caché
-      if (ttl) {
+      if (ttl && key) {
         cacheService.set(key, data, ttl, persist);
       }
       
-      setState({
-        data,
-        loading: false,
-        error: null
-      });
+      setState({ data, loading: false, error: null });
     } catch (error) {
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error : new Error('Unknown error')
-      }));
+      console.error(' [useFetch] Fetcher error for key:', key, error);
+      setState({ data: null, loading: false, error: error as Error });
     }
   }, [key, ttl, persist]);
 
   // Ejecutar fetcher al montar y cuando cambian las dependencias clave
   useEffect(() => {
+    console.log('🔍 [useFetch] useEffect triggered - key:', key, 'ttl:', ttl);
     revalidate();
   }, [key, ttl, persist]);
 

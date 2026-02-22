@@ -3,6 +3,9 @@ import { Modal, Button, Input, Select } from '../ui';
 import { disponibilidadService } from '../../services/disponibilidad.service';
 import { DisponibilidadSemanal } from '../../types/turno.types';
 import { useAuth } from '../../context/AuthContext';
+import { cacheService } from '../../cache/cache.service';
+import { buildKey } from '../../cache/key.builder';
+import { ENTITIES } from '../../cache/key.builder';
 
 interface HorarioModalProps {
   horario: DisponibilidadSemanal | null;
@@ -45,6 +48,18 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  // Reset form data when horario prop changes
+  useEffect(() => {
+    setFormData({
+      dia_inicio: horario?.dia_inicio?.toString() || '1',
+      dia_fin: horario?.dia_fin?.toString() || '5',
+      hora_inicio: horario?.hora_inicio || '09:00',
+      hora_fin: horario?.hora_fin || '17:00',
+      intervalo_minutos: horario?.intervalo_minutos?.toString() || '30'
+    });
+    setErrors({});
+  }, [horario]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -98,6 +113,26 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
         console.log('✅ [HorarioModal] Horario creado');
       }
       
+      // Invalidar caché relacionado de forma segura
+      try {
+        const configKey = buildKey(ENTITIES.CONFIGURACION);
+        const slotsKey = buildKey(ENTITIES.SLOTS);
+        
+        console.log('🔍 [HorarioModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey);
+        
+        if (configKey && configKey.trim()) {
+          cacheService.invalidateByPrefix(configKey);
+          console.log('✅ [HorarioModal] Caché CONFIGURACION invalidado');
+        }
+        if (slotsKey && slotsKey.trim()) {
+          cacheService.invalidateByPrefix(slotsKey);
+          console.log('✅ [HorarioModal] Caché SLOTS invalidado');
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ [HorarioModal] Error al invalidar caché:', cacheError);
+        // No bloquear el flujo principal si falla la invalidación del caché
+      }
+      
       onSuccess();
       onClose();
     } catch (error) {
@@ -129,7 +164,7 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
             </label>
             <Select
               value={formData.dia_inicio}
-              onChange={(value) => handleChange('dia_inicio', value)}
+              onChange={(e) => handleChange('dia_inicio', e.target.value)}
               options={diasSemana}
             />
           </div>
@@ -140,7 +175,7 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
             </label>
             <Select
               value={formData.dia_fin}
-              onChange={(value) => handleChange('dia_fin', value)}
+              onChange={(e) => handleChange('dia_fin', e.target.value)}
               options={diasSemana}
             />
             {errors.dia_fin && (
@@ -182,7 +217,7 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
           </label>
           <Select
             value={formData.intervalo_minutos}
-            onChange={(value) => handleChange('intervalo_minutos', value)}
+            onChange={(e) => handleChange('intervalo_minutos', e.target.value)}
             options={intervalos}
           />
         </div>

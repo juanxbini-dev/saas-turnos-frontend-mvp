@@ -54,13 +54,42 @@ export const VacacionesTab: React.FC<VacacionesTabProps> = ({
   };
 
   const formatDate = (fecha: string) => {
-    const date = new Date(fecha + 'T00:00:00');
-    return date.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    if (!fecha) return 'Fecha no disponible';
+    
+    console.log('🔍 [VacacionesTab] Formateando fecha:', fecha);
+    
+    try {
+      // Intentar diferentes formatos de fecha
+      let date: Date;
+      
+      // Si la fecha tiene formato YYYY-MM-DD, agregar tiempo para evitar problemas de timezone
+      if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        date = new Date(fecha + 'T12:00:00');
+      } else {
+        date = new Date(fecha);
+      }
+      
+      console.log('🔍 [VacacionesTab] Fecha parseada:', date, 'getTime():', date.getTime());
+      
+      // Validar que la fecha sea válida
+      if (isNaN(date.getTime())) {
+        console.error('❌ [VacacionesTab] Fecha inválida:', fecha);
+        return 'Fecha inválida';
+      }
+      
+      const formatted = date.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      
+      console.log('✅ [VacacionesTab] Fecha formateada:', formatted);
+      return formatted;
+    } catch (error) {
+      console.error('💥 [VacacionesTab] Error formateando fecha:', fecha, error);
+      return 'Error en fecha';
+    }
   };
 
   const getTipoConfig = (tipo: string) => {
