@@ -7,6 +7,7 @@ export interface LoginResponse {
   user: {
     id: string;
     email: string;
+    nombre: string;
     roles: string[];
     tenant: string;
   };

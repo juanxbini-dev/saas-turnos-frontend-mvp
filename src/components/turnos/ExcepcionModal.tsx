@@ -106,12 +106,16 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
         console.log('✅ [ExcepcionModal] Excepción creada');
       }
       
-      // Invalidar caché relacionado de forma segura
+      // Invalidar caché relacionado de forma más específica
       try {
+        console.log('🔍 [ExcepcionModal] Invalidando caché después de guardar excepción...');
+        
+        // Invalidar caché general
         const configKey = buildKey(ENTITIES.CONFIGURACION);
         const slotsKey = buildKey(ENTITIES.SLOTS);
+        const disponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD);
         
-        console.log('🔍 [ExcepcionModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey);
+        console.log('🔍 [ExcepcionModal] Invalidando caché general - configKey:', configKey, 'slotsKey:', slotsKey, 'disponibilidadKey:', disponibilidadKey);
         
         if (configKey && configKey.trim()) {
           cacheService.invalidateByPrefix(configKey);
@@ -120,6 +124,28 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
         if (slotsKey && slotsKey.trim()) {
           cacheService.invalidateByPrefix(slotsKey);
           console.log('✅ [ExcepcionModal] Caché SLOTS invalidado');
+        }
+        if (disponibilidadKey && disponibilidadKey.trim()) {
+          cacheService.invalidateByPrefix(disponibilidadKey);
+          console.log('✅ [ExcepcionModal] Caché DISPONIBILIDAD invalidado');
+        }
+        
+        // Invalidar caché específico para la fecha de la excepción
+        if (formData.fecha) {
+          // Necesitamos el ID del profesional autenticado para invalidar slots específicos
+          const authUser = JSON.parse(localStorage.getItem('authUser') || '{}');
+          if (authUser?.id) {
+            const specificSlotsKey = buildKey(ENTITIES.SLOTS, authUser.id, formData.fecha);
+            const specificDisponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD, authUser.id, 
+              `${new Date(formData.fecha).getMonth() + 1}-${new Date(formData.fecha).getFullYear()}`);
+            
+            console.log('🔍 [ExcepcionModal] Invalidando caché específico - specificSlotsKey:', specificSlotsKey);
+            console.log('🔍 [ExcepcionModal] Invalidando caché específico - specificDisponibilidadKey:', specificDisponibilidadKey);
+            
+            cacheService.invalidate(specificSlotsKey);
+            cacheService.invalidate(specificDisponibilidadKey);
+            console.log('✅ [ExcepcionModal] Caché específico de fecha invalidado');
+          }
         }
       } catch (cacheError) {
         console.warn('⚠️ [ExcepcionModal] Error al invalidar caché:', cacheError);

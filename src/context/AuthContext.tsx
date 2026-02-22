@@ -6,6 +6,7 @@ export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 interface User {
   id: string;
   email: string;
+  nombre: string;
   roles: string[];
   tenant: string;
 }

@@ -115,10 +115,13 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
       
       // Invalidar caché relacionado de forma segura
       try {
+        console.log('🔍 [HorarioModal] Invalidando caché después de guardar horario...');
+        
         const configKey = buildKey(ENTITIES.CONFIGURACION);
         const slotsKey = buildKey(ENTITIES.SLOTS);
+        const disponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD);
         
-        console.log('🔍 [HorarioModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey);
+        console.log('🔍 [HorarioModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey, 'disponibilidadKey:', disponibilidadKey);
         
         if (configKey && configKey.trim()) {
           cacheService.invalidateByPrefix(configKey);
@@ -127,6 +130,10 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
         if (slotsKey && slotsKey.trim()) {
           cacheService.invalidateByPrefix(slotsKey);
           console.log('✅ [HorarioModal] Caché SLOTS invalidado');
+        }
+        if (disponibilidadKey && disponibilidadKey.trim()) {
+          cacheService.invalidateByPrefix(disponibilidadKey);
+          console.log('✅ [HorarioModal] Caché DISPONIBILIDAD invalidado');
         }
       } catch (cacheError) {
         console.warn('⚠️ [HorarioModal] Error al invalidar caché:', cacheError);

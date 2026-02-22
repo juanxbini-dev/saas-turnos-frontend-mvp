@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { buildKey } from '../cache/key.builder';
 import { ENTITIES } from '../cache/key.builder';
+import { cacheService } from '../cache/cache.service';
 import { disponibilidadService } from '../services/disponibilidad.service';
 
 export const useDisponibilidad = (profesionalId: string | null) => {
@@ -43,10 +44,22 @@ export const useDisponibilidad = (profesionalId: string | null) => {
     error: slotsError,
     revalidate: revalidateSlots
   } = useFetch(
-    selectedDate ? buildKey(ENTITIES.SLOTS, profesionalId, selectedDate) : null,
-    () => selectedDate ? disponibilidadService.getSlotsDisponibles(profesionalId!, selectedDate) : Promise.resolve([]),
-    { ttl: 300, enabled: !!selectedDate }
+    selectedDate && profesionalId ? buildKey(ENTITIES.SLOTS, profesionalId, selectedDate) : null,
+    () => selectedDate && profesionalId ? disponibilidadService.getSlotsDisponibles(profesionalId, selectedDate) : Promise.resolve([]),
+    { ttl: 30 }
   );
+
+  // Logging para depurar caché
+  useEffect(() => {
+    console.log('🔍 [useDisponibilidad] Slots actualizados:', {
+      selectedDate,
+      profesionalId,
+      slots,
+      loadingSlots,
+      slotsError,
+      slotsLength: slots?.length || 0
+    });
+  }, [slots, selectedDate, profesionalId, loadingSlots, slotsError]);
 
   const handleMonthChange = useCallback((newMes: number, newAño: number) => {
     console.log('🔍 [useDisponibilidad] handleMonthChange called:', { newMes, newAño });
@@ -57,9 +70,15 @@ export const useDisponibilidad = (profesionalId: string | null) => {
   }, []);
 
   const handleDateSelect = useCallback((date: string) => {
+    console.log('🔍 [useDisponibilidad] handleDateSelect called:', date);
     setSelectedDate(date);
     setSelectedSlot(null);
-  }, []);
+    
+    // Forzar revalidación de slots para la nueva fecha
+    setTimeout(() => {
+      revalidateSlots();
+    }, 100);
+  }, [revalidateSlots]);
 
   const handleSlotSelect = useCallback((slot: string) => {
     setSelectedSlot(slot);
@@ -70,11 +89,32 @@ export const useDisponibilidad = (profesionalId: string | null) => {
     setSelectedSlot(null);
   }, []);
 
-  // Función temporal para debugging
+  // Función temporal para debugging y limpieza de caché
   const forceRefresh = useCallback(() => {
-    console.log('🔍 [useDisponibilidad] Force refresh llamado');
-    revalidateDates();
-  }, [revalidateDates]);
+    console.log('🔍 [useDisponibilidad] Force refresh llamado - limpiando caché...');
+    
+    // Invalidar caché específico para el profesional actual
+    if (profesionalId) {
+      const disponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD, profesionalId, `${mes}-${año}`);
+      const slotsKey = selectedDate ? buildKey(ENTITIES.SLOTS, profesionalId, selectedDate) : null;
+      
+      console.log('🔍 [useDisponibilidad] Invalidando - disponibilidadKey:', disponibilidadKey);
+      console.log('🔍 [useDisponibilidad] Invalidando - slotsKey:', slotsKey);
+      
+      cacheService.invalidate(disponibilidadKey);
+      if (slotsKey) {
+        cacheService.invalidate(slotsKey);
+      }
+      
+      // Forzar revalidación
+      setTimeout(() => {
+        revalidateDates();
+        if (selectedDate) {
+          revalidateSlots();
+        }
+      }, 100);
+    }
+  }, [profesionalId, mes, año, selectedDate, revalidateDates, revalidateSlots]);
 
   return {
     // Estado

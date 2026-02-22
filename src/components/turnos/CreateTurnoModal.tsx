@@ -76,7 +76,8 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     handleMonthChange,
     handleDateSelect,
     handleSlotSelect,
-    reset: resetDisponibilidad
+    reset: resetDisponibilidad,
+    forceRefresh
   } = useDisponibilidad(selectedProfesional?.id || null);
 
   // Obtener profesionales (solo admin)
@@ -99,8 +100,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     () => {
       console.log('🔍 [CreateTurnoModal] Solicitando servicios para profesional:', selectedProfesional?.id);
       return selectedProfesional ? disponibilidadService.getServiciosProfesional(selectedProfesional.id) : Promise.resolve([]);
-    },
-    { enabled: !!selectedProfesional }
+    }
   );
 
   // Debug: log cuando los servicios cambian
@@ -140,15 +140,26 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     cliente.email.toLowerCase().includes(clienteSearch.toLowerCase())
   ).slice(0, 5) || [];
 
+  // Auto-seleccionar el profesional para staff no-admin
   useEffect(() => {
-    if (selectedProfesional && !isAdmin && selectedProfesional.id !== authUser?.id) {
-      setSelectedProfesional({
-        id: authUser!.authUser!.id,
-        nombre: authUser!.authUser!.email,
-        username: authUser!.authUser!.email
-      });
+    if (!isAdmin && authUser?.authUser && !selectedProfesional) {
+      const profesional = {
+        id: authUser.authUser.id,
+        nombre: authUser.authUser.nombre, // Usar el nombre real del usuario
+        username: authUser.authUser.email
+      };
+      console.log('🔍 [CreateTurnoModal] Auto-seleccionando profesional para staff:', profesional);
+      setSelectedProfesional(profesional);
+      setStep(2); // Saltar directamente al paso 2 (Servicios)
     }
-  }, [selectedProfesional, authUser, isAdmin]);
+  }, [authUser, isAdmin, selectedProfesional]);
+
+  // Asegurar que el paso sea correcto para staff cuando el modal se abre
+  useEffect(() => {
+    if (!isAdmin && selectedProfesional && step === 1) {
+      setStep(2);
+    }
+  }, [isAdmin, selectedProfesional, step]);
 
   const handleNextStep = () => {
     if (step < 4) {
@@ -172,13 +183,20 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       await turnoService.createTurno({
         cliente_id: selectedCliente.id,
         usuario_id: selectedProfesional.id,
-        servicio_id: selectedServicio.servicio_id,
+        servicio_id: (selectedServicio as any).servicio_id || selectedServicio.id,
         fecha: selectedDate,
         hora: selectedSlot,
         notas
       });
 
-      toast.success('Turno creado correctamente');
+      toast.success('Turno creado correctamente. Está pendiente de confirmación por email.');
+      
+      // Invalidar caché específico de slots para esta fecha y profesional
+      if (selectedProfesional && selectedDate) {
+        const specificSlotKey = buildKey(ENTITIES.SLOTS, selectedProfesional.id, selectedDate);
+        cacheService.invalidate(specificSlotKey);
+      }
+      
       onSuccess();
       onClose();
       resetModal();
@@ -191,7 +209,10 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
   const resetModal = () => {
     setStep(1);
-    setSelectedProfesional(null);
+    // No resetear selectedProfesional para staff (se mantiene el usuario logueado)
+    if (isAdmin) {
+      setSelectedProfesional(null);
+    }
     setSelectedServicio(null);
     setSelectedCliente(null);
     setNotas('');
@@ -246,6 +267,17 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const getStepTitle = () => {
+    // Para staff no-admin, el paso 1 no existe
+    if (!isAdmin) {
+      switch (step) {
+        case 2: return 'Servicio';
+        case 3: return 'Fecha y hora';
+        case 4: return 'Confirmación';
+        default: return '';
+      }
+    }
+    
+    // Para admin, mantener los pasos originales
     switch (step) {
       case 1: return 'Profesional';
       case 2: return 'Servicio';
@@ -256,6 +288,18 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const isStepComplete = (stepNumber: number) => {
+    // Para staff no-admin, el paso 1 está siempre completo
+    if (!isAdmin) {
+      switch (stepNumber) {
+        case 1: return true; // Siempre completo (profesional auto-seleccionado)
+        case 2: return !!selectedServicio;
+        case 3: return !!selectedDate && !!selectedSlot;
+        case 4: return !!selectedCliente;
+        default: return false;
+      }
+    }
+    
+    // Para admin, mantener la lógica original
     switch (stepNumber) {
       case 1: return !!selectedProfesional;
       case 2: return !!selectedServicio;
@@ -310,39 +354,58 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     >
       {/* Progress indicator */}
       <div className="flex items-center justify-center mb-6">
-        {[1, 2, 3, 4].map((stepNumber) => (
-          <div key={stepNumber} className="flex items-center">
-            <div
-              className={`
-                w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                ${step === stepNumber
-                  ? 'bg-blue-600 text-white'
-                  : isStepComplete(stepNumber)
-                  ? 'bg-green-500 text-white'
-                  : 'bg-gray-200 text-gray-500'
-                }
-              `}
-            >
-              {isStepComplete(stepNumber) && step !== stepNumber ? '✓' : stepNumber}
-            </div>
-            {stepNumber < 4 && (
+        {[1, 2, 3, 4].map((stepNumber) => {
+          // Para staff no-admin, mostrar solo pasos 2-3-4 como 1-2-3
+          if (!isAdmin && stepNumber === 1) return null; // Ocultar paso 1 para staff
+          
+          // Calcular el paso a mostrar y el paso actual
+          let displayStep: number;
+          let isCurrentStep: boolean;
+          
+          if (!isAdmin) {
+            // Staff: mapear pasos reales (2,3,4) a mostrados (1,2,3)
+            displayStep = stepNumber - 1; // 2→1, 3→2, 4→3
+            isCurrentStep = step === stepNumber;
+          } else {
+            // Admin: mantener lógica normal
+            displayStep = stepNumber;
+            isCurrentStep = step === stepNumber;
+          }
+          
+          return (
+            <div key={stepNumber} className="flex items-center">
               <div
                 className={`
-                  w-12 h-1 mx-2
-                  ${isStepComplete(stepNumber) ? 'bg-green-500' : 'bg-gray-200'}
+                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                  ${isCurrentStep
+                    ? 'bg-blue-600 text-white'
+                    : isStepComplete(stepNumber)
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-200 text-gray-500'
+                  }
                 `}
-              />
-            )}
-          </div>
-        ))}
+              >
+                {isStepComplete(stepNumber) && !isCurrentStep ? '✓' : displayStep}
+              </div>
+              {stepNumber < 4 && (
+                <div
+                  className={`
+                    w-12 h-1 mx-2
+                    ${isStepComplete(stepNumber) ? 'bg-green-500' : 'bg-gray-200'}
+                  `}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-center">{getStepTitle()}</h3>
       </div>
 
-      {/* Step 1 - Profesional */}
-      {step === 1 && (
+      {/* Step 1 - Profesional (solo para admin) */}
+      {step === 1 && isAdmin && (
         <div className="space-y-4">
           {isAdmin ? (
             <>
@@ -386,7 +449,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
           ) : (
             <Card className="bg-blue-50 border-blue-200">
               <div className="text-center">
-                <div className="font-medium text-blue-900">{user?.email}</div>
+                <div className="font-medium text-blue-900">{user?.nombre}</div>
                 <div className="text-sm text-blue-700">Turno asignado a vos</div>
               </div>
             </Card>
@@ -401,7 +464,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
           <Card className="bg-gray-50 border-gray-200">
             <div className="text-sm text-gray-600 mb-1">Profesional seleccionado:</div>
             <div className="font-medium text-gray-900">
-              {selectedProfesional?.nombre} @{selectedProfesional?.username}
+              {selectedProfesional?.nombre}
             </div>
           </Card>
           
@@ -450,7 +513,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             <Card className="bg-gray-50 border-gray-200">
               <div className="text-sm text-gray-600 mb-1">Profesional:</div>
               <div className="font-medium text-gray-900">
-                {selectedProfesional?.nombre} @{selectedProfesional?.username}
+                {selectedProfesional?.nombre}
               </div>
             </Card>
             <Card className="bg-gray-50 border-gray-200">
@@ -473,7 +536,17 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
           {selectedDate && (
             <div>
-              <h4 className="font-medium mb-3">Horarios disponibles</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium">Horarios disponibles</h4>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={forceRefresh}
+                  className="text-xs"
+                >
+                  🔄 Refresh
+                </Button>
+              </div>
               <TimeSlots
                 slots={slots}
                 selectedSlot={selectedSlot}
@@ -650,7 +723,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Profesional:</span>
-                <span className="font-medium">{selectedProfesional?.nombre} @{selectedProfesional?.username}</span>
+                <span className="font-medium">{selectedProfesional?.nombre}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Servicio:</span>
@@ -697,7 +770,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             type="button"
             onClick={handleNextStep}
             disabled={
-              (step === 1 && !selectedProfesional) ||
+              (step === 1 && isAdmin && !selectedProfesional) ||
               (step === 2 && !selectedServicio) ||
               (step === 3 && (!selectedDate || !selectedSlot))
             }

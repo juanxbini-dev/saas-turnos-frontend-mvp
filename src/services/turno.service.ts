@@ -12,6 +12,11 @@ export const turnoService = {
     return response.data.data;
   },
 
+  async confirmarTurno(id: string): Promise<Turno> {
+    const response = await axiosInstance.put(`/api/turnos/${id}/estado`, { estado: 'confirmado' });
+    return response.data.data;
+  },
+
   async cancelarTurno(id: string): Promise<Turno> {
     const response = await axiosInstance.put(`/api/turnos/${id}/estado`, { estado: 'cancelado' });
     return response.data.data;

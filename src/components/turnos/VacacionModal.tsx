@@ -92,10 +92,13 @@ export const VacacionModal: React.FC<VacacionModalProps> = ({
       
       // Invalidar caché relacionado de forma segura
       try {
+        console.log('🔍 [VacacionModal] Invalidando caché después de guardar vacación...');
+        
         const configKey = buildKey(ENTITIES.CONFIGURACION);
         const slotsKey = buildKey(ENTITIES.SLOTS);
+        const disponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD);
         
-        console.log('🔍 [VacacionModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey);
+        console.log('🔍 [VacacionModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey, 'disponibilidadKey:', disponibilidadKey);
         
         if (configKey && configKey.trim()) {
           cacheService.invalidateByPrefix(configKey);
@@ -104,6 +107,10 @@ export const VacacionModal: React.FC<VacacionModalProps> = ({
         if (slotsKey && slotsKey.trim()) {
           cacheService.invalidateByPrefix(slotsKey);
           console.log('✅ [VacacionModal] Caché SLOTS invalidado');
+        }
+        if (disponibilidadKey && disponibilidadKey.trim()) {
+          cacheService.invalidateByPrefix(disponibilidadKey);
+          console.log('✅ [VacacionModal] Caché DISPONIBILIDAD invalidado');
         }
       } catch (cacheError) {
         console.warn('⚠️ [VacacionModal] Error al invalidar caché:', cacheError);

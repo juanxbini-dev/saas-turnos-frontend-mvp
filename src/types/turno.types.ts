@@ -81,6 +81,7 @@ export interface Profesional {
 
 export interface ServicioProfesional {
   id: string;
+  servicio_id: string;
   nombre: string;
   descripcion: string;
   precio: number;

@@ -7,6 +7,11 @@ export const clienteService = {
     return response.data.data;
   },
 
+  async getMisClientes(): Promise<Cliente[]> {
+    const response = await axiosInstance.get('/api/clientes/mis-clientes');
+    return response.data.data;
+  },
+
   async createCliente(data: CreateClienteData): Promise<Cliente> {
     const response = await axiosInstance.post('/api/clientes', data);
     return response.data.data;

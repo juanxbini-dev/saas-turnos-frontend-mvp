@@ -11,6 +11,7 @@ export const ENTITIES = {
   SERVICIOS: 'servicios',
   MIS_SERVICIOS: 'mis-servicios',
   CLIENTES: 'clientes',
+  MIS_CLIENTES: 'mis-clientes',
   TURNOS: 'turnos',
   DISPONIBILIDAD: 'disponibilidad',
   SLOTS: 'slots',

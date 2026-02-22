@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Tabs, Button } from '../components/ui';
+import { Tabs, Button, ConfirmModal } from '../components/ui';
 import { ClientesCatalogo } from '../components/clientes/ClientesCatalogo';
 import { ClienteModal } from '../components/clientes/ClienteModal';
-import { MisClientesPlaceholder } from '../components/clientes/MisClientesPlaceholder';
+import { MisClientesList } from '../components/clientes/MisClientesList';
 import { clienteService } from '../services/cliente.service';
 import { useFetch } from '../hooks/useFetch';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +18,10 @@ function ClientesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [activeTab, setActiveTab] = useState('clientes');
+  const [toggleModal, setToggleModal] = useState<{ isOpen: boolean; cliente: Cliente | null }>({
+    isOpen: false,
+    cliente: null
+  });
 
   const isAdmin = authState.roles.includes('admin');
 
@@ -46,13 +50,20 @@ function ClientesPage() {
     handleOpenModal(cliente);
   };
 
-  const handleToggleActivo = async (cliente: Cliente) => {
-    try {
-      await clienteService.toggleActivo(cliente.id, !cliente.activo);
-      toast.success(`Cliente ${cliente.activo ? 'desactivado' : 'activado'} correctamente`);
-      revalidate();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || error.message || 'Error inesperado');
+  const handleToggleActivo = (cliente: Cliente) => {
+    setToggleModal({ isOpen: true, cliente });
+  };
+
+  const handleToggleConfirm = async () => {
+    if (toggleModal.cliente) {
+      try {
+        await clienteService.toggleActivo(toggleModal.cliente.id, !toggleModal.cliente.activo);
+        toast.success(`Cliente ${toggleModal.cliente.activo ? 'desactivado' : 'activado'} correctamente`);
+        revalidate();
+        setToggleModal({ isOpen: false, cliente: null });
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || error.message || 'Error inesperado');
+      }
     }
   };
 
@@ -102,7 +113,7 @@ function ClientesPage() {
           )}
 
           {activeTab === 'mis-clientes' && (
-            <MisClientesPlaceholder />
+            <MisClientesList />
           )}
 
           <ClienteModal
@@ -110,6 +121,17 @@ function ClientesPage() {
             isOpen={isModalOpen}
             onClose={handleCloseModal}
             onSuccess={handleSuccess}
+          />
+
+          {/* Modal de confirmación para activar/desactivar cliente */}
+          <ConfirmModal
+            isOpen={toggleModal.isOpen}
+            onClose={() => setToggleModal({ isOpen: false, cliente: null })}
+            onConfirm={handleToggleConfirm}
+            title={`${toggleModal.cliente?.activo ? 'Desactivar' : 'Activar'} cliente`}
+            message={`¿Estás seguro de que deseas ${toggleModal.cliente?.activo ? 'desactivar' : 'activar'} al cliente ${toggleModal.cliente?.nombre}?`}
+            confirmText={`${toggleModal.cliente?.activo ? 'Desactivar' : 'Activar'}`}
+            variant={toggleModal.cliente?.activo ? 'danger' : 'primary'}
           />
         </div>
       </main>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Table, Button, Badge, DataControls, EmptyState } from '../ui';
+import { Card, Table, Button, Badge, DataControls, EmptyState, ConfirmModal } from '../ui';
 import { TurnoConDetalle, TurnoEstado } from '../../types/turno.types';
 import { TurnoEstadoBadge } from '../ui/TurnoEstadoBadge';
 
@@ -8,15 +8,25 @@ interface TurnosCatalogoProps {
   loading: boolean;
   isAdmin: boolean;
   onCancelar: (turno: TurnoConDetalle) => void;
+  onConfirmar?: (turno: TurnoConDetalle) => void;
 }
 
 export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
   turnos,
   loading,
   isAdmin,
-  onCancelar
+  onCancelar,
+  onConfirmar
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [confirmarModal, setConfirmarModal] = useState<{ isOpen: boolean; turno: TurnoConDetalle | null }>({
+    isOpen: false,
+    turno: null
+  });
+  const [cancelarModal, setCancelarModal] = useState<{ isOpen: boolean; turno: TurnoConDetalle | null }>({
+    isOpen: false,
+    turno: null
+  });
 
   const toggleRowExpansion = (id: string) => {
     const newExpanded = new Set(expandedRows);
@@ -43,9 +53,29 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
     return estado === 'pendiente' || estado === 'confirmado';
   };
 
+  const canConfirmar = (estado: TurnoEstado) => {
+    return estado === 'pendiente' && onConfirmar;
+  };
+
   const handleCancelar = (turno: TurnoConDetalle) => {
-    if (window.confirm(`¿Estás seguro de que deseas cancelar el turno de ${turno.cliente_nombre}?`)) {
-      onCancelar(turno);
+    setCancelarModal({ isOpen: true, turno });
+  };
+
+  const handleConfirmar = (turno: TurnoConDetalle) => {
+    setConfirmarModal({ isOpen: true, turno });
+  };
+
+  const handleConfirmarConfirm = () => {
+    if (confirmarModal.turno && onConfirmar) {
+      onConfirmar(confirmarModal.turno);
+      setConfirmarModal({ isOpen: false, turno: null });
+    }
+  };
+
+  const handleCancelarConfirm = () => {
+    if (cancelarModal.turno) {
+      onCancelar(cancelarModal.turno);
+      setCancelarModal({ isOpen: false, turno: null });
     }
   };
 
@@ -98,15 +128,26 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
       key: 'id' as keyof TurnoConDetalle,
       header: 'Acciones',
       render: (value: any, turno: TurnoConDetalle) => (
-        canCancelar(turno.estado) && (
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => handleCancelar(turno)}
-          >
-            Cancelar
-          </Button>
-        )
+        <div className="flex items-center space-x-2">
+          {canConfirmar(turno.estado) && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => handleConfirmar(turno)}
+            >
+              Confirmar
+            </Button>
+          )}
+          {canCancelar(turno.estado) && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => handleCancelar(turno)}
+            >
+              Cancelar
+            </Button>
+          )}
+        </div>
       )
     }
   ];
@@ -133,100 +174,138 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
   }
 
   return (
-    <div className="space-y-4">
-      <DataControls
-        data={turnos}
-        searchFields={['cliente_nombre', 'usuario_nombre', 'servicio']}
-        sortOptions={[
-          { value: 'fecha', label: 'Fecha' },
-          { value: 'estado', label: 'Estado' },
-          { value: 'cliente_nombre', label: 'Cliente' },
-          ...(isAdmin ? [{ value: 'usuario_nombre', label: 'Profesional' }] : [])
-        ]}
-        defaultSort="fecha"
-        pageSize={10}
-      >
-        {(paginatedTurnos) => (
-          <>
-            {/* Desktop Table */}
-            <div className="hidden lg:block">
-              <Table
-                columns={columns}
-                data={paginatedTurnos}
-              />
-            </div>
+    <>
+      <div className="space-y-4">
+        <DataControls
+          data={turnos}
+          searchFields={['cliente_nombre', 'usuario_nombre', 'servicio']}
+          sortOptions={[
+            { value: 'fecha', label: 'Fecha' },
+            { value: 'estado', label: 'Estado' },
+            { value: 'cliente_nombre', label: 'Cliente' },
+            ...(isAdmin ? [{ value: 'usuario_nombre', label: 'Profesional' }] : [])
+          ]}
+          defaultSort="fecha"
+          pageSize={10}
+        >
+          {(paginatedTurnos) => (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden lg:block">
+                <Table
+                  columns={columns}
+                  data={paginatedTurnos}
+                />
+              </div>
 
-            {/* Mobile Cards */}
-            <div className="lg:hidden space-y-3">
-              {paginatedTurnos.map((turno) => (
-                <Card key={turno.id} className="p-4">
-                  <div 
-                    className="cursor-pointer"
-                    onClick={() => toggleRowExpansion(turno.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">
-                          {turno.cliente_nombre}
+              {/* Mobile Cards */}
+              <div className="lg:hidden space-y-3">
+                {paginatedTurnos.map((turno) => (
+                  <Card key={turno.id} className="p-4">
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => toggleRowExpansion(turno.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">
+                            {turno.cliente_nombre}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {turno.servicio} • {formatFecha(turno.fecha)} {turno.hora}
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {turno.servicio} • {formatFecha(turno.fecha)} {turno.hora}
+                        <div className="flex items-center space-x-2">
+                          <TurnoEstadoBadge estado={turno.estado} />
+                          <div className="text-gray-400">
+                            {expandedRows.has(turno.id) ? '−' : '+'}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <TurnoEstadoBadge estado={turno.estado} />
-                        <div className="text-gray-400">
-                          {expandedRows.has(turno.id) ? '−' : '+'}
+
+                      {expandedRows.has(turno.id) && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="space-y-2 text-sm">
+                            <div>
+                              <span className="font-medium">Email:</span> {turno.cliente_email}
+                            </div>
+                            {isAdmin && (
+                              <div>
+                                <span className="font-medium">Profesional:</span> {turno.usuario_nombre} (@{turno.usuario_username})
+                              </div>
+                            )}
+                            <div>
+                              <span className="font-medium">Servicio:</span> {turno.servicio}
+                            </div>
+                            <div>
+                              <span className="font-medium">Fecha y hora:</span> {formatFecha(turno.fecha)} {turno.hora}
+                            </div>
+                            {turno.notas && (
+                              <div>
+                                <span className="font-medium">Notas:</span> {turno.notas}
+                              </div>
+                            )}
+                            {(canConfirmar(turno.estado) || canCancelar(turno.estado)) && (
+                              <div className="pt-2 space-y-2">
+                                {canConfirmar(turno.estado) && (
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleConfirmar(turno);
+                                    }}
+                                  >
+                                    Confirmar turno
+                                  </Button>
+                                )}
+                                {canCancelar(turno.estado) && (
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCancelar(turno);
+                                    }}
+                                  >
+                                    Cancelar turno
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+        </DataControls>
+      </div>
 
-                    {expandedRows.has(turno.id) && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <div className="space-y-2 text-sm">
-                          <div>
-                            <span className="font-medium">Email:</span> {turno.cliente_email}
-                          </div>
-                          {isAdmin && (
-                            <div>
-                              <span className="font-medium">Profesional:</span> {turno.usuario_nombre} (@{turno.usuario_username})
-                            </div>
-                          )}
-                          <div>
-                            <span className="font-medium">Servicio:</span> {turno.servicio}
-                          </div>
-                          <div>
-                            <span className="font-medium">Fecha y hora:</span> {formatFecha(turno.fecha)} {turno.hora}
-                          </div>
-                          {turno.notas && (
-                            <div>
-                              <span className="font-medium">Notas:</span> {turno.notas}
-                            </div>
-                          )}
-                          {canCancelar(turno.estado) && (
-                            <div className="pt-2">
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCancelar(turno);
-                                }}
-                              >
-                                Cancelar turno
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </>
-        )}
-      </DataControls>
-    </div>
+      {/* Modal de confirmación para turnos */}
+      <ConfirmModal
+        isOpen={confirmarModal.isOpen}
+        onClose={() => setConfirmarModal({ isOpen: false, turno: null })}
+        onConfirm={handleConfirmarConfirm}
+        title="Confirmar turno"
+        message={`¿Estás seguro de que deseas confirmar el turno de ${confirmarModal.turno?.cliente_nombre}?`}
+        confirmText="Confirmar turno"
+        variant="primary"
+      />
+
+      {/* Modal de cancelación para turnos */}
+      <ConfirmModal
+        isOpen={cancelarModal.isOpen}
+        onClose={() => setCancelarModal({ isOpen: false, turno: null })}
+        onConfirm={handleCancelarConfirm}
+        title="Cancelar turno"
+        message={`¿Estás seguro de que deseas cancelar el turno de ${cancelarModal.turno?.cliente_nombre}?`}
+        confirmText="Cancelar turno"
+        variant="danger"
+      />
+    </>
   );
 };

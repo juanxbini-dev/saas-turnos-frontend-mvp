@@ -6,7 +6,9 @@ import { turnoService } from '../services/turno.service';
 import { cacheService } from '../cache/cache.service';
 import { Button, Tabs, Spinner } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../hooks/useToast';
 import { TurnosCatalogo } from '../components/turnos/TurnosCatalogo';
+import { TurnosCompletados } from '../components/turnos/TurnosCompletados';
 import { DisponibilidadConfig } from '../components/turnos/DisponibilidadConfig';
 import { CreateTurnoModal } from '../components/turnos/CreateTurnoModal';
 
@@ -14,6 +16,7 @@ const TurnosPage: React.FC = () => {
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('turnos');
   const { state: authUser } = useAuth();
+  const toast = useToast();
 
   const {
     data: turnos,
@@ -31,10 +34,24 @@ const TurnosPage: React.FC = () => {
   const handleCancelarTurno = async (turno: any) => {
     try {
       await turnoService.cancelarTurno(turno.id);
+      toast.success('Turno cancelado correctamente');
       cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
       revalidate();
     } catch (error: any) {
       console.error('Error al cancelar turno:', error);
+      toast.error(error.message || 'Error al cancelar turno');
+    }
+  };
+
+  const handleConfirmarTurno = async (turno: any) => {
+    try {
+      await turnoService.confirmarTurno(turno.id);
+      toast.success('Turno confirmado correctamente');
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
+      revalidate();
+    } catch (error: any) {
+      console.error('Error al confirmar turno:', error);
+      toast.error(error.message || 'Error al confirmar turno');
     }
   };
 
@@ -94,12 +111,17 @@ const TurnosPage: React.FC = () => {
               />
 
               {activeTab === 'turnos' && (
-                <TurnosCatalogo
-                  turnos={turnos || []}
-                  loading={loading}
-                  isAdmin={isAdmin}
-                  onCancelar={handleCancelarTurno}
-                />
+                <>
+                  <TurnosCatalogo
+                    turnos={turnos || []}
+                    loading={loading}
+                    isAdmin={isAdmin}
+                    onCancelar={handleCancelarTurno}
+                    onConfirmar={handleConfirmarTurno}
+                  />
+                  
+                  <TurnosCompletados />
+                </>
               )}
 
               {activeTab === 'disponibilidad' && (

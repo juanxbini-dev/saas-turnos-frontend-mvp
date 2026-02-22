@@ -10,8 +10,8 @@ interface NavbarProps {
 const Navbar = ({ mobileOpen, onToggleMobile }: NavbarProps) => {
   const { state } = useAuth();
 
-  const userInitial = state.authUser?.email?.charAt(0).toUpperCase() ?? 'U';
-  const userEmail   = state.authUser?.email ?? 'Invitado';
+  const userInitial = state.authUser?.nombre?.charAt(0).toUpperCase() ?? state.authUser?.email?.charAt(0).toUpperCase() ?? 'U';
+  const userName    = state.authUser?.nombre ?? state.authUser?.email ?? 'Invitado';
 
   return (
     <nav className="h-16 bg-gray-900 text-white flex items-center px-4 lg:px-6 justify-between flex-shrink-0 z-30">
@@ -31,7 +31,7 @@ const Navbar = ({ mobileOpen, onToggleMobile }: NavbarProps) => {
       {/* Derecha: info usuario + logout */}
       <div className="flex items-center gap-3">
         <span className="hidden sm:block text-sm text-gray-400 truncate max-w-[180px]">
-          {userEmail}
+          {userName}
         </span>
 
         {/* Avatar inicial */}
