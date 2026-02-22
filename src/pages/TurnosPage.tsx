@@ -1,45 +1,122 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useFetch } from '../hooks/useFetch';
+import { buildKey } from '../cache/key.builder';
+import { ENTITIES } from '../cache/key.builder';
+import { turnoService } from '../services/turno.service';
+import { cacheService } from '../cache/cache.service';
+import { Button, Tabs, Spinner } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
+import { TurnosCatalogo } from '../components/turnos/TurnosCatalogo';
+import { DisponibilidadConfig } from '../components/turnos/DisponibilidadConfig';
+import { CreateTurnoModal } from '../components/turnos/CreateTurnoModal';
 
-function TurnosPage() {
-  const { state } = useAuth();
+const TurnosPage: React.FC = () => {
+  const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('turnos');
+  const { state: authUser } = useAuth();
+
+  const {
+    data: turnos,
+    loading,
+    error,
+    revalidate
+  } = useFetch(
+    buildKey(ENTITIES.TURNOS),
+    () => turnoService.getTurnos(),
+    { ttl: 300 }
+  );
+
+  const isAdmin = authUser?.roles.includes('admin');
+
+  const handleCancelarTurno = async (turno: any) => {
+    try {
+      await turnoService.cancelarTurno(turno.id);
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
+      revalidate();
+    } catch (error: any) {
+      console.error('Error al cancelar turno:', error);
+    }
+  };
+
+  const handleCrearSuccess = () => {
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
+    revalidate();
+  };
+
+  const tabs = [
+    { id: 'turnos', label: 'Turnos' },
+    { id: 'disponibilidad', label: 'Mi disponibilidad' }
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">Error al cargar los turnos</p>
+          <Button onClick={revalidate}>Reintentar</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">
-              Turnos
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Gestión de turnos y agendamientos
-            </p>
-            
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-semibold text-orange-900 mb-2">
-                Calendario de Turnos
-              </h3>
-              <div className="space-y-1">
-                <p className="text-sm text-orange-800">
-                  Aquí podrás administrar todos los turnos agendados
-                </p>
-                <p className="text-sm text-orange-800">
-                  Funcionalidades: Crear, editar, cancelar y ver turnos
-                </p>
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Gestión de Turnos
+                </h1>
+                {activeTab === 'turnos' && (
+                  <Button onClick={() => setIsCrearModalOpen(true)}>
+                    Nuevo turno
+                  </Button>
+                )}
               </div>
             </div>
 
-            <div className="mt-8">
-              <button className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors">
-                Nuevo Turno
-              </button>
+            <div className="p-6">
+              <Tabs
+                tabs={tabs}
+                activeTab={activeTab}
+                onChange={setActiveTab}
+              />
+
+              {activeTab === 'turnos' && (
+                <TurnosCatalogo
+                  turnos={turnos || []}
+                  loading={loading}
+                  isAdmin={isAdmin}
+                  onCancelar={handleCancelarTurno}
+                />
+              )}
+
+              {activeTab === 'disponibilidad' && (
+                <DisponibilidadConfig onRevalidate={revalidate} />
+              )}
             </div>
           </div>
         </div>
       </main>
+
+      <CreateTurnoModal
+        isOpen={isCrearModalOpen}
+        onClose={() => setIsCrearModalOpen(false)}
+        onSuccess={handleCrearSuccess}
+      />
     </div>
   );
-}
+};
 
 export default TurnosPage;

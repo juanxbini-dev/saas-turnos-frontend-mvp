@@ -10,7 +10,12 @@ export const ENTITIES = {
   USUARIOS: 'usuarios',
   SERVICIOS: 'servicios',
   MIS_SERVICIOS: 'mis-servicios',
-  CLIENTES: 'clientes'
+  CLIENTES: 'clientes',
+  TURNOS: 'turnos',
+  DISPONIBILIDAD: 'disponibilidad',
+  SLOTS: 'slots',
+  CONFIGURACION: 'configuracion',
+  PROFESIONALES: 'profesionales'
 } as const;
 
 function decodeJWT(token: string): any | null {

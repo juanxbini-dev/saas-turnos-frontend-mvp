@@ -13,13 +13,22 @@ interface TabsProps {
 }
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className = '' }) => {
+  console.log('🔍 [Tabs] Props:', { tabs, activeTab, onChange: typeof onChange });
+  
   return (
     <div className={`border-b border-gray-200 mb-6 ${className}`}>
       <nav className="-mb-px flex space-x-8">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => onChange(tab.id)}
+            onClick={() => {
+              console.log('🔍 [Tabs] Click en tab:', tab.id, 'onChange:', typeof onChange);
+              if (typeof onChange === 'function') {
+                onChange(tab.id);
+              } else {
+                console.error('💥 [Tabs] onChange no es una función:', onChange);
+              }
+            }}
             className={`
               py-2 px-1 border-b-2 font-medium text-sm transition-colors
               ${

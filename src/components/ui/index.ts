@@ -16,6 +16,9 @@ export { Tabs } from './Tabs';
 export { EmptyState } from './EmptyState';
 export { Pagination } from './Pagination';
 export { DataControls } from './DataControls';
+export { Calendar } from './Calendar';
+export { TimeSlots } from './TimeSlots';
+export { TurnoEstadoBadge } from './TurnoEstadoBadge';
 
 // Re-exportar tipos para uso en TypeScript
 export type { ButtonProps } from './Button';
