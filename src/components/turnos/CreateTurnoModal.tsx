@@ -8,11 +8,16 @@ import { cacheService } from '../../cache/cache.service';
 import { disponibilidadService, turnoService, clienteService } from '../../services';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
+import { format } from 'date-fns';
 
 interface CreateTurnoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  preselectedProfesionalId: string;
+  preselectedProfesionalNombre?: string;
+  preselectedFecha?: Date;
+  preselectedHora?: Date;
 }
 
 interface Cliente {
@@ -40,9 +45,13 @@ interface ServicioProfesional {
 export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  preselectedProfesionalId,
+  preselectedProfesionalNombre,
+  preselectedFecha,
+  preselectedHora
 }) => {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<2 | 3 | 4>(2);
   const [selectedProfesional, setSelectedProfesional] = useState<Profesional | null>(null);
   const [selectedServicio, setSelectedServicio] = useState<ServicioProfesional | null>(null);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
@@ -140,36 +149,53 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     cliente.email.toLowerCase().includes(clienteSearch.toLowerCase())
   ).slice(0, 5) || [];
 
-  // Auto-seleccionar el profesional para staff no-admin
+  // Preseleccionar fecha y hora si vienen como props (pero no saltar de paso)
   useEffect(() => {
-    if (!isAdmin && authUser?.authUser && !selectedProfesional) {
-      const profesional = {
-        id: authUser.authUser.id,
-        nombre: authUser.authUser.nombre, // Usar el nombre real del usuario
-        username: authUser.authUser.email
-      };
-      console.log('🔍 [CreateTurnoModal] Auto-seleccionando profesional para staff:', profesional);
-      setSelectedProfesional(profesional);
-      setStep(2); // Saltar directamente al paso 2 (Servicios)
+    if (preselectedFecha && selectedProfesional) {
+      const formattedDate = format(preselectedFecha, 'yyyy-MM-dd');
+      handleDateSelect(formattedDate);
+      
+      // Si también viene hora preseleccionada, seleccionarla pero mantenerse en paso 2
+      if (preselectedHora) {
+        const formattedTime = format(preselectedHora, 'HH:mm');
+        handleSlotSelect(formattedTime);
+      }
+      // Mantenerse en paso 2 (Servicios) para el nuevo flujo unificado
     }
-  }, [authUser, isAdmin, selectedProfesional]);
+  }, [preselectedFecha, preselectedHora, selectedProfesional]);
 
-  // Asegurar que el paso sea correcto para staff cuando el modal se abre
+  // Auto-seleccionar profesional si viene preseleccionado (para Dashboard)
   useEffect(() => {
-    if (!isAdmin && selectedProfesional && step === 1) {
-      setStep(2);
+    if (preselectedProfesionalId && !selectedProfesional) {
+      // Para Dashboard, crear objeto profesional con el nombre preseleccionado
+      setSelectedProfesional({
+        id: preselectedProfesionalId,
+        nombre: preselectedProfesionalNombre || '',
+        username: ''
+      });
     }
-  }, [isAdmin, selectedProfesional, step]);
+  }, [preselectedProfesionalId, preselectedProfesionalNombre, selectedProfesional]);
+
+  // Complementar con datos completos cuando lleguen (solo para admin)
+  useEffect(() => {
+    if (preselectedProfesionalId && profesionalesData?.data && selectedProfesional) {
+      const profesional = (profesionalesData.data as any).profesionales?.find((p: any) => p.id === preselectedProfesionalId);
+      if (profesional) {
+        setSelectedProfesional(profesional);
+      }
+    }
+  }, [preselectedProfesionalId, profesionalesData, selectedProfesional]);
+
 
   const handleNextStep = () => {
     if (step < 4) {
-      setStep(step + 1 as 1 | 2 | 3 | 4);
+      setStep(step + 1 as 2 | 3 | 4);
     }
   };
 
   const handlePrevStep = () => {
-    if (step > 1) {
-      setStep(step - 1 as 1 | 2 | 3 | 4);
+    if (step > 2) {
+      setStep(step - 1 as 2 | 3 | 4);
     }
   };
 
@@ -208,11 +234,8 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const resetModal = () => {
-    setStep(1);
-    // No resetear selectedProfesional para staff (se mantiene el usuario logueado)
-    if (isAdmin) {
-      setSelectedProfesional(null);
-    }
+    setStep(2);
+    setSelectedProfesional(null);
     setSelectedServicio(null);
     setSelectedCliente(null);
     setNotas('');
@@ -267,19 +290,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const getStepTitle = () => {
-    // Para staff no-admin, el paso 1 no existe
-    if (!isAdmin) {
-      switch (step) {
-        case 2: return 'Servicio';
-        case 3: return 'Fecha y hora';
-        case 4: return 'Confirmación';
-        default: return '';
-      }
-    }
-    
-    // Para admin, mantener los pasos originales
     switch (step) {
-      case 1: return 'Profesional';
       case 2: return 'Servicio';
       case 3: return 'Fecha y hora';
       case 4: return 'Confirmación';
@@ -288,20 +299,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const isStepComplete = (stepNumber: number) => {
-    // Para staff no-admin, el paso 1 está siempre completo
-    if (!isAdmin) {
-      switch (stepNumber) {
-        case 1: return true; // Siempre completo (profesional auto-seleccionado)
-        case 2: return !!selectedServicio;
-        case 3: return !!selectedDate && !!selectedSlot;
-        case 4: return !!selectedCliente;
-        default: return false;
-      }
-    }
-    
-    // Para admin, mantener la lógica original
     switch (stepNumber) {
-      case 1: return !!selectedProfesional;
       case 2: return !!selectedServicio;
       case 3: return !!selectedDate && !!selectedSlot;
       case 4: return !!selectedCliente;
@@ -354,23 +352,9 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     >
       {/* Progress indicator */}
       <div className="flex items-center justify-center mb-6">
-        {[1, 2, 3, 4].map((stepNumber) => {
-          // Para staff no-admin, mostrar solo pasos 2-3-4 como 1-2-3
-          if (!isAdmin && stepNumber === 1) return null; // Ocultar paso 1 para staff
-          
-          // Calcular el paso a mostrar y el paso actual
-          let displayStep: number;
-          let isCurrentStep: boolean;
-          
-          if (!isAdmin) {
-            // Staff: mapear pasos reales (2,3,4) a mostrados (1,2,3)
-            displayStep = stepNumber - 1; // 2→1, 3→2, 4→3
-            isCurrentStep = step === stepNumber;
-          } else {
-            // Admin: mantener lógica normal
-            displayStep = stepNumber;
-            isCurrentStep = step === stepNumber;
-          }
+        {[2, 3, 4].map((stepNumber, index) => {
+          const displayStep = index + 1; // 2→1, 3→2, 4→3
+          const isCurrentStep = step === stepNumber;
           
           return (
             <div key={stepNumber} className="flex items-center">
@@ -404,58 +388,6 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
         <h3 className="text-lg font-semibold text-center">{getStepTitle()}</h3>
       </div>
 
-      {/* Step 1 - Profesional (solo para admin) */}
-      {step === 1 && isAdmin && (
-        <div className="space-y-4">
-          {isAdmin ? (
-            <>
-              <Input
-                placeholder="Buscar profesional..."
-                value={clienteSearch}
-                onChange={(e) => setClienteSearch(e.target.value)}
-              />
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {loadingProfesionales ? (
-                  <div className="flex justify-center py-4">
-                    <Spinner />
-                  </div>
-                ) : (
-                  profesionalesData?.profesionales?.map((profesional: Profesional) => (
-                    <Card
-                      key={profesional.id}
-                      className={`cursor-pointer hover:bg-blue-50 border-2 transition-all ${
-                        selectedProfesional?.id === profesional.id
-                          ? 'bg-blue-100 border-blue-500'
-                          : 'border-gray-200 hover:border-blue-300'
-                      }`}
-                      onClick={() => setSelectedProfesional(profesional)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{profesional.nombre}</div>
-                          <div className="text-sm text-gray-500">@{profesional.username}</div>
-                        </div>
-                        {selectedProfesional?.id === profesional.id && (
-                          <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center">
-                            ✓
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </>
-          ) : (
-            <Card className="bg-blue-50 border-blue-200">
-              <div className="text-center">
-                <div className="font-medium text-blue-900">{user?.nombre}</div>
-                <div className="text-sm text-blue-700">Turno asignado a vos</div>
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
 
       {/* Step 2 - Servicio */}
       {step === 2 && (
@@ -760,7 +692,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
           type="button"
           variant="secondary"
           onClick={handlePrevStep}
-          disabled={step === 1}
+          disabled={step === 2}
         >
           Anterior
         </Button>
@@ -770,7 +702,6 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             type="button"
             onClick={handleNextStep}
             disabled={
-              (step === 1 && isAdmin && !selectedProfesional) ||
               (step === 2 && !selectedServicio) ||
               (step === 3 && (!selectedDate || !selectedSlot))
             }

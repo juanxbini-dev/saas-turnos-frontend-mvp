@@ -399,19 +399,14 @@ export function DashboardCalendario({
       fecha,
       hora,
       profesionalId,
-      profesionalSeleccionado: !!profesionalId,
-      modoStaff: true // Siempre comportarse como staff
+      profesionalSeleccionado: !!profesionalId
     });
 
-    // Comportamiento staff: siempre saltar a servicios si hay profesional
-    // Si no hay profesional, mostrar mensaje para que seleccione uno primero
+    // Verificar que haya un profesional seleccionado
     if (!profesionalId) {
       toast.warning('Por favor, selecciona un profesional primero');
       return;
     }
-
-    // Comportamiento staff: siempre iniciar desde paso 2 (servicios)
-    console.log('🎯 [DashboardCalendario] Modo staff: Iniciando desde paso 2 (Servicios)');
 
     // Usar la firma original de onSlotSelect (fecha, hora)
     onSlotSelect(fecha, hora);

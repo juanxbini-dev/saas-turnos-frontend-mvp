@@ -136,6 +136,10 @@ const TurnosPage: React.FC = () => {
         isOpen={isCrearModalOpen}
         onClose={() => setIsCrearModalOpen(false)}
         onSuccess={handleCrearSuccess}
+        preselectedProfesionalId=""
+        preselectedProfesionalNombre={undefined}
+        preselectedFecha={undefined}
+        preselectedHora={undefined}
       />
     </div>
   );
