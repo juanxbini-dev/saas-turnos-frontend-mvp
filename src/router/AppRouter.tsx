@@ -10,6 +10,7 @@ import PerfilPage from '../pages/PerfilPage';
 import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
 import TestComponentPage from '../pages/TestComponentPage';
+import TestApiPage from '../pages/TestApiPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
 import Layout from '../components/layout/Layout';
@@ -34,6 +35,8 @@ const AppRouter = () => {
           <Route path="/productos" element={<ProductosPage />} />
           <Route path="/servicios" element={<ServiciosPage />} />
           <Route path="/test-component" element={<TestComponentPage />} />
+          {/* TODO: eliminar en producción */}
+          <Route path="/test-api" element={<TestApiPage />} />
         </Route>
       </Route>
     </Routes>
