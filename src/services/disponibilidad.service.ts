@@ -35,12 +35,11 @@ export const disponibilidadService = {
   },
 
   async getProfesionales(params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-  }): Promise<{ profesionales: Profesional[]; total: number }> {
+    limit?: number
+    search?: string
+  }): Promise<{ data: Profesional[] }> {
     const response = await axiosInstance.get('/api/usuarios/profesionales', { params });
-    return response.data.data;
+    return response.data;
   },
 
   async getServiciosProfesional(profesionalId: string): Promise<ServicioProfesional[]> {

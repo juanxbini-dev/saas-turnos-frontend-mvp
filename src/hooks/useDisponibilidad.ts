@@ -4,12 +4,18 @@ import { buildKey } from '../cache/key.builder';
 import { ENTITIES } from '../cache/key.builder';
 import { cacheService } from '../cache/cache.service';
 import { disponibilidadService } from '../services/disponibilidad.service';
+import { DateHelper } from '../shared/utils/DateHelper';
+
+// Feature flags para migración gradual
+const USE_NEW_DATE_HELPER = (window as any).__ENV__?.REACT_APP_USE_NEW_DATE_HELPER === 'true';
 
 export const useDisponibilidad = (profesionalId: string | null) => {
   console.log('🔍 [useDisponibilidad] Hook inicializado con profesionalId:', profesionalId);
   
-  const [mes, setMes] = useState(new Date().getMonth() + 1);
-  const [año, setAño] = useState(new Date().getFullYear());
+  // Usar DateHelper para obtener fecha actual
+  const today = USE_NEW_DATE_HELPER ? DateHelper.today() : new Date();
+  const [mes, setMes] = useState(today.getMonth() + 1);
+  const [año, setAño] = useState(today.getFullYear());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 

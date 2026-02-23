@@ -1,5 +1,9 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { DateHelper } from '../../shared/utils/DateHelper';
+
+// Feature flags para migración gradual
+const USE_NEW_DATE_HELPER = (window as any).__ENV__?.REACT_APP_USE_NEW_DATE_HELPER === 'true';
 
 interface CalendarProps {
   availableDates: string[];
@@ -23,16 +27,16 @@ export const Calendar: React.FC<CalendarProps> = ({
   console.log('🔍 [Calendar] Props recibidos:', { availableDates, selectedDate, currentMes, currentAño, loading });
   
   const getDaysInMonth = (mes: number, año: number) => {
-    return new Date(año, mes, 0).getDate();
+    return USE_NEW_DATE_HELPER ? DateHelper.getDaysInMonth(new Date(año, mes - 1, 1)) : new Date(año, mes, 0).getDate();
   };
 
   const getFirstDayOfMonth = (mes: number, año: number) => {
-    return new Date(año, mes - 1, 1).getDay();
+    return USE_NEW_DATE_HELPER ? DateHelper.getFirstDayOfMonth(new Date(año, mes - 1, 1)) : new Date(año, mes - 1, 1).getDay();
   };
 
   const formatDate = (day: number) => {
-    const date = new Date(currentAño, currentMes - 1, day);
-    return date.toISOString().split('T')[0];
+    const date = USE_NEW_DATE_HELPER ? DateHelper.createDate(currentAño, currentMes, day) : new Date(currentAño, currentMes - 1, day);
+    return USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(date) : date.toISOString().split('T')[0];
   };
 
   const isDateAvailable = (date: string) => {

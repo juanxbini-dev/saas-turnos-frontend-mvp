@@ -69,6 +69,12 @@ export function DashboardPage() {
 
   // Manejar selección de slot en el calendario
   const handleSlotSelect = (fecha: Date, hora: Date) => {
+    // Solo abrir modal si hay un profesional seleccionado
+    if (!selectedProfesionalId) {
+      toast.warning('Por favor, selecciona un profesional primero');
+      return;
+    }
+    
     setPreselectedDate(fecha);
     setPreselectedHora(hora);
     setIsCrearModalOpen(true);
@@ -174,6 +180,7 @@ export function DashboardPage() {
         isOpen={isCrearModalOpen}
         onClose={handleModalClose}
         onSuccess={handleTurnoCreado}
+        mode="dashboard"
         preselectedProfesionalId={selectedProfesionalId || ''}
         preselectedProfesionalNombre={profesionalSeleccionado?.nombre}
         preselectedFecha={preselectedDate || undefined}

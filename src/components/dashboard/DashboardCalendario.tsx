@@ -13,6 +13,10 @@ import { TurnoConDetalle } from '../../types/turno.types';
 import { TurnoPopover } from './TurnoPopover';
 import { useToast } from '../../hooks/useToast';
 import { cacheService } from '../../cache/cache.service';
+import { DateHelper } from '../../shared/utils/DateHelper';
+
+// Feature flags para migración gradual
+const USE_NEW_DATE_HELPER = (window as any).__ENV__?.REACT_APP_USE_NEW_DATE_HELPER === 'true';
 
 // Componente personalizado para slots sin división
 const TimeSlotWrapper: React.FC<any> = ({ children }) => (
@@ -120,27 +124,51 @@ export function DashboardCalendario({
     let start: Date;
     let end: Date;
 
-    switch (view) {
-      case 'week':
-        start = startOfWeek(date, { weekStartsOn: 1 });
-        end = endOfWeek(date, { weekStartsOn: 1 });
-        break;
-      case 'day':
-        start = date;
-        end = date;
-        break;
-      case 'month':
-        start = startOfMonth(date);
-        end = endOfMonth(date);
-        break;
-      default:
-        start = startOfWeek(date, { weekStartsOn: 1 });
-        end = endOfWeek(date, { weekStartsOn: 1 });
+    if (USE_NEW_DATE_HELPER) {
+      switch (view) {
+        case 'week':
+          const weekRange = DateHelper.getWeekRange(date);
+          start = weekRange.start;
+          end = weekRange.end;
+          break;
+        case 'day':
+          start = date;
+          end = date;
+          break;
+        case 'month':
+          const monthRange = DateHelper.getMonthRange(date);
+          start = monthRange.start;
+          end = monthRange.end;
+          break;
+        default:
+          const defaultWeekRange = DateHelper.getWeekRange(date);
+          start = defaultWeekRange.start;
+          end = defaultWeekRange.end;
+      }
+    } else {
+      // Legacy implementation
+      switch (view) {
+        case 'week':
+          start = startOfWeek(date, { weekStartsOn: 1 });
+          end = endOfWeek(date, { weekStartsOn: 1 });
+          break;
+        case 'day':
+          start = date;
+          end = date;
+          break;
+        case 'month':
+          start = startOfMonth(date);
+          end = endOfMonth(date);
+          break;
+        default:
+          start = startOfWeek(date, { weekStartsOn: 1 });
+          end = endOfWeek(date, { weekStartsOn: 1 });
+      }
     }
 
     return {
-      start: format(start, 'yyyy-MM-dd'),
-      end: format(end, 'yyyy-MM-dd')
+      start: USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(start) : format(start, 'yyyy-MM-dd'),
+      end: USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(end) : format(end, 'yyyy-MM-dd')
     };
   }, []);
 
@@ -251,8 +279,8 @@ export function DashboardCalendario({
       // Calcular el intervalo entre slots consecutivos
       const slots = (slotsDisponibles as any)[primerDiaConSlots];
       if (slots.length >= 2) {
-        const hora1 = new Date(`2000-01-01T${slots[0]}:00`);
-        const hora2 = new Date(`2000-01-01T${slots[1]}:00`);
+        const hora1 = USE_NEW_DATE_HELPER ? DateHelper.combineDateTime('2000-01-01', slots[0]) : new Date(`2000-01-01T${slots[0]}:00`);
+        const hora2 = USE_NEW_DATE_HELPER ? DateHelper.combineDateTime('2000-01-01', slots[1]) : new Date(`2000-01-01T${slots[1]}:00`);
         const diffMinutos = (hora2.getTime() - hora1.getTime()) / 60000;
         console.log('🔧 [DashboardCalendario] Intervalo calculado desde slots:', diffMinutos);
         return diffMinutos > 0 ? diffMinutos : 30;
@@ -283,10 +311,11 @@ export function DashboardCalendario({
         
         console.log('🔧 [DashboardCalendario] Procesando fecha/hora:', {
           original: { fecha: turno.fecha, hora: turno.hora },
-          limpiado: { fecha: fechaStr, hora: horaStr }
+          limpiado: { fecha: fechaStr, hora: horaStr },
+          useNewHelper: USE_NEW_DATE_HELPER
         });
         
-        const startDate = new Date(`${fechaStr}T${horaStr}:00`);
+        const startDate = USE_NEW_DATE_HELPER ? DateHelper.combineDateTime(fechaStr, horaStr) : new Date(`${fechaStr}T${horaStr}:00`);
         
         // Validar que la fecha sea válida
         if (isNaN(startDate.getTime())) {
@@ -302,7 +331,7 @@ export function DashboardCalendario({
         
         // IMPORTANTE: Usar la duración del servicio, no el intervalo de disponibilidad
         const duracionServicio = Math.max(turno.duracion_minutos || 60, 60); // Mínimo 60 min
-        const endDate = new Date(startDate.getTime() + duracionServicio * 60000);
+        const endDate = USE_NEW_DATE_HELPER ? DateHelper.addMinutes(startDate, duracionServicio) : new Date(startDate.getTime() + duracionServicio * 60000);
         
         console.log('📅 [DashboardCalendario] Transformando turno:', {
           id: turno.id,

@@ -30,6 +30,10 @@ const TurnosPage: React.FC = () => {
   );
 
   const isAdmin = authUser?.roles.includes('admin');
+  
+  // Para staff, usar el ID del usuario autenticado. Para admin, undefined para que seleccione.
+  const preselectedProfesionalId = !isAdmin ? authUser?.authUser?.id || '' : '';
+  const preselectedProfesionalNombre = !isAdmin ? authUser?.authUser?.nombre : undefined;
 
   const handleCancelarTurno = async (turno: any) => {
     try {
@@ -136,8 +140,9 @@ const TurnosPage: React.FC = () => {
         isOpen={isCrearModalOpen}
         onClose={() => setIsCrearModalOpen(false)}
         onSuccess={handleCrearSuccess}
-        preselectedProfesionalId=""
-        preselectedProfesionalNombre={undefined}
+        mode={isAdmin ? 'admin' : 'staff'}
+        preselectedProfesionalId={preselectedProfesionalId}
+        preselectedProfesionalNombre={preselectedProfesionalNombre}
         preselectedFecha={undefined}
         preselectedHora={undefined}
       />

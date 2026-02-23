@@ -9,12 +9,17 @@ import { disponibilidadService, turnoService, clienteService } from '../../servi
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
 import { format } from 'date-fns';
+import { DateHelper } from '../../shared/utils/DateHelper';
+
+// Feature flags para migración gradual
+const USE_NEW_DATE_HELPER = (window as any).__ENV__?.REACT_APP_USE_NEW_DATE_HELPER === 'true';
 
 interface CreateTurnoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  preselectedProfesionalId: string;
+  mode: 'admin' | 'staff' | 'dashboard';
+  preselectedProfesionalId?: string;
   preselectedProfesionalNombre?: string;
   preselectedFecha?: Date;
   preselectedHora?: Date;
@@ -46,12 +51,21 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  mode,
   preselectedProfesionalId,
   preselectedProfesionalNombre,
   preselectedFecha,
   preselectedHora
 }) => {
-  const [step, setStep] = useState<2 | 3 | 4>(2);
+  // Inicializar paso según el modo
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
+    switch (mode) {
+      case 'admin': return 1; // Admin comienza seleccionando profesional
+      case 'staff': return 2; // Staff salta a servicios (profesional auto-seleccionado)
+      case 'dashboard': return 2; // Dashboard salta a servicios (profesional preseleccionado)
+      default: return 1;
+    }
+  });
   const [selectedProfesional, setSelectedProfesional] = useState<Profesional | null>(null);
   const [selectedServicio, setSelectedServicio] = useState<ServicioProfesional | null>(null);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
@@ -152,50 +166,48 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   // Preseleccionar fecha y hora si vienen como props (pero no saltar de paso)
   useEffect(() => {
     if (preselectedFecha && selectedProfesional) {
-      const formattedDate = format(preselectedFecha, 'yyyy-MM-dd');
+      const formattedDate = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(preselectedFecha) : format(preselectedFecha, 'yyyy-MM-dd');
       handleDateSelect(formattedDate);
       
       // Si también viene hora preseleccionada, seleccionarla pero mantenerse en paso 2
       if (preselectedHora) {
-        const formattedTime = format(preselectedHora, 'HH:mm');
+        const formattedTime = USE_NEW_DATE_HELPER ? DateHelper.formatTime(preselectedHora) : format(preselectedHora, 'HH:mm');
         handleSlotSelect(formattedTime);
       }
       // Mantenerse en paso 2 (Servicios) para el nuevo flujo unificado
     }
   }, [preselectedFecha, preselectedHora, selectedProfesional]);
 
-  // Auto-seleccionar profesional si viene preseleccionado (para Dashboard)
+  // Auto-seleccionar profesional según el modo
   useEffect(() => {
-    if (preselectedProfesionalId && !selectedProfesional) {
-      // Para Dashboard, crear objeto profesional con el nombre preseleccionado
+    if (mode === 'staff' && authUser?.authUser && !selectedProfesional) {
+      // Staff: auto-seleccionarse a sí mismo
+      setSelectedProfesional({
+        id: authUser.authUser.id,
+        nombre: authUser.authUser.nombre,
+        username: authUser.authUser.email
+      });
+    } else if (mode === 'dashboard' && preselectedProfesionalId && !selectedProfesional) {
+      // Dashboard: usar profesional preseleccionado
       setSelectedProfesional({
         id: preselectedProfesionalId,
         nombre: preselectedProfesionalNombre || '',
         username: ''
       });
     }
-  }, [preselectedProfesionalId, preselectedProfesionalNombre, selectedProfesional]);
-
-  // Complementar con datos completos cuando lleguen (solo para admin)
-  useEffect(() => {
-    if (preselectedProfesionalId && profesionalesData?.data && selectedProfesional) {
-      const profesional = (profesionalesData.data as any).profesionales?.find((p: any) => p.id === preselectedProfesionalId);
-      if (profesional) {
-        setSelectedProfesional(profesional);
-      }
-    }
-  }, [preselectedProfesionalId, profesionalesData, selectedProfesional]);
+    // Admin: no auto-seleccionar, esperar selección manual
+  }, [mode, preselectedProfesionalId, preselectedProfesionalNombre, selectedProfesional, authUser]);
 
 
   const handleNextStep = () => {
     if (step < 4) {
-      setStep(step + 1 as 2 | 3 | 4);
+      setStep(step + 1 as 1 | 2 | 3 | 4);
     }
   };
 
   const handlePrevStep = () => {
-    if (step > 2) {
-      setStep(step - 1 as 2 | 3 | 4);
+    if (step > 1) {
+      setStep(step - 1 as 1 | 2 | 3 | 4);
     }
   };
 
@@ -234,7 +246,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const resetModal = () => {
-    setStep(2);
+    setStep(1);
     setSelectedProfesional(null);
     setSelectedServicio(null);
     setSelectedCliente(null);
@@ -290,33 +302,70 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const getStepTitle = () => {
-    switch (step) {
-      case 2: return 'Servicio';
-      case 3: return 'Fecha y hora';
-      case 4: return 'Confirmación';
-      default: return '';
+    switch (mode) {
+      case 'admin':
+        // Admin: 4 pasos completos
+        switch (step) {
+          case 1: return 'Profesional';
+          case 2: return 'Servicio';
+          case 3: return 'Fecha y hora';
+          case 4: return 'Confirmación';
+          default: return '';
+        }
+      case 'staff':
+      case 'dashboard':
+        // Staff y Dashboard: 3 pasos (sin selección de profesional)
+        switch (step) {
+          case 2: return 'Servicio';
+          case 3: return 'Fecha y hora';
+          case 4: return 'Confirmación';
+          default: return '';
+        }
+      default:
+        return '';
     }
   };
 
   const isStepComplete = (stepNumber: number) => {
-    switch (stepNumber) {
-      case 2: return !!selectedServicio;
-      case 3: return !!selectedDate && !!selectedSlot;
-      case 4: return !!selectedCliente;
-      default: return false;
+    switch (mode) {
+      case 'admin':
+        // Admin: 4 pasos completos
+        switch (stepNumber) {
+          case 1: return !!selectedProfesional;
+          case 2: return !!selectedServicio;
+          case 3: return !!selectedDate && !!selectedSlot;
+          case 4: return !!selectedCliente;
+          default: return false;
+        }
+      case 'staff':
+      case 'dashboard':
+        // Staff y Dashboard: 3 pasos (sin paso 1)
+        switch (stepNumber) {
+          case 2: return !!selectedServicio;
+          case 3: return !!selectedDate && !!selectedSlot;
+          case 4: return !!selectedCliente;
+          default: return false;
+        }
+      default:
+        return false;
     }
   };
 
   const formatFecha = (fecha: string) => {
-    // Si la fecha ya incluye timestamp, usarla directamente
-    // Si es solo fecha, agregar tiempo para evitar problemas de timezone
-    const date = fecha.includes('T') ? new Date(fecha) : new Date(fecha + 'T00:00:00');
-    return date.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    if (USE_NEW_DATE_HELPER) {
+      // Usar DateHelper para formateo consistente
+      const date = fecha.includes('T') ? new Date(fecha) : DateHelper.combineDateTime(fecha, '00:00');
+      return DateHelper.formatDisplay(date);
+    } else {
+      // Legacy implementation
+      const date = fecha.includes('T') ? new Date(fecha) : new Date(fecha + 'T00:00:00');
+      return date.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
   };
 
   const getPrecio = () => {
@@ -343,6 +392,11 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     return duracion;
   };
 
+  // No renderizar si está en modo dashboard y no hay profesional preseleccionado
+  if (mode === 'dashboard' && !preselectedProfesionalId) {
+    return null;
+  }
+
   return (
     <Modal
       isOpen={isOpen}
@@ -352,42 +406,87 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     >
       {/* Progress indicator */}
       <div className="flex items-center justify-center mb-6">
-        {[2, 3, 4].map((stepNumber, index) => {
-          const displayStep = index + 1; // 2→1, 3→2, 4→3
-          const isCurrentStep = step === stepNumber;
+        {(() => {
+          const steps = mode === 'admin' ? [1, 2, 3, 4] : [2, 3, 4];
           
-          return (
-            <div key={stepNumber} className="flex items-center">
-              <div
-                className={`
-                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                  ${isCurrentStep
-                    ? 'bg-blue-600 text-white'
-                    : isStepComplete(stepNumber)
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-200 text-gray-500'
-                  }
-                `}
-              >
-                {isStepComplete(stepNumber) && !isCurrentStep ? '✓' : displayStep}
-              </div>
-              {stepNumber < 4 && (
+          return steps.map((stepNumber, index) => {
+            const displayStep = mode === 'admin' ? stepNumber : index + 1;
+            const isCurrentStep = step === stepNumber;
+            
+            return (
+              <div key={stepNumber} className="flex items-center">
                 <div
                   className={`
-                    w-12 h-1 mx-2
-                    ${isStepComplete(stepNumber) ? 'bg-green-500' : 'bg-gray-200'}
+                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                    ${isCurrentStep
+                      ? 'bg-blue-600 text-white'
+                      : isStepComplete(stepNumber)
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-500'
+                    }
                   `}
-                />
-              )}
-            </div>
-          );
-        })}
+                >
+                  {isStepComplete(stepNumber) && !isCurrentStep ? '✓' : displayStep}
+                </div>
+                {stepNumber < 4 && (
+                  <div
+                    className={`
+                      w-12 h-1 mx-2
+                      ${isStepComplete(stepNumber) ? 'bg-green-500' : 'bg-gray-200'}
+                    `}
+                  />
+                )}
+              </div>
+            );
+          });
+        })()}
       </div>
 
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-center">{getStepTitle()}</h3>
       </div>
 
+      {/* Step 1 - Profesional (solo para admin) */}
+      {step === 1 && mode === 'admin' && (
+        <div className="space-y-4">
+          <Input
+            placeholder="Buscar profesional..."
+            value={clienteSearch}
+            onChange={(e) => setClienteSearch(e.target.value)}
+          />
+          <div className="max-h-60 overflow-y-auto space-y-2">
+            {loadingProfesionales ? (
+              <div className="flex justify-center py-4">
+                <Spinner />
+              </div>
+            ) : (
+              (profesionalesData as any)?.data?.profesionales?.map((profesional: Profesional) => (
+                <Card
+                  key={profesional.id}
+                  className={`cursor-pointer hover:bg-blue-50 border-2 transition-all ${
+                    selectedProfesional?.id === profesional.id
+                      ? 'bg-blue-100 border-blue-500'
+                      : 'border-gray-200 hover:border-blue-300'
+                  }`}
+                  onClick={() => setSelectedProfesional(profesional)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{profesional.nombre}</div>
+                      <div className="text-sm text-gray-500">@{profesional.username}</div>
+                    </div>
+                    {selectedProfesional?.id === profesional.id && (
+                      <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center">
+                        ✓
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Step 2 - Servicio */}
       {step === 2 && (
@@ -692,7 +791,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
           type="button"
           variant="secondary"
           onClick={handlePrevStep}
-          disabled={step === 2}
+          disabled={step === 1 || (mode !== 'admin' && step === 2)}
         >
           Anterior
         </Button>
@@ -702,6 +801,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             type="button"
             onClick={handleNextStep}
             disabled={
+              (mode === 'admin' && step === 1 && !selectedProfesional) ||
               (step === 2 && !selectedServicio) ||
               (step === 3 && (!selectedDate || !selectedSlot))
             }

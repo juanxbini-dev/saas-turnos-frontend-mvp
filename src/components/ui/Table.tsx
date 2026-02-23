@@ -1,4 +1,8 @@
 import React from 'react';
+import { DateHelper } from '../../shared/utils/DateHelper';
+
+// Feature flags para migración gradual
+const USE_NEW_DATE_HELPER = (window as any).__ENV__?.REACT_APP_USE_NEW_DATE_HELPER === 'true';
 
 export interface TableColumn<T> {
   key: keyof T;
@@ -206,7 +210,13 @@ const orderColumns: TableColumn<Order>[] = [
   {
     key: 'date',
     header: 'Fecha',
-    render: (value) => new Date(value).toLocaleDateString()
+    render: (value) => {
+      if (USE_NEW_DATE_HELPER) {
+        const date = new Date(value);
+        return DateHelper.isValidDate(date) ? DateHelper.format(date, 'DISPLAY_SHORT') : 'Fecha inválida';
+      }
+      return new Date(value).toLocaleDateString();
+    }
   }
 ];
 
