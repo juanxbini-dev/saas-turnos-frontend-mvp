@@ -64,7 +64,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       closeOnEscape={!loading}
     >
       <div className="text-gray-600">
-        {message}
+        {typeof message === 'string' ? (
+          <div dangerouslySetInnerHTML={{ __html: message }} />
+        ) : (
+          message
+        )}
       </div>
     </Modal>
   );

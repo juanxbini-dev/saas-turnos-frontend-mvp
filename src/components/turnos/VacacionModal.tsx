@@ -3,7 +3,10 @@ import { Modal, Input, Select, Button, Textarea } from '../ui';
 import { DiasVacacion } from '../../types/turno.types';
 import { disponibilidadService } from '../../services/disponibilidad.service';
 import { useAuth } from '../../context/AuthContext';
+import { createLogger } from '../../utils/createLogger';
 import { cacheService } from '../../cache/cache.service';
+
+const vacacionLogger = createLogger('VacacionModal');
 import { buildKey } from '../../cache/key.builder';
 import { ENTITIES } from '../../cache/key.builder';
 
@@ -74,53 +77,58 @@ export const VacacionModal: React.FC<VacacionModalProps> = ({
         motivo: formData.motivo || undefined
       };
 
-      console.log('🔍 [VacacionModal] Guardando vacación:', dataForService);
-      console.log('🔍 [VacacionModal] vacacion:', vacacion);
-      console.log('🔍 [VacacionModal] Es edición?', !!vacacion);
+      vacacionLogger.debug('Guardando vacación', { 
+        esEdicion: !!vacacion,
+        vacacionId: vacacion?.id
+      });
       
       if (vacacion) {
         // Editar vacación existente
-        console.log('🔍 [VacacionModal] Editando vacación ID:', vacacion.id);
+        vacacionLogger.debug('Editando vacación', { vacacionId: vacacion.id });
         await disponibilidadService.updateVacacion(vacacion.id, dataForService);
-        console.log('✅ [VacacionModal] Vacación actualizada');
+        vacacionLogger.info('Vacación actualizada', { vacacionId: vacacion.id });
       } else {
         // Crear nueva vacación
-        console.log('🔍 [VacacionModal] Creando nueva vacación');
+        vacacionLogger.debug('Creando nueva vacación');
         await disponibilidadService.createVacacion(dataForService);
-        console.log('✅ [VacacionModal] Vacación creada');
+        vacacionLogger.info('Vacación creada');
       }
       
       // Invalidar caché relacionado de forma segura
       try {
-        console.log('🔍 [VacacionModal] Invalidando caché después de guardar vacación...');
+        vacacionLogger.debug('Invalidando caché después de guardar vacación');
         
         const configKey = buildKey(ENTITIES.CONFIGURACION);
         const slotsKey = buildKey(ENTITIES.SLOTS);
         const disponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD);
         
-        console.log('🔍 [VacacionModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey, 'disponibilidadKey:', disponibilidadKey);
+        vacacionLogger.debug('Invalidando caché', { 
+          configKey,
+          slotsKey,
+          disponibilidadKey
+        });
         
         if (configKey && configKey.trim()) {
           cacheService.invalidateByPrefix(configKey);
-          console.log('✅ [VacacionModal] Caché CONFIGURACION invalidado');
+          vacacionLogger.debug('Caché CONFIGURACION invalidado');
         }
         if (slotsKey && slotsKey.trim()) {
           cacheService.invalidateByPrefix(slotsKey);
-          console.log('✅ [VacacionModal] Caché SLOTS invalidado');
+          vacacionLogger.debug('Caché SLOTS invalidado');
         }
         if (disponibilidadKey && disponibilidadKey.trim()) {
           cacheService.invalidateByPrefix(disponibilidadKey);
-          console.log('✅ [VacacionModal] Caché DISPONIBILIDAD invalidado');
+          vacacionLogger.debug('Caché DISPONIBILIDAD invalidado');
         }
       } catch (cacheError) {
-        console.warn('⚠️ [VacacionModal] Error al invalidar caché:', cacheError);
+        vacacionLogger.warn('Error al invalidar caché', cacheError as Error);
         // No bloquear el flujo principal si falla la invalidación del caché
       }
       
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('💥 [VacacionModal] Error al guardar vacación:', error);
+      vacacionLogger.error('Error al guardar vacación', error as Error);
     } finally {
       setLoading(false);
     }

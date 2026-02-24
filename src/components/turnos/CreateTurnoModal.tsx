@@ -18,7 +18,7 @@ interface CreateTurnoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  mode: 'admin' | 'staff' | 'dashboard';
+  mode: 'admin' | 'staff';
   preselectedProfesionalId?: string;
   preselectedProfesionalNombre?: string;
   preselectedFecha?: Date;
@@ -62,7 +62,6 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     switch (mode) {
       case 'admin': return 1; // Admin comienza seleccionando profesional
       case 'staff': return 2; // Staff salta a servicios (profesional auto-seleccionado)
-      case 'dashboard': return 2; // Dashboard salta a servicios (profesional preseleccionado)
       default: return 1;
     }
   });
@@ -187,13 +186,6 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
         nombre: authUser.authUser.nombre,
         username: authUser.authUser.email
       });
-    } else if (mode === 'dashboard' && preselectedProfesionalId && !selectedProfesional) {
-      // Dashboard: usar profesional preseleccionado
-      setSelectedProfesional({
-        id: preselectedProfesionalId,
-        nombre: preselectedProfesionalNombre || '',
-        username: ''
-      });
     }
     // Admin: no auto-seleccionar, esperar selección manual
   }, [mode, preselectedProfesionalId, preselectedProfesionalNombre, selectedProfesional, authUser]);
@@ -313,8 +305,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
           default: return '';
         }
       case 'staff':
-      case 'dashboard':
-        // Staff y Dashboard: 3 pasos (sin selección de profesional)
+        // Staff: 3 pasos (sin selección de profesional)
         switch (step) {
           case 2: return 'Servicio';
           case 3: return 'Fecha y hora';
@@ -338,8 +329,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
           default: return false;
         }
       case 'staff':
-      case 'dashboard':
-        // Staff y Dashboard: 3 pasos (sin paso 1)
+        // Staff: 3 pasos (sin paso 1)
         switch (stepNumber) {
           case 2: return !!selectedServicio;
           case 3: return !!selectedDate && !!selectedSlot;
@@ -392,10 +382,6 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     return duracion;
   };
 
-  // No renderizar si está en modo dashboard y no hay profesional preseleccionado
-  if (mode === 'dashboard' && !preselectedProfesionalId) {
-    return null;
-  }
 
   return (
     <Modal

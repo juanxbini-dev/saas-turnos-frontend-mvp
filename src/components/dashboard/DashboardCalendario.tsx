@@ -11,9 +11,13 @@ import { turnoService } from '../../services/turno.service';
 import { disponibilidadService } from '../../services/disponibilidad.service';
 import { TurnoConDetalle } from '../../types/turno.types';
 import { TurnoPopover } from './TurnoPopover';
+import { DashboardTurnoModal } from './DashboardTurnoModal';
 import { useToast } from '../../hooks/useToast';
 import { cacheService } from '../../cache/cache.service';
 import { DateHelper } from '../../shared/utils/DateHelper';
+import { createLogger } from '../../utils/createLogger';
+
+const dashboardLogger = createLogger('DashboardCalendario');
 
 // Feature flags para migración gradual
 const USE_NEW_DATE_HELPER = (window as any).__ENV__?.REACT_APP_USE_NEW_DATE_HELPER === 'true';
@@ -57,7 +61,8 @@ const EventComponent: React.FC<any> = ({ event }) => {
       justifyContent: 'flex-start',
       alignItems: 'flex-start',
       gap: '1px',
-      minHeight: '100%'
+      minHeight: '100%',
+      cursor: 'pointer'
     }}>
       <div style={{ 
         fontWeight: '700', 
@@ -98,19 +103,60 @@ const localizer = dateFnsLocalizer({
   parse,
   startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
   getDay,
-  locales: { es }
+  locales: { es },
+  messages: {
+    date: 'Fecha',
+    time: 'Hora',
+    event: 'Evento',
+    allDay: 'Todo el día',
+    week: 'Semana',
+    work_week: 'Semana laboral',
+    day: 'Día',
+    month: 'Mes',
+    previous: 'Anterior',
+    next: 'Siguiente',
+    yesterday: 'Ayer',
+    tomorrow: 'Mañana',
+    today: 'Hoy',
+    agenda: 'Agenda',
+    noEventsInRange: 'No hay eventos en este rango.',
+    showMore: (total: number) => `+${total} más`
+  },
+  formats: {
+    dateFormat: 'dd MMMM yyyy',
+    dayFormat: 'ddd',
+    weekdayFormat: 'EEEE',
+    dayRangeHeaderFormat: 'dd MMM yyyy',
+    agendaHeaderFormat: (date: Date) => format(date, 'EEEE d MMMM', { locale: es }),
+    agendaDateFormat: (date: Date) => format(date, 'd', { locale: es }),
+    agendaTimeFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
+    agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
+      `${format(start, 'HH:mm', { locale: es })} - ${format(end, 'HH:mm', { locale: es })}`,
+    selectRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
+      `${format(start, 'dd MMM yyyy', { locale: es })} - ${format(end, 'dd MMM yyyy', { locale: es })}`,
+    eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
+      `${format(start, 'HH:mm', { locale: es })} - ${format(end, 'HH:mm', { locale: es })}`,
+    eventTimeRangeStartFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
+    eventTimeRangeEndFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
+    monthHeaderFormat: (date: Date) => format(date, 'MMMM yyyy', { locale: es }),
+    dayHeaderFormat: (date: Date) => format(date, 'EEEE d', { locale: es })
+  }
 });
 
 interface DashboardCalendarioProps {
   profesionalId: string
   color: string
+  profesionalNombre: string
   onSlotSelect: (fecha: Date, hora: Date) => void
+  onTurnoAction: (turno: TurnoConDetalle) => void
 }
 
 export function DashboardCalendario({ 
   profesionalId, 
   color, 
-  onSlotSelect 
+  profesionalNombre,
+  onSlotSelect,
+  onTurnoAction
 }: DashboardCalendarioProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState<View>('week');
@@ -178,7 +224,7 @@ export function DashboardCalendario({
   const { data: turnos, revalidate, loading, error } = useFetch(
     buildKey(ENTITIES.CALENDARIO, profesionalId, `${rangoInicio}-${rangoFin}`),
     async () => {
-      console.log('🔍 [DashboardCalendario] Iniciando petición de turnos:', {
+      dashboardLogger.debug('Iniciando petición de turnos', {
         profesionalId,
         rangoInicio,
         rangoFin
@@ -186,24 +232,22 @@ export function DashboardCalendario({
       
       try {
         const result = await turnoService.getCalendario(profesionalId, rangoInicio, rangoFin);
-        console.log('✅ [DashboardCalendario] Respuesta exitosa:', {
-          cantidad: result?.length || 0,
-          datos: result
+        dashboardLogger.info('Respuesta exitosa de turnos', {
+          cantidad: result?.length || 0
         });
         return result;
       } catch (error) {
-        console.error('❌ [DashboardCalendario] Error en petición:', error);
+        dashboardLogger.error('Error en petición de turnos', error as Error);
         throw error;
       }
     },
     { ttl: TTL.SHORT }
   );
 
-  console.log('📊 [DashboardCalendario] Estado de turnos:', {
+  dashboardLogger.debug('Estado de turnos', {
     loading,
-    error,
-    dataLength: turnos?.length || 0,
-    datos: turnos
+    hasError: !!error,
+    dataLength: turnos?.length || 0
   });
 
   // Cargar configuración de disponibilidad (incluye intervalo_minutos)
@@ -214,10 +258,10 @@ export function DashboardCalendario({
       
       try {
         const config = await disponibilidadService.getConfiguracion();
-        console.log('🔧 [DashboardCalendario] Configuración obtenida:', config);
+        dashboardLogger.debug('Configuración obtenida');
         return config;
       } catch (error) {
-        console.warn('Error obteniendo configuración:', error);
+        dashboardLogger.warn('Error obteniendo configuración', error as Error);
         return null;
       }
     },
@@ -242,7 +286,7 @@ export function DashboardCalendario({
           const slots = await disponibilidadService.getSlotsDisponibles(profesionalId, fechaStr);
           slotsPorDia[fechaStr] = slots;
         } catch (error) {
-          console.warn(`Error obteniendo slots para ${fechaStr}:`, error);
+          dashboardLogger.warn('Error obteniendo slots', { fecha: fechaStr, error: error as Error });
           slotsPorDia[fechaStr] = [];
         }
       }
@@ -262,7 +306,7 @@ export function DashboardCalendario({
       );
       
       if (configProfesional?.intervalo_minutos) {
-        console.log('🔧 [DashboardCalendario] Usando intervalo configurado:', configProfesional.intervalo_minutos);
+        dashboardLogger.debug('Usando intervalo configurado', { intervalo: configProfesional.intervalo_minutos });
         return configProfesional.intervalo_minutos;
       }
     }
@@ -282,23 +326,49 @@ export function DashboardCalendario({
         const hora1 = USE_NEW_DATE_HELPER ? DateHelper.combineDateTime('2000-01-01', slots[0]) : new Date(`2000-01-01T${slots[0]}:00`);
         const hora2 = USE_NEW_DATE_HELPER ? DateHelper.combineDateTime('2000-01-01', slots[1]) : new Date(`2000-01-01T${slots[1]}:00`);
         const diffMinutos = (hora2.getTime() - hora1.getTime()) / 60000;
-        console.log('🔧 [DashboardCalendario] Intervalo calculado desde slots:', diffMinutos);
+        dashboardLogger.debug('Intervalo calculado desde slots', { intervalo: diffMinutos });
         return diffMinutos > 0 ? diffMinutos : 30;
       }
     }
     
-    console.log('🔧 [DashboardCalendario] Usando intervalo default: 30 min');
+    dashboardLogger.debug('Usando intervalo default', { intervalo: 30 });
     return 30; // Default si no se puede determinar
   }, [configData, slotsDisponibles, loadingSlots, profesionalId]);
 
   const intervaloConfigurado = getIntervaloConfigurado();
+
+  // Función para obtener la hora más temprana disponible
+  const getPrimeraHoraDisponible = useCallback(() => {
+    if (!slotsDisponibles || loadingSlots) return 8; // Default 8 AM
+    
+    // Buscar el primer día con slots en la semana actual
+    const startDate = new Date(rangoInicio);
+    const endDate = new Date(rangoFin);
+    
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(date) : format(date, 'yyyy-MM-dd');
+      const slotsDelDia = (slotsDisponibles as Record<string, string[]>)[fechaStr] || [];
+      
+      if (slotsDelDia.length > 0) {
+        // Obtener la primera hora disponible y convertirla a número
+        const primeraHora = slotsDelDia[0];
+        const horaNum = parseInt(primeraHora.split(':')[0]);
+        dashboardLogger.debug('Primera hora disponible', { hora: horaNum });
+        return horaNum;
+      }
+    }
+    
+    return 8; // Default 8 AM si no hay slots
+  }, [slotsDisponibles, loadingSlots, rangoInicio, rangoFin]);
+
+  const primeraHoraDisponible = getPrimeraHoraDisponible();
 
   // Transformar turnos al formato de react-big-calendar
   const events = (turnos || [])
     .filter(turno => {
       // Validar que el turno tenga datos necesarios
       if (!turno.fecha || !turno.hora) {
-        console.warn('⚠️ [DashboardCalendario] Turno sin fecha u hora:', turno);
+        dashboardLogger.warn('Turno sin fecha u hora', { turnoId: turno.id });
         return false;
       }
       return true;
@@ -309,7 +379,8 @@ export function DashboardCalendario({
         const fechaStr = turno.fecha.split('T')[0]; // Eliminar timezone si existe
         const horaStr = turno.hora.split(':')[0] + ':' + turno.hora.split(':')[1]; // Solo HH:MM
         
-        console.log('🔧 [DashboardCalendario] Procesando fecha/hora:', {
+        dashboardLogger.debug('Procesando fecha/hora', {
+          turnoId: turno.id,
           original: { fecha: turno.fecha, hora: turno.hora },
           limpiado: { fecha: fechaStr, hora: horaStr },
           useNewHelper: USE_NEW_DATE_HELPER
@@ -319,12 +390,10 @@ export function DashboardCalendario({
         
         // Validar que la fecha sea válida
         if (isNaN(startDate.getTime())) {
-          console.warn('⚠️ [DashboardCalendario] Fecha inválida:', {
-            id: turno.id,
+          dashboardLogger.warn('Fecha inválida', {
+            turnoId: turno.id,
             fecha: fechaStr,
-            hora: horaStr,
-            fechaCompleta: `${fechaStr}T${horaStr}:00`,
-            fechaInvalida: startDate.toString()
+            hora: horaStr
           });
           return null;
         }
@@ -333,18 +402,11 @@ export function DashboardCalendario({
         const duracionServicio = Math.max(turno.duracion_minutos || 60, 60); // Mínimo 60 min
         const endDate = USE_NEW_DATE_HELPER ? DateHelper.addMinutes(startDate, duracionServicio) : new Date(startDate.getTime() + duracionServicio * 60000);
         
-        console.log('📅 [DashboardCalendario] Transformando turno:', {
-          id: turno.id,
+        dashboardLogger.debug('Transformando turno', {
+          turnoId: turno.id,
           cliente: turno.cliente_nombre,
           servicio: turno.servicio,
-          fecha: fechaStr,
-          hora: horaStr,
-          duracion_servicio: turno.duracion_minutos,
-          duracion_usada: duracionServicio,
-          intervalo_configurado: intervaloConfigurado,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          diffMinutos: (endDate.getTime() - startDate.getTime()) / 60000
+          duracion: duracionServicio
         });
         
         return {
@@ -355,18 +417,16 @@ export function DashboardCalendario({
           resource: turno
         };
       } catch (error) {
-        console.error('❌ [DashboardCalendario] Error procesando turno:', {
-          turno,
-          error: error instanceof Error ? error.message : String(error)
-        });
+        dashboardLogger.error('Error procesando turno', error as Error, { turnoId: turno.id });
         return null;
       }
     })
     .filter(event => event !== null); // Filtrar eventos nulos
 
-  console.log('📊 [DashboardCalendario] Total turnos:', turnos?.length || 0);
-  console.log('📊 [DashboardCalendario] Total events:', events.length);
-  console.log('📊 [DashboardCalendario] Events para Calendar:', events);
+  dashboardLogger.info('Totales de calendario', {
+    totalTurnos: turnos?.length || 0,
+    totalEvents: events.length
+  });
 
   // Si no hay eventos, crear algunos de ejemplo para pruebas
   const eventsWithDemo = events.length === 0 ? [
@@ -399,15 +459,15 @@ export function DashboardCalendario({
   ] : events;
 
   if (events.length === 0) {
-    console.log('🎭 [DashboardCalendario] Usando eventos de demostración');
+    dashboardLogger.debug('Usando eventos de demostración');
   }
 
   // Función para verificar si un slot está disponible
   const isSlotAvailable = useCallback((date: Date) => {
     if (!slotsDisponibles || loadingSlots) return false;
     
-    const fechaStr = format(date, 'yyyy-MM-dd');
-    const horaStr = format(date, 'HH:mm');
+    const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(date) : format(date, 'yyyy-MM-dd');
+    const horaStr = USE_NEW_DATE_HELPER ? DateHelper.formatTime(date) : format(date, 'HH:mm');
     const slotsDelDia = (slotsDisponibles as Record<string, string[]>)[fechaStr] || [];
     
     return slotsDelDia.includes(horaStr);
@@ -424,11 +484,10 @@ export function DashboardCalendario({
     const fecha = slotInfo.start;
     const hora = slotInfo.start;
 
-    console.log('📅 [DashboardCalendario] Slot seleccionado:', {
+    dashboardLogger.debug('Slot seleccionado', {
       fecha,
       hora,
-      profesionalId,
-      profesionalSeleccionado: !!profesionalId
+      profesionalId
     });
 
     // Verificar que haya un profesional seleccionado
@@ -446,14 +505,9 @@ export function DashboardCalendario({
     const turno = event.resource as TurnoConDetalle;
     setSelectedTurno(turno);
     
-    // Calcular posición del popover
-    const rect = (e.target as Element).getBoundingClientRect();
-    setPopoverPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top
-    });
-    setPopoverOpen(true);
-  }, []);
+    // En lugar de mostrar popover, llamar al callback del padre
+    onTurnoAction(turno);
+  }, [onTurnoAction]);
 
   // Manejar cambio de rango
   const handleRangeChange = useCallback((range: any) => {
@@ -526,6 +580,7 @@ export function DashboardCalendario({
         endAccessor="end"
         titleAccessor="title"
         resourceAccessor="resource"
+        scrollToTime={new Date(new Date().setHours(primeraHoraDisponible, 0, 0, 0))}
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
           const isPast = date < new Date();
@@ -635,14 +690,6 @@ export function DashboardCalendario({
         }}
       />
 
-      {/* Popover de detalles del turno */}
-      <TurnoPopover
-        turno={selectedTurno}
-        isOpen={popoverOpen}
-        onClose={handlePopoverClose}
-        onCancelar={handleCancelarTurno}
-        position={popoverPosition}
-      />
     </div>
   );
 }

@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { createLogger } from '../utils/createLogger';
+
+const authLogger = createLogger('AuthService');
 
 const axiosInstance = axios.create({
   baseURL: (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000',
@@ -29,17 +32,17 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
       // Log solo en desarrollo para no saturar producción
       if ((import.meta as any).env?.DEV) {
-        console.log('📤 [Auth] Enviando request con access token');
+      authLogger.debug('Enviando request con access token');
       }
     } else {
       if ((import.meta as any).env?.DEV) {
-        console.log('📤 [Auth] Enviando request sin access token');
+      authLogger.debug('Enviando request sin access token');
       }
     }
     return config;
   },
   (error) => {
-    console.error('❌ [Auth] Error en request interceptor:', error);
+    authLogger.error('Error en request interceptor', error as Error);
     return Promise.reject(error);
   }
 );
@@ -53,7 +56,7 @@ axiosInstance.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         // Si ya está refrescando, agregar a la cola
-        console.log('🔄 [Auth] Refresh en progreso, encolando petición...');
+        authLogger.debug('Refresh en progreso, encolando petición');
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then((token) => {
@@ -67,7 +70,7 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      console.log('🔄 [Auth] Access token expirado, iniciando refresh automático...');
+      authLogger.info('Access token expirado, iniciando refresh automático');
 
       try {
         const response = await axios.post('/auth/refresh', {}, {
@@ -83,19 +86,21 @@ axiosInstance.interceptors.response.use(
             localStorage.setItem('refreshToken', newRefreshToken);
           }
 
-          console.log('✅ [Auth] Access token refrescado exitosamente');
-          console.log('🕐 [Auth] Nuevo access token válido por 15 minutos');
+          authLogger.info('Access token refrescado exitosamente');
+          authLogger.debug('Nuevo access token válido por 15 minutos');
           
           // Calcular tiempo de expiración
           const expirationTime = new Date(Date.now() + 15 * 60 * 1000);
-          console.log('⏰ [Auth] Próximo refresh automático:', expirationTime.toLocaleTimeString());
+          authLogger.debug('Próximo refresh automático', { 
+            proximoRefresh: expirationTime.toLocaleTimeString() 
+          });
 
           processQueue(null, accessToken);
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
-        console.log('❌ [Auth] Error en refresh automático, cerrando sesión...');
+        authLogger.error('Error en refresh automático', refreshError as Error);
         processQueue(refreshError, null);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');

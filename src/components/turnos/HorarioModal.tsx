@@ -3,7 +3,10 @@ import { Modal, Button, Input, Select } from '../ui';
 import { disponibilidadService } from '../../services/disponibilidad.service';
 import { DisponibilidadSemanal } from '../../types/turno.types';
 import { useAuth } from '../../context/AuthContext';
+import { createLogger } from '../../utils/createLogger';
 import { cacheService } from '../../cache/cache.service';
+
+const horarioLogger = createLogger('HorarioModal');
 import { buildKey } from '../../cache/key.builder';
 import { ENTITIES } from '../../cache/key.builder';
 
@@ -85,9 +88,10 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
 
     setLoading(true);
     try {
-      console.log('🔍 [HorarioModal] Guardando horario:', formData);
-      console.log('🔍 [HorarioModal] horario:', horario);
-      console.log('🔍 [HorarioModal] Es edición?', !!horario);
+      horarioLogger.debug('Guardando horario', { 
+        esEdicion: !!horario,
+        horarioId: horario?.id
+      });
       
       // Convertir strings a numbers para el servicio
       const dataForService = {
@@ -99,51 +103,59 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
         intervalo_minutos: parseInt(formData.intervalo_minutos)
       };
       
-      console.log('🔍 [HorarioModal] dataForService:', dataForService);
+      horarioLogger.debug('Datos para servicio', { 
+        diaInicio: parseInt(formData.dia_inicio),
+        diaFin: parseInt(formData.dia_fin),
+        intervalo: parseInt(formData.intervalo_minutos)
+      });
       
       if (horario) {
         // Editar horario existente
-        console.log('🔍 [HorarioModal] Editando horario ID:', horario.id);
+        horarioLogger.debug('Editando horario', { horarioId: horario.id });
         await disponibilidadService.updateDisponibilidad(horario.id, dataForService);
-        console.log('✅ [HorarioModal] Horario actualizado');
+        horarioLogger.info('Horario actualizado', { horarioId: horario.id });
       } else {
         // Crear nuevo horario
-        console.log('🔍 [HorarioModal] Creando nuevo horario');
+        horarioLogger.debug('Creando nuevo horario');
         await disponibilidadService.createDisponibilidad(dataForService);
-        console.log('✅ [HorarioModal] Horario creado');
+        horarioLogger.info('Horario creado');
       }
       
       // Invalidar caché relacionado de forma segura
       try {
-        console.log('🔍 [HorarioModal] Invalidando caché después de guardar horario...');
+        horarioLogger.debug('Invalidando caché después de guardar horario');
         
         const configKey = buildKey(ENTITIES.CONFIGURACION);
         const slotsKey = buildKey(ENTITIES.SLOTS);
         const disponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD);
         
-        console.log('🔍 [HorarioModal] Invalidando caché - configKey:', configKey, 'slotsKey:', slotsKey, 'disponibilidadKey:', disponibilidadKey);
+        horarioLogger.debug('Invalidando caché', { 
+          configKey,
+          slotsKey,
+          disponibilidadKey
+        });
         
         if (configKey && configKey.trim()) {
           cacheService.invalidateByPrefix(configKey);
-          console.log('✅ [HorarioModal] Caché CONFIGURACION invalidado');
+          horarioLogger.debug('Caché CONFIGURACION invalidado');
         }
         if (slotsKey && slotsKey.trim()) {
           cacheService.invalidateByPrefix(slotsKey);
-          console.log('✅ [HorarioModal] Caché SLOTS invalidado');
+          horarioLogger.debug('Caché SLOTS invalidado');
         }
         if (disponibilidadKey && disponibilidadKey.trim()) {
           cacheService.invalidateByPrefix(disponibilidadKey);
-          console.log('✅ [HorarioModal] Caché DISPONIBILIDAD invalidado');
+          horarioLogger.debug('Caché DISPONIBILIDAD invalidado');
         }
       } catch (cacheError) {
-        console.warn('⚠️ [HorarioModal] Error al invalidar caché:', cacheError);
+        horarioLogger.warn('Error al invalidar caché', cacheError as Error);
         // No bloquear el flujo principal si falla la invalidación del caché
       }
       
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('💥 [HorarioModal] Error al guardar horario:', error);
+      horarioLogger.error('Error al guardar horario', error as Error);
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProfesionalFilter } from '../components/dashboard/ProfesionalFilter';
 import { DashboardCalendario } from '../components/dashboard/DashboardCalendario';
-import { CreateTurnoModal } from '../components/turnos/CreateTurnoModal';
+import { DashboardTurnoModal } from '../components/dashboard/DashboardTurnoModal';
 import { useFetch } from '../hooks/useFetch';
 import { useAuth } from '../context/AuthContext';
 import { buildKey, ENTITIES } from '../cache/key.builder';
@@ -9,13 +9,20 @@ import { cacheService } from '../cache/cache.service';
 import { disponibilidadService } from '../services';
 import { useToast } from '../hooks/useToast';
 import { Card } from '../components/ui';
+import { TurnoConDetalle } from '../types/turno.types';
 
 export function DashboardPage() {
   // Dashboard público de la empresa - muestra calendario de turnos y disponibilidad
   const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
-  const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
-  const [preselectedDate, setPreselectedDate] = useState<Date | null>(null);
-  const [preselectedHora, setPreselectedHora] = useState<Date | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalData, setModalData] = useState<{
+    type: 'disponible' | 'ocupado';
+    profesionalNombre?: string;
+    profesionalId?: string;
+    fecha?: Date;
+    hora?: Date;
+    turno?: TurnoConDetalle;
+  } | null>(null);
 
   const { state: authUser } = useAuth();
   const toast = useToast();
@@ -75,31 +82,35 @@ export function DashboardPage() {
       return;
     }
     
-    setPreselectedDate(fecha);
-    setPreselectedHora(hora);
-    setIsCrearModalOpen(true);
+    const profesional = profesionales.find((p: any) => p.id === selectedProfesionalId);
+    
+    setModalData({
+      type: 'disponible',
+      profesionalNombre: profesional?.nombre,
+      profesionalId: selectedProfesionalId,
+      fecha,
+      hora
+    });
+    setModalOpen(true);
   };
 
-  // Manejar creación exitosa de turno
-  const handleTurnoCreado = () => {
-    setIsCrearModalOpen(false);
-    setPreselectedDate(null);
-    setPreselectedHora(null);
+  // Manejar clic en turno existente
+  const handleTurnoAction = (turno: TurnoConDetalle) => {
+    setModalData({
+      type: 'ocupado',
+      turno
+    });
+    setModalOpen(true);
+  };
 
-    // Invalidar caché relevante
+  // Refrescar calendario después de acciones
+  const handleRefresh = () => {
+    // Invalidar caché para forzar refetch
     cacheService.invalidateByPrefix(buildKey(ENTITIES.CALENDARIO));
     cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
-    cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
-
-    toast.success('Turno creado correctamente');
+    window.location.reload(); // Temporal hasta implementar refetch proper
   };
 
-  // Cerrar modal
-  const handleModalClose = () => {
-    setIsCrearModalOpen(false);
-    setPreselectedDate(null);
-    setPreselectedHora(null);
-  };
 
   const profesionalSeleccionado = profesionales.find((p: any) => p.id === selectedProfesionalId);
   const colorSeleccionado = selectedProfesionalId ? colores[selectedProfesionalId] : '#3B82F6';
@@ -168,24 +179,27 @@ export function DashboardPage() {
             </div>
             <DashboardCalendario
               profesionalId={selectedProfesionalId}
+              profesionalNombre={profesionalSeleccionado?.nombre || ''}
               color={colorSeleccionado}
               onSlotSelect={handleSlotSelect}
+              onTurnoAction={handleTurnoAction}
             />
           </div>
         </Card>
       )}
 
-      {/* Modal para crear turno */}
-      <CreateTurnoModal
-        isOpen={isCrearModalOpen}
-        onClose={handleModalClose}
-        onSuccess={handleTurnoCreado}
-        mode="dashboard"
-        preselectedProfesionalId={selectedProfesionalId || ''}
-        preselectedProfesionalNombre={profesionalSeleccionado?.nombre}
-        preselectedFecha={preselectedDate || undefined}
-        preselectedHora={preselectedHora || undefined}
+      {/* Modal de turnos */}
+      <DashboardTurnoModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        profesionalNombre={modalData?.profesionalNombre}
+        profesionalId={modalData?.profesionalId}
+        fecha={modalData?.fecha}
+        hora={modalData?.hora}
+        turno={modalData?.turno}
+        onRefresh={handleRefresh}
       />
+
     </div>
   );
 }

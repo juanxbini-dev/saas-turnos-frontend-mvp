@@ -106,9 +106,6 @@ const TestApiPage: React.FC = () => {
 
   // Actualizar output del profesional seleccionado
   useEffect(() => {
-    console.log('🔍 [TestApiPage] useEffect selectedProfesionalId:', selectedProfesionalId);
-    console.log('🔍 [TestApiPage] profesionales disponibles:', profesionales);
-    
     if (selectedProfesionalId) {
       const profesional = profesionales.find(p => p.id === selectedProfesionalId);
       setOutputProfesional(profesional || null);
@@ -119,7 +116,6 @@ const TestApiPage: React.FC = () => {
 
   // useEffect para cargar rango inicial del calendario
   useEffect(() => {
-    console.log('🔍 [TestApiPage] useEffect calendario - selectedProfesionalId:', selectedProfesionalId);
     if (selectedProfesionalId) {
       handleCalRangeChange({
         start: startOfMonth(new Date()),
@@ -130,10 +126,8 @@ const TestApiPage: React.FC = () => {
 
   // Auto-seleccionar primer profesional cuando se carguen
   useEffect(() => {
-    console.log('🔍 [TestApiPage] useEffect auto-selección - profesionales:', profesionales);
     if (profesionales.length > 0 && !selectedProfesionalId) {
       const primerProfesional = profesionales[0];
-      console.log('🔍 [TestApiPage] Auto-seleccionando primer profesional:', primerProfesional);
       setSelectedProfesionalId(primerProfesional.id);
     }
   }, [profesionales, selectedProfesionalId]);
@@ -144,9 +138,7 @@ const TestApiPage: React.FC = () => {
       setLoadingProfesionales(true);
       try {
         const response = await axiosInstance.get('/api/usuarios/profesionales');
-        console.log('🔍 [TestApiPage] Respuesta profesionales:', response.data);
         const profesionalesData = response.data.data?.profesionales || response.data.profesionales || [];
-        console.log('🔍 [TestApiPage] Profesionales procesados:', profesionalesData);
         setProfesionales(Array.isArray(profesionalesData) ? profesionalesData : []);
       } catch (error: any) {
         console.error('Error cargando profesionales:', error);
@@ -282,7 +274,6 @@ const TestApiPage: React.FC = () => {
       ? format(range[range.length - 1], 'yyyy-MM-dd')
       : format(range.end, 'yyyy-MM-dd');
 
-    console.log('🔍 [handleCalRangeChange] Rango original:', { fechaInicio, fechaFin, selectedProfesionalId });
 
     // Validar y limitar rango a máximo 30 días
     const inicio = new Date(fechaInicio);
@@ -295,7 +286,6 @@ const TestApiPage: React.FC = () => {
       const finLimitado = new Date(inicio);
       finLimitado.setDate(finLimitado.getDate() + 30);
       fechaFinLimitada = format(finLimitado, 'yyyy-MM-dd');
-      console.log('🔍 [handleCalRangeChange] Rango limitado a 30 días:', { fechaInicio, fechaFinLimitada, diasDiferencia });
     }
 
     setCalRango({ fechaInicio, fechaFin: fechaFinLimitada });
@@ -312,8 +302,6 @@ const TestApiPage: React.FC = () => {
             params: { profesionalId: selectedProfesionalId, fechaInicio, fechaFin: fechaFinLimitada }
           })
         ]);
-        console.log('🔍 [handleCalRangeChange] Response API Slots:', slotsRes.data.data);
-        console.log('🔍 [handleCalRangeChange] Response API Turnos:', turnosRes.data.data);
         setCalSlots(slotsRes.data.data);
         setCalTurnos(turnosRes.data.data || []);
       } catch (error: any) {
@@ -717,9 +705,6 @@ const TestApiPage: React.FC = () => {
           <>
             {/* Transformación de slots a eventos */}
             {(() => {
-              console.log('🔍 [Calendario] calSlots actuales:', calSlots);
-              console.log('🔍 [Calendario] calTurnos actuales:', calTurnos);
-              
               // Obtener intervalo de la configuración
               const intervaloMinutos = outputConfig?.disponibilidades?.[0]?.intervalo_minutos || 30;
               
@@ -753,8 +738,6 @@ const TestApiPage: React.FC = () => {
               });
 
               const eventos = [...eventosDisponibles, ...eventosOcupados];
-              
-              console.log('🔍 [Calendario] Eventos generados:', eventos);
 
               return (
                 <div style={{ height: '500px' }}>

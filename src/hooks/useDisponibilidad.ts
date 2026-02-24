@@ -2,7 +2,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { buildKey } from '../cache/key.builder';
 import { ENTITIES } from '../cache/key.builder';
+import { createLogger } from '../utils/createLogger';
 import { cacheService } from '../cache/cache.service';
+
+const disponibilidadLogger = createLogger('useDisponibilidad');
 import { disponibilidadService } from '../services/disponibilidad.service';
 import { DateHelper } from '../shared/utils/DateHelper';
 
@@ -10,7 +13,7 @@ import { DateHelper } from '../shared/utils/DateHelper';
 const USE_NEW_DATE_HELPER = (window as any).__ENV__?.REACT_APP_USE_NEW_DATE_HELPER === 'true';
 
 export const useDisponibilidad = (profesionalId: string | null) => {
-  console.log('🔍 [useDisponibilidad] Hook inicializado con profesionalId:', profesionalId);
+  disponibilidadLogger.debug('Hook inicializado', { profesionalId });
   
   // Usar DateHelper para obtener fecha actual
   const today = USE_NEW_DATE_HELPER ? DateHelper.today() : new Date();
@@ -20,9 +23,9 @@ export const useDisponibilidad = (profesionalId: string | null) => {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   // Obtener días disponibles del mes
-  console.log('🔍 [useDisponibilidad] Configurando useFetch con:', { profesionalId, mes, año });
+  disponibilidadLogger.debug('Configurando useFetch', { profesionalId, mes, año });
   const cacheKey = profesionalId ? buildKey(ENTITIES.DISPONIBILIDAD, profesionalId, `${mes}-${año}`) : null;
-  console.log('🔍 [useDisponibilidad] Cache key:', cacheKey);
+  disponibilidadLogger.debug('Cache key', { cacheKey });
   
   // Forzar nueva petición (sin caché)
   const {
@@ -33,9 +36,9 @@ export const useDisponibilidad = (profesionalId: string | null) => {
   } = useFetch(
     cacheKey,
     () => {
-      console.log('🔍 [useDisponibilidad] Fetcher llamado con:', { profesionalId, mes, año });
+      disponibilidadLogger.debug('Fetcher llamado', { profesionalId, mes, año });
       if (!profesionalId) {
-        console.log('🔍 [useDisponibilidad] profesionalId es null, retornando array vacío');
+        disponibilidadLogger.debug('profesionalId es null, retornando array vacío');
         return Promise.resolve([]);
       }
       return disponibilidadService.getDisponibilidadMes(profesionalId, mes, año);
@@ -57,18 +60,17 @@ export const useDisponibilidad = (profesionalId: string | null) => {
 
   // Logging para depurar caché
   useEffect(() => {
-    console.log('🔍 [useDisponibilidad] Slots actualizados:', {
+    disponibilidadLogger.debug('Slots actualizados', {
       selectedDate,
       profesionalId,
-      slots,
+      slotsCount: slots?.length || 0,
       loadingSlots,
-      slotsError,
-      slotsLength: slots?.length || 0
+      hasError: !!slotsError
     });
   }, [slots, selectedDate, profesionalId, loadingSlots, slotsError]);
 
   const handleMonthChange = useCallback((newMes: number, newAño: number) => {
-    console.log('🔍 [useDisponibilidad] handleMonthChange called:', { newMes, newAño });
+    disponibilidadLogger.debug('handleMonthChange llamado', { newMes, newAño });
     setMes(newMes);
     setAño(newAño);
     setSelectedDate(null);
@@ -76,7 +78,7 @@ export const useDisponibilidad = (profesionalId: string | null) => {
   }, []);
 
   const handleDateSelect = useCallback((date: string) => {
-    console.log('🔍 [useDisponibilidad] handleDateSelect called:', date);
+    disponibilidadLogger.debug('handleDateSelect llamado', { date });
     setSelectedDate(date);
     setSelectedSlot(null);
     
@@ -97,15 +99,15 @@ export const useDisponibilidad = (profesionalId: string | null) => {
 
   // Función temporal para debugging y limpieza de caché
   const forceRefresh = useCallback(() => {
-    console.log('🔍 [useDisponibilidad] Force refresh llamado - limpiando caché...');
+    disponibilidadLogger.debug('Force refresh - limpiando caché');
     
     // Invalidar caché específico para el profesional actual
     if (profesionalId) {
       const disponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD, profesionalId, `${mes}-${año}`);
       const slotsKey = selectedDate ? buildKey(ENTITIES.SLOTS, profesionalId, selectedDate) : null;
       
-      console.log('🔍 [useDisponibilidad] Invalidando - disponibilidadKey:', disponibilidadKey);
-      console.log('🔍 [useDisponibilidad] Invalidando - slotsKey:', slotsKey);
+      disponibilidadLogger.debug('Invalidando - disponibilidadKey', { disponibilidadKey });
+      disponibilidadLogger.debug('Invalidando - slotsKey', { slotsKey });
       
       cacheService.invalidate(disponibilidadKey);
       if (slotsKey) {

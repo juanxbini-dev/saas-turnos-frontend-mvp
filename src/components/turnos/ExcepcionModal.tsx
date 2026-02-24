@@ -3,7 +3,10 @@ import { Modal, Input, Select, Button, Textarea } from '../ui';
 import { ExcepcionDia } from '../../types/turno.types';
 import { disponibilidadService } from '../../services/disponibilidad.service';
 import { useAuth } from '../../context/AuthContext';
+import { createLogger } from '../../utils/createLogger';
 import { cacheService } from '../../cache/cache.service';
+
+const excepcionLogger = createLogger('ExcepcionModal');
 import { buildKey } from '../../cache/key.builder';
 import { ENTITIES } from '../../cache/key.builder';
 
@@ -90,44 +93,49 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
         notas: formData.notas || undefined
       };
 
-      console.log('🔍 [ExcepcionModal] Guardando excepción:', dataForService);
-      console.log('🔍 [ExcepcionModal] excepcion:', excepcion);
-      console.log('🔍 [ExcepcionModal] Es edición?', !!excepcion);
+      excepcionLogger.debug('Guardando excepción', { 
+        esEdicion: !!excepcion,
+        excepcionId: excepcion?.id
+      });
       
       if (excepcion) {
         // Editar excepción existente
-        console.log('🔍 [ExcepcionModal] Editando excepción ID:', excepcion.id);
+        excepcionLogger.debug('Editando excepción', { excepcionId: excepcion.id });
         await disponibilidadService.updateExcepcion(excepcion.id, dataForService);
-        console.log('✅ [ExcepcionModal] Excepción actualizada');
+        excepcionLogger.info('Excepción actualizada', { excepcionId: excepcion.id });
       } else {
         // Crear nueva excepción
-        console.log('🔍 [ExcepcionModal] Creando nueva excepción');
+        excepcionLogger.debug('Creando nueva excepción');
         await disponibilidadService.createExcepcion(dataForService);
-        console.log('✅ [ExcepcionModal] Excepción creada');
+        excepcionLogger.info('Excepción creada');
       }
       
       // Invalidar caché relacionado de forma más específica
       try {
-        console.log('🔍 [ExcepcionModal] Invalidando caché después de guardar excepción...');
+        excepcionLogger.debug('Invalidando caché después de guardar excepción');
         
         // Invalidar caché general
         const configKey = buildKey(ENTITIES.CONFIGURACION);
         const slotsKey = buildKey(ENTITIES.SLOTS);
         const disponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD);
         
-        console.log('🔍 [ExcepcionModal] Invalidando caché general - configKey:', configKey, 'slotsKey:', slotsKey, 'disponibilidadKey:', disponibilidadKey);
+        excepcionLogger.debug('Invalidando caché general', { 
+          configKey,
+          slotsKey,
+          disponibilidadKey
+        });
         
         if (configKey && configKey.trim()) {
           cacheService.invalidateByPrefix(configKey);
-          console.log('✅ [ExcepcionModal] Caché CONFIGURACION invalidado');
+          excepcionLogger.debug('Caché CONFIGURACION invalidado');
         }
         if (slotsKey && slotsKey.trim()) {
           cacheService.invalidateByPrefix(slotsKey);
-          console.log('✅ [ExcepcionModal] Caché SLOTS invalidado');
+          excepcionLogger.debug('Caché SLOTS invalidado');
         }
         if (disponibilidadKey && disponibilidadKey.trim()) {
           cacheService.invalidateByPrefix(disponibilidadKey);
-          console.log('✅ [ExcepcionModal] Caché DISPONIBILIDAD invalidado');
+          excepcionLogger.debug('Caché DISPONIBILIDAD invalidado');
         }
         
         // Invalidar caché específico para la fecha de la excepción
@@ -139,23 +147,25 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
             const specificDisponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD, authUser.id, 
               `${new Date(formData.fecha).getMonth() + 1}-${new Date(formData.fecha).getFullYear()}`);
             
-            console.log('🔍 [ExcepcionModal] Invalidando caché específico - specificSlotsKey:', specificSlotsKey);
-            console.log('🔍 [ExcepcionModal] Invalidando caché específico - specificDisponibilidadKey:', specificDisponibilidadKey);
+            excepcionLogger.debug('Invalidando caché específico', { 
+              specificSlotsKey,
+              specificDisponibilidadKey
+            });
             
             cacheService.invalidate(specificSlotsKey);
             cacheService.invalidate(specificDisponibilidadKey);
-            console.log('✅ [ExcepcionModal] Caché específico de fecha invalidado');
+            excepcionLogger.debug('Caché específico de fecha invalidado', { fecha: formData.fecha });
           }
         }
       } catch (cacheError) {
-        console.warn('⚠️ [ExcepcionModal] Error al invalidar caché:', cacheError);
+        excepcionLogger.warn('Error al invalidar caché', cacheError as Error);
         // No bloquear el flujo principal si falla la invalidación del caché
       }
       
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('💥 [ExcepcionModal] Error al guardar excepción:', error);
+      excepcionLogger.error('Error al guardar excepción', error as Error);
     } finally {
       setLoading(false);
     }
