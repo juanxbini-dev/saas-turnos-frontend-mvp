@@ -25,6 +25,8 @@ export const EditarMiServicioModal: React.FC<EditarMiServicioModalProps> = ({
     notas: usuarioServicio.notas || ''
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const nivelOptions = [
     { value: '', label: 'Seleccionar nivel' },
     { value: 'básico', label: 'Básico' },
@@ -38,7 +40,59 @@ export const EditarMiServicioModal: React.FC<EditarMiServicioModalProps> = ({
     { value: 'false', label: 'No' }
   ];
 
+  const validatePrecio = (value: number | null | undefined | string): string | null => {
+    // Convertir string vacío a null
+    const numValue = value === '' ? null : (typeof value === 'string' ? parseFloat(value) : value);
+    
+    if (numValue === null || numValue === undefined) return null;
+    
+    // Validar que no sea negativo
+    if (numValue < 0) {
+      return 'El precio no puede ser negativo';
+    }
+    
+    // Validar contra precio mínimo
+    if (usuarioServicio.precio_minimo && numValue < usuarioServicio.precio_minimo) {
+      return `El precio no puede ser menor a $${usuarioServicio.precio_minimo}`;
+    }
+    
+    // Validar contra precio máximo
+    if (usuarioServicio.precio_maximo && numValue > usuarioServicio.precio_maximo) {
+      return `El precio no puede ser mayor a $${usuarioServicio.precio_maximo}`;
+    }
+    
+    return null;
+  };
+
+  const validateDuracion = (value: number | null | undefined | string): string | null => {
+    // Convertir string vacío a null
+    const numValue = value === '' ? null : (typeof value === 'string' ? parseInt(value) : value);
+    
+    if (numValue === null || numValue === undefined) return null;
+    
+    // Validar que no sea negativo o cero
+    if (numValue <= 0) {
+      return 'La duración debe ser mayor a 0 minutos';
+    }
+    
+    // Validar que no sea excesivamente larga (máximo 8 horas = 480 minutos)
+    if (numValue > 480) {
+      return 'La duración no puede ser mayor a 8 horas';
+    }
+    
+    return null;
+  };
+
   const handleChange = (field: keyof UpdateMiServicioData, value: any) => {
+    // Limpiar error del campo cuando se modifica
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+    
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -61,6 +115,29 @@ export const EditarMiServicioModal: React.FC<EditarMiServicioModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validar antes de enviar
+    const newErrors: Record<string, string> = {};
+    
+    // Validar precio
+    const precioError = validatePrecio(formData.precio_personalizado);
+    if (precioError) {
+      newErrors.precio_personalizado = precioError;
+    }
+    
+    // Validar duración
+    const duracionError = validateDuracion(formData.duracion_personalizada);
+    if (duracionError) {
+      newErrors.duracion_personalizada = duracionError;
+    }
+    
+    // Si hay errores, mostrarlos y no enviar
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      const firstError = Object.values(newErrors)[0];
+      toastError(firstError);
+      return;
+    }
+
     setLoading(true);
     
     try {
@@ -82,11 +159,11 @@ export const EditarMiServicioModal: React.FC<EditarMiServicioModalProps> = ({
           Servicio
         </label>
         <div className="text-gray-900 font-medium">
-          {usuarioServicio.servicio_nombre}
+          {usuarioServicio.nombre}
         </div>
-        {usuarioServicio.servicio_descripcion && (
+        {usuarioServicio.descripcion && (
           <div className="text-sm text-gray-600 mt-1">
-            {usuarioServicio.servicio_descripcion}
+            {usuarioServicio.descripcion}
           </div>
         )}
       </div>
@@ -95,21 +172,23 @@ export const EditarMiServicioModal: React.FC<EditarMiServicioModalProps> = ({
         label="Precio personalizado"
         type="number"
         value={formData.precio_personalizado || ''}
-        onChange={(e) => handleChange('precio_personalizado', e.target.value ? parseFloat(e.target.value) : null)}
+        onChange={(e) => handleChange('precio_personalizado', e.target.value)}
         placeholder="Dejar vacío para usar precio base"
         step="0.01"
         min="0"
-        help="Si no especificas un precio, se usará el precio base del servicio"
+        error={errors.precio_personalizado}
+        help={errors.precio_personalizado || "Si no especificas un precio, se usará el precio base del servicio"}
       />
 
       <Input
         label="Duración personalizada (minutos)"
         type="number"
         value={formData.duracion_personalizada || ''}
-        onChange={(e) => handleChange('duracion_personalizada', e.target.value ? parseInt(e.target.value) : null)}
+        onChange={(e) => handleChange('duracion_personalizada', e.target.value)}
         placeholder="Dejar vacío para usar duración base"
         min="1"
-        help="Si no especificas una duración, se usará la duración base del servicio"
+        error={errors.duracion_personalizada}
+        help={errors.duracion_personalizada || "Si no especificas una duración, se usará la duración base del servicio"}
       />
 
       <Select

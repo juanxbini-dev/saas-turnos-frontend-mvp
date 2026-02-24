@@ -29,6 +29,10 @@ export interface UsuarioServicio {
   descripcion: string | null
   precio: number | null
   duracion_minutos: number
+  // Campos de validación del servicio base
+  precio_base: number | null
+  precio_minimo: number | null
+  precio_maximo: number | null
 }
 
 export interface CreateServicioData {

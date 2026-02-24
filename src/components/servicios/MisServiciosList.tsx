@@ -33,10 +33,10 @@ export const MisServiciosList: React.FC<MisServiciosListProps> = ({
         return (
           <div>
             <div className="font-medium text-gray-900">
-              {servicio_nombre}
+              {usuarioServicio.nombre}
             </div>
             <div className="text-sm text-gray-600 max-w-xs">
-              {usuarioServicio.servicio_descripcion || '-'}
+              {usuarioServicio.descripcion || '-'}
             </div>
           </div>
         );
@@ -46,7 +46,7 @@ export const MisServiciosList: React.FC<MisServiciosListProps> = ({
       key: 'precio_personalizado',
       header: 'Precio',
       render: (precio_personalizado: number | null | undefined, usuarioServicio: UsuarioServicio) => {
-        const precio = precio_personalizado || usuarioServicio.servicio_precio_base;
+        const precio = usuarioServicio.precio;
         return (
           <div className="text-sm text-gray-900">
             {formatearPrecio(precio || null)}
@@ -60,7 +60,7 @@ export const MisServiciosList: React.FC<MisServiciosListProps> = ({
       render: (duracion_personalizada: number | null, usuarioServicio: UsuarioServicio) => {
         return (
           <div className="text-sm text-gray-900">
-            {duracion_personalizada || '-'} min
+            {usuarioServicio.duracion_minutos || '-'} min
           </div>
         );
       }
@@ -149,10 +149,10 @@ export const MisServiciosList: React.FC<MisServiciosListProps> = ({
           <div className="flex justify-between items-start mb-2">
             <div className="flex-1">
               <h3 className="font-medium text-gray-900">
-                {usuarioServicio.servicio_nombre}
+                {usuarioServicio.nombre}
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                {usuarioServicio.servicio_descripcion || 'Sin descripción'}
+                {usuarioServicio.descripcion || 'Sin descripción'}
               </p>
             </div>
             <Badge
@@ -166,11 +166,11 @@ export const MisServiciosList: React.FC<MisServiciosListProps> = ({
           <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
             <div>
               <span className="font-medium">Precio:</span> {formatearPrecio(
-                (usuarioServicio.precio_personalizado || usuarioServicio.servicio_precio_base) || null
+                usuarioServicio.precio || null
               )}
             </div>
             <div>
-              <span className="font-medium">Duración:</span> {usuarioServicio.duracion_personalizada || '-'} min
+              <span className="font-medium">Duración:</span> {usuarioServicio.duracion_minutos || '-'} min
             </div>
             {usuarioServicio.nivel_habilidad && (
               <div className="col-span-2">
