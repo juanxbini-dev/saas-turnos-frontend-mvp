@@ -11,6 +11,7 @@ import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
 import TestComponentPage from '../pages/TestComponentPage';
 import TestApiPage from '../pages/TestApiPage';
+import { EmpresaPublicPage } from '../pages/public/EmpresaPublicPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
 import Layout from '../components/layout/Layout';
@@ -20,6 +21,11 @@ const AppRouter = () => {
     <Routes>
       <Route path="/" element={<WelcomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      
+      {/* Rutas públicas */}
+      <Route path="/:empresaSlug" element={<EmpresaPublicPage />} />
+
+      {/* Rutas privadas */}
 
       <Route element={<PrivateRoute />}>
         <Route element={<Layout />}>
