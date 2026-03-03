@@ -63,7 +63,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4" />
-              Comisión de Turnos (% para la empresa)
+              Comisión de Servicios (% para la empresa)
             </div>
           </label>
           <div className="relative">
@@ -84,7 +84,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
           </div>
           {!disabled && (
             <p className="text-xs text-gray-500 mt-1">
-              Porcentaje que se retiene la empresa por cada servicio
+              Porcentaje que se retiene la empresa por cada servicio realizado
             </p>
           )}
         </div>
@@ -166,9 +166,10 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
               <div className="font-medium mb-1">ℹ️ Información importante:</div>
               <ul className="text-xs space-y-1">
                 <li>• Los porcentajes indican cuánto recibe la empresa</li>
-                <li>• El resto va directamente al profesional</li>
+                <li>• El resto va directamente al profesional (staff o admin)</li>
                 <li>• Puedes configurar diferentes % para servicios y productos</li>
                 <li>• Si no configuras valores, se usará 20% por defecto</li>
+                <li>• Aplica tanto para staff como para administradores que atienden</li>
               </ul>
             </div>
           </div>

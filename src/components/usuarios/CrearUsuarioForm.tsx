@@ -174,7 +174,7 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
           />
         </div>
 
-        {/* Configuración de Comisiones - Para staff y admin que atienden */}
+        {/* Configuración de Comisiones - Para profesionales (staff y admin que atienden) */}
         {(formData.rol === 'staff' || formData.rol === 'admin') && (
           <ComisionesForm
             comisiones={{

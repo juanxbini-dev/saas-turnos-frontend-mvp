@@ -212,7 +212,7 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
             )}
           </div>
 
-          {/* Configuración de Comisiones - Para staff y admin que atienden */}
+          {/* Configuración de Comisiones - Para profesionales (staff y admin que atienden) */}
           {(usuario.roles.includes('staff') || usuario.roles.includes('admin')) && (
             <div>
               {editMode ? (
@@ -324,7 +324,7 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
             </a>
           </div>
 
-          {/* Configuración de Comisiones - Para staff y admin que atienden */}
+          {/* Configuración de Comisiones - Para profesionales (staff y admin que atienden) */}
           {(usuario.roles.includes('staff') || usuario.roles.includes('admin')) && (
             <div>
               {editMode ? (
