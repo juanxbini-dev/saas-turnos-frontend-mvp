@@ -7,6 +7,7 @@ import { useToast } from '../../hooks/useToast';
 import { cacheService } from '../../cache/cache.service';
 import { buildKey } from '../../cache/key.builder';
 import { ENTITIES } from '../../cache/key.builder';
+import { ComisionesForm } from './ComisionesForm';
 
 interface CrearUsuarioFormProps {
   onSuccess: () => void;
@@ -21,7 +22,9 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
     username: '',
     email: '',
     password: '',
-    rol: 'staff' as UsuarioRol
+    rol: 'staff' as UsuarioRol,
+    comision_turno: 20,
+    comision_producto: 20
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,7 +87,9 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
         username: '',
         email: '',
         password: '',
-        rol: 'staff'
+        rol: 'staff',
+        comision_turno: 20,
+        comision_producto: 20
       });
       
       onSuccess();
@@ -98,6 +103,10 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
   const handleChange = (field: string, value: string | React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const stringValue = typeof value === 'string' ? value : value.target.value;
     setFormData(prev => ({ ...prev, [field]: stringValue }));
+  };
+
+  const handleComisionesChange = (comisiones: { comision_turno: number; comision_producto: number }) => {
+    setFormData(prev => ({ ...prev, ...comisiones }));
   };
 
   return (
@@ -164,6 +173,18 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
             disabled={loading}
           />
         </div>
+
+        {/* Configuración de Comisiones - Para staff y admin que atienden */}
+        {(formData.rol === 'staff' || formData.rol === 'admin') && (
+          <ComisionesForm
+            comisiones={{
+              comision_turno: formData.comision_turno,
+              comision_producto: formData.comision_producto
+            }}
+            onChange={handleComisionesChange}
+            disabled={loading}
+          />
+        )}
 
         <Button
           type="submit"

@@ -11,6 +11,7 @@ import { useFetch } from '../../hooks/useFetch';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { FinalizarTurnoModal } from '../turnos/FinalizarTurnoModal';
 
 interface DashboardTurnoModalProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export function DashboardTurnoModal({
   const [creatingCliente, setCreatingCliente] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   
   const toast = useToast();
 
@@ -181,7 +183,14 @@ export function DashboardTurnoModal({
     setClienteSearch('');
     setShowCreateCliente(false);
     setNewCliente({ nombre: '', email: '', telefono: '' });
+    setShowFinalizarModal(false);
     onClose();
+  };
+
+  const handleFinalizarSuccess = () => {
+    setShowFinalizarModal(false);
+    onRefresh?.();
+    handleClose();
   };
 
   if (!isOpen) return null;
@@ -474,6 +483,18 @@ export function DashboardTurnoModal({
             
             {turno?.estado === 'confirmado' && (
               <Button
+                variant="primary"
+                onClick={() => setShowFinalizarModal(true)}
+                loading={loading}
+                leftIcon={CheckCircle}
+                block
+              >
+                {loading ? 'Procesando...' : 'Finalizar Turno'}
+              </Button>
+            )}
+            
+            {turno?.estado === 'confirmado' && (
+              <Button
                 variant="danger"
                 onClick={handleCancelar}
                 loading={loading}
@@ -509,6 +530,20 @@ export function DashboardTurnoModal({
         variant="primary"
         loading={confirmLoading}
       />
+
+      {/* Modal de Finalizar Turno */}
+      {turno && (
+        <FinalizarTurnoModal
+          isOpen={showFinalizarModal}
+          onClose={() => setShowFinalizarModal(false)}
+          turno={turno}
+          onSuccess={handleFinalizarSuccess}
+          comisionesConfig={{
+            comision_turno: 20, // TODO: Obtener del profesional
+            comision_producto: 20 // TODO: Obtener del profesional
+          }}
+        />
+      )}
     </Modal>
   );
 }

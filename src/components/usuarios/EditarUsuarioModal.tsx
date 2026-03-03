@@ -7,6 +7,7 @@ import { useToast } from '../../hooks/useToast';
 import { cacheService } from '../../cache/cache.service';
 import { buildKey } from '../../cache/key.builder';
 import { ENTITIES } from '../../cache/key.builder';
+import { ComisionesForm } from './ComisionesForm';
 
 interface EditarUsuarioModalProps {
   usuario: Usuario | null;
@@ -30,7 +31,9 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
   // Form data
   const [datosForm, setDatosForm] = useState<UpdateDatosData>({
     nombre: '',
-    username: ''
+    username: '',
+    comision_turno: 20,
+    comision_producto: 20
   });
   
   const [passwordForm, setPasswordForm] = useState<UpdatePasswordData>({
@@ -46,7 +49,9 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
     if (usuario) {
       setDatosForm({
         nombre: usuario.nombre,
-        username: usuario.username
+        username: usuario.username,
+        comision_turno: usuario.comision_turno || 20,
+        comision_producto: usuario.comision_producto || 20
       });
       setPasswordForm({
         passwordActual: '',
@@ -105,7 +110,9 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
     try {
       await usuarioService.updateDatos(usuario.id, {
         nombre: datosForm.nombre.trim(),
-        username: datosForm.username.trim()
+        username: datosForm.username.trim(),
+        comision_turno: datosForm.comision_turno,
+        comision_producto: datosForm.comision_producto
       });
       
       cacheService.invalidateByPrefix(buildKey(ENTITIES.USUARIOS));
@@ -117,6 +124,10 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleComisionesChange = (comisiones: { comision_turno: number; comision_producto: number }) => {
+    setDatosForm(prev => ({ ...prev, ...comisiones }));
   };
 
   const handleSavePassword = async () => {
@@ -200,6 +211,33 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
               </p>
             )}
           </div>
+
+          {/* Configuración de Comisiones - Para staff y admin que atienden */}
+          {(usuario.roles.includes('staff') || usuario.roles.includes('admin')) && (
+            <div>
+              {editMode ? (
+                <ComisionesForm
+                  comisiones={{
+                    comision_turno: datosForm.comision_turno || 20,
+                    comision_producto: datosForm.comision_producto || 20
+                  }}
+                  onChange={handleComisionesChange}
+                  disabled={loading}
+                  showTitle={false}
+                />
+              ) : (
+                <ComisionesForm
+                  comisiones={{
+                    comision_turno: usuario.comision_turno || 20,
+                    comision_producto: usuario.comision_producto || 20
+                  }}
+                  onChange={() => {}}
+                  disabled={true}
+                  showTitle={false}
+                />
+              )}
+            </div>
+          )}
 
           <div className="flex space-x-3 pt-4">
             {!editMode ? (
@@ -285,6 +323,33 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
               // TODO: implementar flujo de recuperación de contraseña
             </a>
           </div>
+
+          {/* Configuración de Comisiones - Para staff y admin que atienden */}
+          {(usuario.roles.includes('staff') || usuario.roles.includes('admin')) && (
+            <div>
+              {editMode ? (
+                <ComisionesForm
+                  comisiones={{
+                    comision_turno: datosForm.comision_turno || 20,
+                    comision_producto: datosForm.comision_producto || 20
+                  }}
+                  onChange={handleComisionesChange}
+                  disabled={loading}
+                  showTitle={false}
+                />
+              ) : (
+                <ComisionesForm
+                  comisiones={{
+                    comision_turno: usuario.comision_turno || 20,
+                    comision_producto: usuario.comision_producto || 20
+                  }}
+                  onChange={() => {}}
+                  disabled={true}
+                  showTitle={false}
+                />
+              )}
+            </div>
+          )}
 
           <div className="flex space-x-3 pt-4">
             <Button

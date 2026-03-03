@@ -1,4 +1,5 @@
 export type TurnoEstado = 'pendiente' | 'confirmado' | 'completado' | 'cancelado';
+export type MetodoPago = 'efectivo' | 'transferencia' | 'pendiente';
 
 export interface Turno {
   id: string;
@@ -15,6 +16,14 @@ export interface Turno {
   empresa_id: string;
   created_at: string;
   updated_at: string;
+  // Nuevos campos financieros
+  metodo_pago?: MetodoPago;
+  precio_original?: number;
+  descuento_porcentaje?: number;
+  descuento_monto?: number;
+  total_final?: number;
+  finalizado_at?: string;
+  finalizado_por_id?: string;
 }
 
 export interface TurnoConDetalle extends Turno {
@@ -88,4 +97,46 @@ export interface ServicioProfesional {
   duracion_minutos: number;
   precio_personalizado?: number;
   duracion_personalizada?: number;
+}
+
+export interface FinalizarTurnoData {
+  metodoPago: MetodoPago;
+  precioModificado?: number;
+  descuentoPorcentaje?: number;
+  productos?: VentaProductoData[];
+}
+
+export interface VentaProductoData {
+  id: string;
+  producto_id?: string;
+  nombre_producto: string;
+  cantidad: number;
+  precio_unitario: number;
+  precio_total: number;
+}
+
+export interface CalculoCompletoTurno {
+  precioOriginalServicio: number;
+  precioOriginalProductos: number;
+  subtotalOriginal: number;
+  descuentoPorcentaje: number;
+  descuentoMonto: number;
+  totalConDescuento: number;
+  comisionServicio: {
+    base: number;
+    porcentajeEmpresa: number;
+    montoEmpresa: number;
+    netoProfesional: number;
+  };
+  comisionProductos: {
+    base: number;
+    porcentajeEmpresa: number;
+    montoEmpresa: number;
+    netoProfesional: number;
+  };
+  totales: {
+    totalRecaudado: number;
+    totalEmpresa: number;
+    totalProfesional: number;
+  };
 }
