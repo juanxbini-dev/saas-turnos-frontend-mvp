@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FlaskConical,
+  TrendingUp,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -24,6 +25,7 @@ interface SidebarProps {
 
 const menuItems = [
   { path: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'     },
+  { path: '/finanzas',     icon: TrendingUp,      label: 'Finanzas'      },
   { path: '/perfil',       icon: UserCircle,      label: 'Perfil'        },
   { path: '/usuarios',     icon: Users,           label: 'Usuarios'      },
   { path: '/turnos',       icon: Calendar,        label: 'Turnos'        },

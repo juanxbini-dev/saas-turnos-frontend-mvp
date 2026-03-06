@@ -11,6 +11,7 @@ import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
 import TestComponentPage from '../pages/TestComponentPage';
 import TestApiPage from '../pages/TestApiPage';
+import { FinanzasPage } from '../pages/FinanzasPage';
 import { EmpresaPublicPage } from '../pages/public/EmpresaPublicPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
@@ -30,6 +31,7 @@ const AppRouter = () => {
       <Route element={<PrivateRoute />}>
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/finanzas" element={<FinanzasPage />} />
           <Route path="/usuarios" element={
             <AdminRoute>
               <UsuariosPage />

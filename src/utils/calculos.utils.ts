@@ -64,6 +64,15 @@ export const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
+export const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
 export const generarId = (): string => {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 8);
