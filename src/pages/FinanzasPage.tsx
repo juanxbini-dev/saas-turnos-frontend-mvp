@@ -7,6 +7,7 @@ import { FinanzasSummaryCards } from '../components/finanzas/FinanzasSummaryCard
 import FinanzasFiltersComponent from '../components/finanzas/FinanzasFilters';
 import { FinanzasTable } from '../components/finanzas/FinanzasTable';
 import { FinanzasDetalleModal } from '../components/finanzas/FinanzasDetalleModal';
+import { ProfesionalSelector } from '../components/finanzas/ProfesionalSelector';
 import { Pagination } from '../components/ui';
 import { usuarioService } from '../services/usuario.service';
 
@@ -46,13 +47,15 @@ export function FinanzasPage() {
     revalidate: revalidateProfesionales
   } = useFetch(
     'profesionales-list',
-    () => usuarioService.getUsuarios({ limit: 100 }),
+    () => usuarioService.getUsuarios(),
     { ttl: 300 }
   );
 
-  const profesionales = Array.isArray((profesionalesData as any)?.data) 
-    ? (profesionalesData as any).data 
-    : [];
+  const profesionales = Array.isArray(profesionalesData) 
+    ? profesionalesData 
+    : Array.isArray((profesionalesData as any)?.data) 
+      ? (profesionalesData as any).data 
+      : [];
 
   // Obtener finanzas
   const {
@@ -93,14 +96,13 @@ export function FinanzasPage() {
     handleFiltersChange({ ordenar_por: campo, orden: newOrder });
   };
 
-  const handleRowClick = (comision: ComisionProfesional) => {
+  const handleOpenModal = (comision: ComisionProfesional) => {
     setSelectedComision(comision);
     setIsModalOpen(true);
   };
 
-  const handleProfesionalSelect = (profesionalId: string) => {
-    setSelectedProfesionalId(profesionalId);
-    handleFiltersChange({ pagina: 1 }); // Resetear página al cambiar profesional
+  const handleRowClick = (comision: ComisionProfesional) => {
+    handleOpenModal(comision);
   };
 
   const handlePageChange = (pagina: number) => {
@@ -138,27 +140,14 @@ export function FinanzasPage() {
         </p>
       </div>
 
-      {/* Nav de profesionales - solo admin */}
-      {isAdmin && profesionales.length > 0 && (
-        <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 overflow-x-auto">
-              {profesionales.map((profesional: any) => (
-                <button
-                  key={profesional.id}
-                  onClick={() => handleProfesionalSelect(profesional.id)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                    selectedProfesionalId === profesional.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {profesional.nombre}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
+      {/* Selector de profesionales - Solo para admin */}
+      {isAdmin && (
+        <ProfesionalSelector
+          profesionales={profesionales}
+          selectedProfesionalId={selectedProfesionalId}
+          onSelectProfesional={setSelectedProfesionalId}
+          isLoading={loadingProfesionales}
+        />
       )}
 
       {/* Filtros */}
