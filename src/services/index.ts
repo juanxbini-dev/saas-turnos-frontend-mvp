@@ -6,3 +6,4 @@ export { servicioService } from './servicio.service';
 export { toastService } from './toast.service';
 export { turnoService } from './turno.service';
 export { usuarioService } from './usuario.service';
+export { perfilService } from './perfil.service';

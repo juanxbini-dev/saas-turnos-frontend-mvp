@@ -13,6 +13,7 @@ export interface Usuario {
   updated_at: string;
   comision_turno?: number;
   comision_producto?: number;
+  avatar_url?: string | null;
 }
 
 export interface CreateUsuarioData {
