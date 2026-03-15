@@ -30,7 +30,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   onClose,
   onVentaCreada,
 }) => {
-  const { showToast } = useToast();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
 
   // Cliente
@@ -74,7 +74,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   const handleCrearCliente = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCliente.nombre.trim() || !newCliente.email.trim()) {
-      showToast('Nombre y email son requeridos', 'error');
+      toast.error('Nombre y email son requeridos');
       return;
     }
     setCreatingCliente(true);
@@ -84,7 +84,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
       setShowCreateCliente(false);
       setNewCliente({ nombre: '', email: '', telefono: '' });
     } catch {
-      showToast('Error al crear el cliente', 'error');
+      toast.error('Error al crear el cliente');
     } finally {
       setCreatingCliente(false);
     }
@@ -94,7 +94,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
     const exists = items.find(i => i.producto.id === producto.id);
     if (exists) {
       if (exists.cantidad >= producto.stock) {
-        showToast('No hay suficiente stock', 'error');
+        toast.error('No hay suficiente stock');
         return;
       }
       setItems(prev => prev.map(i => i.producto.id === producto.id ? { ...i, cantidad: i.cantidad + 1 } : i));
@@ -119,7 +119,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
 
   const handleSubmit = async () => {
     if (items.length === 0) {
-      showToast('Agregá al menos un producto', 'error');
+      toast.error('Agregá al menos un producto');
       return;
     }
     setLoading(true);
@@ -135,11 +135,11 @@ export const VenderModal: React.FC<VenderModalProps> = ({
           precio_unitario: i.producto.precio,
         })),
       });
-      showToast('Venta registrada', 'success');
+      toast.success('Venta registrada');
       onVentaCreada();
       onClose();
     } catch (err: any) {
-      showToast(err?.response?.data?.message || 'Error al registrar la venta', 'error');
+      toast.error(err?.response?.data?.message || 'Error al registrar la venta');
     } finally {
       setLoading(false);
     }

@@ -12,7 +12,7 @@ interface AgregarStockModalProps {
 }
 
 export const AgregarStockModal: React.FC<AgregarStockModalProps> = ({ producto, onClose, onSaved }) => {
-  const { showToast } = useToast();
+  const toast = useToast();
   const [cantidad, setCantidad] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -20,16 +20,16 @@ export const AgregarStockModal: React.FC<AgregarStockModalProps> = ({ producto, 
     e.preventDefault();
     const n = parseInt(cantidad);
     if (!n || n <= 0) {
-      showToast('Ingresá una cantidad válida', 'error');
+      toast.error('Ingresá una cantidad válida');
       return;
     }
     setLoading(true);
     try {
       await productosService.addStock(producto.id, n);
-      showToast(`Stock actualizado: +${n} unidades`, 'success');
+      toast.success(`Stock actualizado: +${n} unidades`);
       onSaved();
     } catch {
-      showToast('Error al agregar stock', 'error');
+      toast.error('Error al agregar stock');
     } finally {
       setLoading(false);
     }

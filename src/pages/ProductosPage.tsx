@@ -11,7 +11,7 @@ import { useToast } from '../hooks/useToast';
 type Tab = 'catalogo' | 'estadisticas';
 
 function ProductosPage() {
-  const { showToast } = useToast();
+  const toast = useToast();
   const [tab, setTab] = useState<Tab>('catalogo');
   const [productoModal, setProductoModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
   const [stockModal, setStockModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
@@ -34,10 +34,10 @@ function ProductosPage() {
   const handleToggleActivo = async (producto: Producto) => {
     try {
       await productosService.updateProducto(producto.id, { activo: !producto.activo });
-      showToast(producto.activo ? 'Producto desactivado' : 'Producto activado', 'success');
+      toast.success(producto.activo ? 'Producto desactivado' : 'Producto activado');
       refresh();
     } catch {
-      showToast('Error al actualizar el producto', 'error');
+      toast.error('Error al actualizar el producto');
     }
   };
 

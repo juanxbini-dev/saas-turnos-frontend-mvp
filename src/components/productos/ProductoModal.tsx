@@ -11,7 +11,7 @@ interface ProductoModalProps {
 }
 
 export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose, onSaved }) => {
-  const { showToast } = useToast();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     nombre: producto?.nombre || '',
@@ -25,7 +25,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nombre.trim()) {
-      showToast('El nombre es requerido', 'error');
+      toast.error('El nombre es requerido');
       return;
     }
     setLoading(true);
@@ -36,7 +36,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           descripcion: form.descripcion.trim() || undefined,
           precio: parseFloat(form.precio),
         });
-        showToast('Producto actualizado', 'success');
+        toast.success('Producto actualizado');
       } else {
         await productosService.createProducto({
           nombre: form.nombre.trim(),
@@ -44,11 +44,11 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           precio: parseFloat(form.precio),
           stock: parseInt(form.stock),
         } as CreateProductoData);
-        showToast('Producto creado', 'success');
+        toast.success('Producto creado');
       }
       onSaved();
     } catch {
-      showToast('Error al guardar el producto', 'error');
+      toast.error('Error al guardar el producto');
     } finally {
       setLoading(false);
     }
