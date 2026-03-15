@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { DollarSign, Percent, CreditCard, Package, Plus, X, Calculator } from 'lucide-react';
+import { DollarSign, Percent, CreditCard, Package, Plus, X, Calculator, Search } from 'lucide-react';
 import { TurnoConDetalle, MetodoPago, VentaProductoData, CalculoCompletoTurno } from '../../types/turno.types';
 import { calcularComisiones, formatCurrency, generarId } from '../../utils/calculos.utils';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
+import { productosService } from '../../services/productos.service';
+import { Producto } from '../../types/producto.types';
+import { useFetch } from '../../hooks/useFetch';
 
 interface FinalizarTurnoModalProps {
   isOpen: boolean;
@@ -30,12 +33,16 @@ export function FinalizarTurnoModal({
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState<string>('');
   const [productos, setProductos] = useState<VentaProductoData[]>([]);
   const [showAgregarProductos, setShowAgregarProductos] = useState(false);
-  const [nuevoProducto, setNuevoProducto] = useState({
-    nombre_producto: '',
-    cantidad: 1,
-    precio_unitario: ''
-  });
+  const [catalogoSearch, setCatalogoSearch] = useState('');
+  const [selectedCatalogProducto, setSelectedCatalogProducto] = useState<Producto | null>(null);
+  const [nuevaCantidad, setNuevaCantidad] = useState(1);
   const [calculo, setCalculo] = useState<CalculoCompletoTurno | null>(null);
+
+  const { data: catalogoProductos, loading: loadingCatalogo } = useFetch(
+    'productos:lista',
+    () => productosService.getProductos(),
+    { ttl: 60 }
+  );
 
   // Calcular totales cuando cambian los valores
   useEffect(() => {
@@ -55,29 +62,31 @@ export function FinalizarTurnoModal({
   }, [precioModificado, descuentoPorcentaje, productos, turno.precio, comisionesConfig]);
 
   const handleAgregarProducto = () => {
-    if (!nuevoProducto.nombre_producto.trim() || !nuevoProducto.precio_unitario) {
-      return;
+    if (!selectedCatalogProducto) return;
+    if (nuevaCantidad <= 0) return;
+
+    const existe = productos.find(p => p.producto_id === selectedCatalogProducto.id);
+    if (existe) {
+      setProductos(prev => prev.map(p =>
+        p.producto_id === selectedCatalogProducto.id
+          ? { ...p, cantidad: p.cantidad + nuevaCantidad, precio_total: p.precio_unitario * (p.cantidad + nuevaCantidad) }
+          : p
+      ));
+    } else {
+      const producto: VentaProductoData = {
+        id: generarId(),
+        producto_id: selectedCatalogProducto.id,
+        nombre_producto: selectedCatalogProducto.nombre,
+        cantidad: nuevaCantidad,
+        precio_unitario: selectedCatalogProducto.precio,
+        precio_total: selectedCatalogProducto.precio * nuevaCantidad,
+      };
+      setProductos([...productos, producto]);
     }
 
-    const precioUnitario = parseFloat(nuevoProducto.precio_unitario);
-    if (isNaN(precioUnitario) || precioUnitario <= 0) {
-      return;
-    }
-
-    const producto: VentaProductoData = {
-      id: generarId(),
-      nombre_producto: nuevoProducto.nombre_producto,
-      cantidad: nuevoProducto.cantidad,
-      precio_unitario: precioUnitario,
-      precio_total: precioUnitario * nuevoProducto.cantidad
-    };
-
-    setProductos([...productos, producto]);
-    setNuevoProducto({
-      nombre_producto: '',
-      cantidad: 1,
-      precio_unitario: ''
-    });
+    setSelectedCatalogProducto(null);
+    setCatalogoSearch('');
+    setNuevaCantidad(1);
     setShowAgregarProductos(false);
   };
 
@@ -118,11 +127,9 @@ export function FinalizarTurnoModal({
     setDescuentoPorcentaje('');
     setProductos([]);
     setShowAgregarProductos(false);
-    setNuevoProducto({
-      nombre_producto: '',
-      cantidad: 1,
-      precio_unitario: ''
-    });
+    setSelectedCatalogProducto(null);
+    setCatalogoSearch('');
+    setNuevaCantidad(1);
     setCalculo(null);
     onClose();
   };
@@ -291,46 +298,77 @@ export function FinalizarTurnoModal({
           )}
         </Card>
 
-        {/* Agregar Producto Modal */}
+        {/* Selector de Catálogo */}
         {showAgregarProductos && (
           <Card flat className="border-green-200 bg-green-50">
-            <h3 className="font-medium text-green-900 mb-3">Agregar Nuevo Producto</h3>
+            <h3 className="font-medium text-green-900 mb-3">Seleccionar Producto del Catálogo</h3>
             <div className="space-y-3">
-              <Input
-                placeholder="Nombre del producto"
-                value={nuevoProducto.nombre_producto}
-                onChange={(e) => setNuevoProducto({ ...nuevoProducto, nombre_producto: e.target.value })}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  placeholder="Cantidad"
-                  type="number"
-                  min="1"
-                  value={nuevoProducto.cantidad}
-                  onChange={(e) => setNuevoProducto({ ...nuevoProducto, cantidad: parseInt(e.target.value) || 1 })}
-                />
-                <Input
-                  placeholder="Precio unitario"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={nuevoProducto.precio_unitario}
-                  onChange={(e) => setNuevoProducto({ ...nuevoProducto, precio_unitario: e.target.value })}
-                />
-              </div>
+              {selectedCatalogProducto ? (
+                <div className="bg-white border border-green-300 rounded-lg px-3 py-2 flex justify-between items-center">
+                  <div>
+                    <p className="text-sm font-medium">{selectedCatalogProducto.nombre}</p>
+                    <p className="text-xs text-gray-500">{formatCurrency(selectedCatalogProducto.precio)} c/u · Stock: {selectedCatalogProducto.stock}</p>
+                  </div>
+                  <button onClick={() => setSelectedCatalogProducto(null)} className="text-gray-400 hover:text-red-500">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar producto..."
+                    value={catalogoSearch}
+                    onChange={e => setCatalogoSearch(e.target.value)}
+                    className="pl-9"
+                    autoFocus
+                  />
+                  {catalogoSearch && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                      {loadingCatalogo ? (
+                        <div className="p-3 text-center"><Spinner size="sm" /></div>
+                      ) : (catalogoProductos?.filter(p =>
+                            p.activo && p.stock > 0 &&
+                            p.nombre.toLowerCase().includes(catalogoSearch.toLowerCase())
+                          ) || []).length === 0 ? (
+                        <p className="p-3 text-sm text-gray-500">Sin resultados o sin stock</p>
+                      ) : (
+                        (catalogoProductos?.filter(p =>
+                          p.activo && p.stock > 0 &&
+                          p.nombre.toLowerCase().includes(catalogoSearch.toLowerCase())
+                        ) || []).slice(0, 6).map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => { setSelectedCatalogProducto(p); setCatalogoSearch(''); }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-0 flex justify-between"
+                          >
+                            <span className="text-sm font-medium">{p.nombre}</span>
+                            <span className="text-sm text-gray-500">{formatCurrency(p.precio)}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              {selectedCatalogProducto && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max={selectedCatalogProducto.stock}
+                    value={nuevaCantidad}
+                    onChange={e => setNuevaCantidad(parseInt(e.target.value) || 1)}
+                  />
+                </div>
+              )}
               <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowAgregarProductos(false)}
-                  block
-                >
+                <Button variant="secondary" onClick={() => { setShowAgregarProductos(false); setSelectedCatalogProducto(null); setCatalogoSearch(''); }} block>
                   Cancelar
                 </Button>
-                <Button
-                  onClick={handleAgregarProducto}
-                  disabled={!nuevoProducto.nombre_producto.trim() || !nuevoProducto.precio_unitario}
-                  block
-                >
+                <Button onClick={handleAgregarProducto} disabled={!selectedCatalogProducto} block>
                   Agregar
                 </Button>
               </div>

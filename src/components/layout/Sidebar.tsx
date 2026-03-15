@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useFetch } from '../../hooks/useFetch';
+import { productosService } from '../../services/productos.service';
 import {
   LayoutDashboard,
   Calendar,
@@ -49,6 +51,12 @@ const SidebarContent = ({
   const { state } = useAuth();
   const roles = state.authUser?.roles || [];
 
+  const { data: productosStats } = useFetch(
+    'productos:stats:sidebar',
+    () => productosService.getStats(),
+    { ttl: 120 }
+  );
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -89,7 +97,12 @@ const SidebarContent = ({
               title={collapsed && !isMobile ? label : undefined}
             >
               <Icon size={20} className="flex-shrink-0" />
-              {(!collapsed || isMobile) && <span className="truncate">{label}</span>}
+              {(!collapsed || isMobile) && <span className="truncate flex-1">{label}</span>}
+              {(!collapsed || isMobile) && path === '/productos' && (productosStats?.bajo_stock_count ?? 0) > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0">
+                  {productosStats!.bajo_stock_count}
+                </span>
+              )}
             </NavLink>
           );
         })}

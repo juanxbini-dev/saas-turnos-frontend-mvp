@@ -2,19 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { ProfesionalFilter } from '../components/dashboard/ProfesionalFilter';
 import { DashboardCalendario } from '../components/dashboard/DashboardCalendario';
 import { DashboardTurnoModal } from '../components/dashboard/DashboardTurnoModal';
+import { VenderModal } from '../components/productos/VenderModal';
 import { useFetch } from '../hooks/useFetch';
 import { useAuth } from '../context/AuthContext';
 import { buildKey, ENTITIES } from '../cache/key.builder';
 import { cacheService } from '../cache/cache.service';
 import { disponibilidadService } from '../services';
 import { useToast } from '../hooks/useToast';
-import { Card } from '../components/ui';
+import { Card, Button } from '../components/ui';
 import { TurnoConDetalle } from '../types/turno.types';
+import { ShoppingCart } from 'lucide-react';
 
 export function DashboardPage() {
   // Dashboard público de la empresa - muestra calendario de turnos y disponibilidad
   const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [venderModalOpen, setVenderModalOpen] = useState(false);
   const [modalData, setModalData] = useState<{
     type: 'disponible' | 'ocupado';
     profesionalNombre?: string;
@@ -140,11 +143,22 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">
-          Gestiona tus turnos y disponibilidad
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">
+            Gestiona tus turnos y disponibilidad
+          </p>
+        </div>
+        {selectedProfesionalId && (
+          <Button
+            variant="secondary"
+            leftIcon={ShoppingCart}
+            onClick={() => setVenderModalOpen(true)}
+          >
+            Vender
+          </Button>
+        )}
       </div>
 
       {/* Filtro de Profesionales */}
@@ -199,6 +213,16 @@ export function DashboardPage() {
         turno={modalData?.turno}
         onRefresh={handleRefresh}
       />
+
+      {/* Modal venta directa */}
+      {venderModalOpen && selectedProfesionalId && (
+        <VenderModal
+          vendedorId={selectedProfesionalId}
+          vendedorNombre={profesionalSeleccionado?.nombre || ''}
+          onClose={() => setVenderModalOpen(false)}
+          onVentaCreada={() => setVenderModalOpen(false)}
+        />
+      )}
 
     </div>
   );
