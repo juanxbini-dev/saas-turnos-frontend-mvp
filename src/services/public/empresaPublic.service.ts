@@ -14,6 +14,8 @@ export interface ProfesionalPublic {
   email: string;
   roles: string[];
   activo: boolean;
+  avatar_url?: string | null;
+  descripcion?: string | null; // descripcion de landing_profesionales
 }
 
 export interface ServicioProfesional {

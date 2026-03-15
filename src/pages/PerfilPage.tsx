@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { perfilService } from '../services/perfil.service';
-import { AvatarUploader } from '../components/perfil';
-import { Card, Spinner, Badge } from '../components/ui';
+import { Card, Spinner, Badge, Avatar } from '../components/ui';
 import { Usuario } from '../types/usuario.types';
 import { useToast } from '../hooks/useToast';
 
@@ -27,10 +26,6 @@ function PerfilPage() {
     loadProfile();
   }, []);
 
-  const handleAvatarUpdate = (updatedProfile: Usuario) => {
-    setProfile(updatedProfile);
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -47,14 +42,15 @@ function PerfilPage() {
         <div className="grid gap-6 md:grid-cols-3">
           {/* Card de Avatar */}
           <Card className="md:col-span-1">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+            <div className="p-6 flex flex-col items-center">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Foto de Perfil
               </h2>
-              <AvatarUploader
-                currentUrl={profile?.avatar_url}
+              <Avatar
+                src={profile?.avatar_url || undefined}
                 name={profile?.nombre || state.authUser?.nombre || ''}
-                onUpdate={handleAvatarUpdate}
+                size="lg"
+                className="!w-24 !h-24 !text-2xl"
               />
             </div>
           </Card>

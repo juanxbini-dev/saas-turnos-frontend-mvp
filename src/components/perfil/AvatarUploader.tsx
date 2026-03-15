@@ -9,13 +9,14 @@ interface AvatarUploaderProps {
   currentUrl?: string | null;
   name: string;
   onUpdate: (profile: Usuario) => void;
+  compact?: boolean; // Modo compacto: solo avatar clickeable sin botones de texto
 }
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE_MB = 5;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-export function AvatarUploader({ currentUrl, name, onUpdate }: AvatarUploaderProps) {
+export function AvatarUploader({ currentUrl, name, onUpdate, compact = false }: AvatarUploaderProps) {
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +77,30 @@ export function AvatarUploader({ currentUrl, name, onUpdate }: AvatarUploaderPro
   };
 
   const displayUrl = preview || currentUrl;
+
+  if (compact) {
+    return (
+      <div className="relative group cursor-pointer" onClick={() => inputRef.current?.click()}>
+        <Avatar src={displayUrl || undefined} name={name} size="md" />
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+            <Spinner size="sm" />
+          </div>
+        )}
+        <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <Camera className="w-3 h-3 text-white" />
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ALLOWED_TYPES.join(',')}
+          onChange={handleFileChange}
+          className="hidden"
+          disabled={loading}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-4">

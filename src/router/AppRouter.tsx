@@ -13,6 +13,7 @@ import TestComponentPage from '../pages/TestComponentPage';
 import TestApiPage from '../pages/TestApiPage';
 import { FinanzasPage } from '../pages/FinanzasPage';
 import { EmpresaPublicPage } from '../pages/public/EmpresaPublicPage';
+import ConfiguracionPage from '../pages/ConfiguracionPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
 import Layout from '../components/layout/Layout';
@@ -40,6 +41,11 @@ const AppRouter = () => {
           <Route path="/clientes" element={<ClientesPage />} />
           <Route path="/turnos" element={<TurnosPage />} />
           <Route path="/perfil" element={<PerfilPage />} />
+          <Route path="/configuracion" element={
+            <AdminRoute>
+              <ConfiguracionPage />
+            </AdminRoute>
+          } />
           <Route path="/productos" element={<ProductosPage />} />
           <Route path="/servicios" element={<ServiciosPage />} />
           <Route path="/test-component" element={<TestComponentPage />} />
