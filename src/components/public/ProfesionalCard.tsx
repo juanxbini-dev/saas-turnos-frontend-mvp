@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Button } from '../ui';
+import { Card, Button, Avatar } from '../ui';
 import { ProfesionalPublic } from '../../services/public';
 
 interface ProfesionalCardProps {
@@ -14,64 +14,44 @@ export const ProfesionalCard: React.FC<ProfesionalCardProps> = ({
   onVerPerfil
 }) => {
   return (
-    <Card className="hover:shadow-lg transition-all duration-200 border-2 border-gray-200 hover:border-blue-300">
-      <div className="p-6">
-        {/* Header con foto y nombre */}
-        <div className="flex items-center space-x-4 mb-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
-            {profesional.nombre.charAt(0).toUpperCase()}
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">
-              {profesional.nombre}
-            </h3>
-            <p className="text-sm text-gray-500">@{profesional.username}</p>
-          </div>
-        </div>
-
-        {/* Roles/Especialidad */}
-        <div className="mb-4">
-          <div className="flex flex-wrap gap-2">
-            {profesional.roles.map((rol) => (
-              <span
-                key={rol}
-                className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800"
-              >
-                {rol === 'admin' ? 'Administrador' : 'Profesional'}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Email */}
-        <div className="mb-4">
-          <p className="text-sm text-gray-600">
-            <span className="font-medium">Email:</span> {profesional.email}
-          </p>
+    <Card className="hover:shadow-lg transition-all duration-200 border-2 border-gray-200 hover:border-blue-300 flex flex-col">
+      <div className="p-6 flex flex-col flex-1">
+        {/* Avatar y nombre */}
+        <div className="flex flex-col items-center text-center mb-4">
+          <Avatar
+            src={profesional.avatar_url || undefined}
+            name={profesional.nombre}
+            size="lg"
+            className="!w-20 !h-20 !text-2xl mb-3"
+          />
+          <h3 className="text-lg font-semibold text-gray-900">{profesional.nombre}</h3>
+          {profesional.descripcion && (
+            <p className="text-sm text-gray-500 mt-1">{profesional.descripcion}</p>
+          )}
         </div>
 
         {/* Estado */}
-        <div className="mb-4">
+        <div className="flex justify-center mb-4">
           <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-            profesional.activo 
-              ? 'bg-green-100 text-green-800' 
+            profesional.activo
+              ? 'bg-green-100 text-green-800'
               : 'bg-red-100 text-red-800'
           }`}>
-            <span className={`w-2 h-2 rounded-full mr-1 ${
+            <span className={`w-2 h-2 rounded-full mr-1.5 ${
               profesional.activo ? 'bg-green-400' : 'bg-red-400'
-            }`}></span>
+            }`} />
             {profesional.activo ? 'Disponible' : 'No disponible'}
           </span>
         </div>
 
-        {/* Botones de acción */}
-        <div className="flex space-x-3">
+        {/* Botones */}
+        <div className="flex flex-col sm:flex-row gap-2 mt-auto">
           <Button
             onClick={() => onSacarTurno(profesional)}
             disabled={!profesional.activo}
             className="flex-1"
           >
-            Sacar turno
+            Reservar turno
           </Button>
           <Button
             variant="secondary"
