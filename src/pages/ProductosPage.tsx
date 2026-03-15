@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power } from 'lucide-react';
 import { productosService } from '../services/productos.service';
-import { Producto, ProductosStats } from '../types/producto.types';
+import { Producto } from '../types/producto.types';
 import { useFetch } from '../hooks/useFetch';
 import { Button, Badge, Spinner } from '../components/ui';
 import { ProductoModal } from '../components/productos/ProductoModal';
@@ -13,23 +13,23 @@ type Tab = 'catalogo' | 'estadisticas';
 function ProductosPage() {
   const { showToast } = useToast();
   const [tab, setTab] = useState<Tab>('catalogo');
-  const [refreshKey, setRefreshKey] = useState(0);
   const [productoModal, setProductoModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
   const [stockModal, setStockModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
 
-  const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
-
-  const { data: productos, loading: loadingProductos } = useFetch(
-    `productos:lista:${refreshKey}`,
-    () => productosService.getProductos(),
-    { ttl: 0 }
+  const { data: productos, loading: loadingProductos, revalidate: revalidateProductos } = useFetch(
+    'productos:lista',
+    () => productosService.getProductos()
   );
 
-  const { data: stats, loading: loadingStats } = useFetch(
-    `productos:stats:${refreshKey}`,
-    () => productosService.getStats(),
-    { ttl: 0 }
+  const { data: stats, loading: loadingStats, revalidate: revalidateStats } = useFetch(
+    'productos:stats',
+    () => productosService.getStats()
   );
+
+  const refresh = () => {
+    revalidateProductos();
+    revalidateStats();
+  };
 
   const handleToggleActivo = async (producto: Producto) => {
     try {
@@ -256,7 +256,10 @@ function ProductosPage() {
         <ProductoModal
           producto={productoModal.producto}
           onClose={() => setProductoModal({ open: false })}
-          onSaved={refresh}
+          onSaved={() => {
+            setProductoModal({ open: false });
+            refresh();
+          }}
         />
       )}
 
@@ -264,7 +267,10 @@ function ProductosPage() {
         <AgregarStockModal
           producto={stockModal.producto}
           onClose={() => setStockModal({ open: false })}
-          onSaved={refresh}
+          onSaved={() => {
+            setStockModal({ open: false });
+            refresh();
+          }}
         />
       )}
     </div>

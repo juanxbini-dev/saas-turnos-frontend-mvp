@@ -28,7 +28,6 @@ export const AgregarStockModal: React.FC<AgregarStockModalProps> = ({ producto, 
       await productosService.addStock(producto.id, n);
       showToast(`Stock actualizado: +${n} unidades`, 'success');
       onSaved();
-      onClose();
     } catch {
       showToast('Error al agregar stock', 'error');
     } finally {

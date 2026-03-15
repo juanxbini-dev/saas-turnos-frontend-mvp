@@ -47,7 +47,6 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
         showToast('Producto creado', 'success');
       }
       onSaved();
-      onClose();
     } catch {
       showToast('Error al guardar el producto', 'error');
     } finally {
