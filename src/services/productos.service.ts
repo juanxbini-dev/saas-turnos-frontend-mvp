@@ -26,4 +26,8 @@ export const productosService = {
     const res = await axiosInstance.post(`/api/productos/${id}/stock`, { cantidad });
     return res.data.data;
   },
+
+  async deleteProducto(id: string): Promise<void> {
+    await axiosInstance.delete(`/api/productos/${id}`);
+  },
 };

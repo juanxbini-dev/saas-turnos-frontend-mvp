@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power } from 'lucide-react';
+import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power, Trash2 } from 'lucide-react';
 import { productosService } from '../services/productos.service';
 import { Producto } from '../types/producto.types';
 import { useFetch } from '../hooks/useFetch';
-import { Button, Badge, Spinner } from '../components/ui';
+import { Button, Badge, Spinner, ConfirmModal } from '../components/ui';
 import { ProductoModal } from '../components/productos/ProductoModal';
 import { AgregarStockModal } from '../components/productos/AgregarStockModal';
 import { useToast } from '../hooks/useToast';
@@ -15,6 +15,7 @@ function ProductosPage() {
   const [tab, setTab] = useState<Tab>('catalogo');
   const [productoModal, setProductoModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
   const [stockModal, setStockModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; producto?: Producto }>({ open: false });
 
   const { data: productos, loading: loadingProductos, revalidate: revalidateProductos } = useFetch(
     'productos:lista',
@@ -29,6 +30,18 @@ function ProductosPage() {
   const refresh = () => {
     revalidateProductos();
     revalidateStats();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm.producto) return;
+    try {
+      await productosService.deleteProducto(deleteConfirm.producto.id);
+      toast.success('Producto eliminado');
+      setDeleteConfirm({ open: false });
+      refresh();
+    } catch {
+      toast.error('Error al eliminar el producto');
+    }
   };
 
   const handleToggleActivo = async (producto: Producto) => {
@@ -167,6 +180,13 @@ function ProductosPage() {
                             >
                               <Power className="w-4 h-4" />
                             </button>
+                            <button
+                              onClick={() => setDeleteConfirm({ open: true, producto: p })}
+                              title="Eliminar"
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -273,6 +293,16 @@ function ProductosPage() {
           }}
         />
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false })}
+        onConfirm={handleDelete}
+        title="Eliminar producto"
+        message={`¿Estás seguro que querés eliminar <strong>${deleteConfirm.producto?.nombre}</strong>? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 }
