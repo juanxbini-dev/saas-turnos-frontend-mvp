@@ -1,24 +1,25 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Eye, EyeOff } from 'lucide-react';
-import { Avatar } from '../ui';
-import { AvatarUploader } from '../perfil';
+import { GripVertical, Eye, EyeOff, Camera } from 'lucide-react';
+import { Avatar, Spinner } from '../ui';
 import { LandingProfesional } from '../../types/landing.types';
 import { configuracionService } from '../../services/configuracion.service';
-import { perfilService } from '../../services/perfil.service';
 import { useToast } from '../../hooks/useToast';
-import { Usuario } from '../../types/usuario.types';
 
 interface SortableProfesionalCardProps {
   profesional: LandingProfesional;
   onUpdate: (updated: Partial<LandingProfesional>) => void;
 }
 
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
 export function SortableProfesionalCard({ profesional, onUpdate }: SortableProfesionalCardProps) {
   const [descripcion, setDescripcion] = useState(profesional.descripcion || '');
   const [savingDesc, setSavingDesc] = useState(false);
   const [togglingVisible, setTogglingVisible] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -59,8 +60,30 @@ export function SortableProfesionalCard({ profesional, onUpdate }: SortableProfe
     }
   };
 
-  const handleAvatarUpdate = (updatedUser: Usuario) => {
-    onUpdate({ avatar_url: updatedUser.avatar_url });
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error('Solo se permiten imagenes JPG, PNG o WebP');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('La imagen no puede superar 5MB');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const result = await configuracionService.uploadAvatarProfesional(profesional.usuario_id, file);
+      onUpdate({ avatar_url: result.avatar_url });
+      toast.success('Foto actualizada');
+    } catch {
+      toast.error('Error al subir la foto');
+    } finally {
+      setUploadingAvatar(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
   };
 
   return (
@@ -88,12 +111,27 @@ export function SortableProfesionalCard({ profesional, onUpdate }: SortableProfe
           </div>
 
           {/* Avatar */}
-          <div className="flex-shrink-0">
-            <AvatarUploader
-              currentUrl={profesional.avatar_url}
-              name={profesional.nombre}
-              onUpdate={handleAvatarUpdate}
-              compact
+          <div
+            className="flex-shrink-0 relative group cursor-pointer"
+            onClick={() => inputRef.current?.click()}
+          >
+            <Avatar src={profesional.avatar_url || undefined} name={profesional.nombre} size="md" />
+            {uploadingAvatar ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                <Spinner size="sm" />
+              </div>
+            ) : (
+              <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <Camera className="w-3 h-3 text-white" />
+              </div>
+            )}
+            <input
+              ref={inputRef}
+              type="file"
+              accept={ALLOWED_TYPES.join(',')}
+              onChange={handleAvatarChange}
+              className="hidden"
+              disabled={uploadingAvatar}
             />
           </div>
 

@@ -24,15 +24,16 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { path: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'     },
-  { path: '/finanzas',     icon: TrendingUp,      label: 'Finanzas'      },
-  { path: '/perfil',       icon: UserCircle,      label: 'Perfil'        },
-  { path: '/usuarios',     icon: Users,           label: 'Usuarios'      },
-  { path: '/turnos',       icon: Calendar,        label: 'Turnos'        },
-  { path: '/servicios',    icon: Wrench,          label: 'Servicios'     },
-  { path: '/clientes',     icon: User,            label: 'Clientes'      },
-  { path: '/productos',    icon: Package,         label: 'Productos'     },
-  { path: '/test-component', icon: FlaskConical,   label: 'Test Lab'     },
+  { path: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard',     adminOnly: false },
+  { path: '/finanzas',       icon: TrendingUp,      label: 'Finanzas',      adminOnly: false },
+  { path: '/perfil',         icon: UserCircle,      label: 'Perfil',        adminOnly: false },
+  { path: '/usuarios',       icon: Users,           label: 'Usuarios',      adminOnly: true  },
+  { path: '/turnos',         icon: Calendar,        label: 'Turnos',        adminOnly: false },
+  { path: '/servicios',      icon: Wrench,          label: 'Servicios',     adminOnly: false },
+  { path: '/clientes',       icon: User,            label: 'Clientes',      adminOnly: false },
+  { path: '/productos',      icon: Package,         label: 'Productos',     adminOnly: false },
+  { path: '/test-component', icon: FlaskConical,    label: 'Test Lab',      adminOnly: false },
+  { path: '/configuracion',  icon: Settings,        label: 'Configuracion', adminOnly: true  },
 ];
 
 // Contenido reutilizable en desktop y mobile
@@ -69,11 +70,8 @@ const SidebarContent = ({
 
       {/* Links */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {menuItems.map(({ path, icon: Icon, label }) => {
-          // Ocultar usuarios si no es admin
-          if (path === '/usuarios' && !roles.includes('admin')) {
-            return null;
-          }
+        {menuItems.map(({ path, icon: Icon, label, adminOnly }) => {
+          if (adminOnly && !roles.includes('admin')) return null;
 
           return (
             <NavLink

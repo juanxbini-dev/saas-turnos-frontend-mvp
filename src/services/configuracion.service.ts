@@ -1,5 +1,10 @@
+import axios from 'axios';
 import axiosInstance from '../api/axiosInstance';
 import { LandingConfig, LandingProfesional, LandingPublicaData, Horario } from '../types/landing.types';
+
+const publicAxios = axios.create({
+  baseURL: (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000',
+});
 
 export const configuracionService = {
   async getConfig(): Promise<LandingConfig> {
@@ -40,12 +45,21 @@ export const configuracionService = {
     return res.data.data;
   },
 
+  async uploadAvatarProfesional(usuarioId: string, file: File): Promise<{ avatar_url: string | null }> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const res = await axiosInstance.post(`/api/configuracion/profesionales/${usuarioId}/avatar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return res.data.data;
+  },
+
   async updateOrden(orden: { usuarioId: string; orden: number }[]): Promise<void> {
     await axiosInstance.patch('/api/configuracion/profesionales-orden', { orden });
   },
 
   async getLandingPublica(empresaSlug: string): Promise<LandingPublicaData> {
-    const res = await axiosInstance.get(`/public/landing/${empresaSlug}`);
+    const res = await publicAxios.get(`/public/landing/${empresaSlug}`);
     return res.data.data;
   }
 };
