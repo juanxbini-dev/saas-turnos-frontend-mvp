@@ -41,10 +41,10 @@ function LoginPage() {
           </p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-blue-800">
-              <strong>Formato de usuario:</strong> usuario@empresa.com
+              <strong>Formato de usuario:</strong> usuario@empresa
             </p>
             <p className="text-xs text-blue-600 mt-1">
-              Ejemplo: test_admin@testempresa.com
+              Ejemplo: dani@debsalon
             </p>
           </div>
         </div>

@@ -10,7 +10,7 @@ const loginSchema = z.object({
   email: z
     .string()
     .min(1, 'El email es requerido')
-    .regex(/^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Formato inválido. Use: usuario@empresa.com'),
+    .regex(/^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+$/, 'Formato inválido. Use: usuario@empresa'),
   password: z
     .string()
     .min(6, 'La contraseña debe tener al menos 6 caracteres'),
