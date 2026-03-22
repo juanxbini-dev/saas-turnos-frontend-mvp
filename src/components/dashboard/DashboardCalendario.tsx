@@ -164,7 +164,7 @@ export function DashboardCalendario({
   const [selectedTurno, setSelectedTurno] = useState<TurnoConDetalle | null>(null);
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date } | null>(null);
+  const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date; bloqueoId?: string } | null>(null);
   const toast = useToast();
 
   // Calcular rango de fechas según la vista
@@ -501,6 +501,36 @@ export function DashboardCalendario({
     return slotsDelDia.includes(horaStr);
   }, [slotsDisponibles, loadingSlots]);
 
+  // Obtener el bloqueo que cubre una fecha/hora específica
+  const getBloqueoEnSlot = useCallback((date: Date): BloqueoSlot | null => {
+    if (!bloqueosSlots) return null;
+    const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(date) : format(date, 'yyyy-MM-dd');
+    const horaStr = USE_NEW_DATE_HELPER ? DateHelper.formatTime(date) : format(date, 'HH:mm');
+    const [h, m] = horaStr.split(':').map(Number);
+    const minutos = (h ?? 0) * 60 + (m ?? 0);
+
+    return (bloqueosSlots as BloqueoSlot[]).find(b => {
+      if (b.fecha.slice(0, 10) !== fechaStr) return false;
+      const iParts = b.hora_inicio.split(':').map(Number);
+      const fParts = b.hora_fin.split(':').map(Number);
+      return minutos >= (iParts[0] ?? 0) * 60 + (iParts[1] ?? 0) && minutos < (fParts[0] ?? 0) * 60 + (fParts[1] ?? 0);
+    }) ?? null;
+  }, [bloqueosSlots]);
+
+  // Desbloquear un slot
+  const handleDesbloquearSlot = useCallback(async (bloqueoId: string) => {
+    try {
+      await bloqueoSlotService.remove(bloqueoId);
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.BLOQUEOS));
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
+      revalidateBloqueos();
+      toast.success('Horario desbloqueado');
+    } catch {
+      toast.error('Error al desbloquear el horario');
+    }
+    setSlotMenu(null);
+  }, [revalidateBloqueos, toast]);
+
   // Bloquear un slot
   const handleBloquearSlot = useCallback(async (fecha: Date, hora: Date) => {
     const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(fecha) : format(fecha, 'yyyy-MM-dd');
@@ -529,19 +559,25 @@ export function DashboardCalendario({
       return;
     }
 
-    // Verificar si el slot está disponible
-    if (!isSlotAvailable(slotInfo.start)) {
-      toast.error('Este horario no está disponible');
-      return;
-    }
-
-    // Mostrar menú contextual en lugar de abrir directo el modal
     const e = slotInfo.box || slotInfo.bounds;
     const x = e?.clientX ?? e?.x ?? window.innerWidth / 2;
     const y = e?.clientY ?? e?.y ?? window.innerHeight / 2;
 
+    // Si el slot está bloqueado, mostrar opción de desbloquear
+    const bloqueo = getBloqueoEnSlot(slotInfo.start);
+    if (bloqueo) {
+      setSlotMenu({ x, y, fecha: slotInfo.start, hora: slotInfo.start, bloqueoId: bloqueo.id });
+      return;
+    }
+
+    // Si no está disponible (fuera de horario), no hacer nada
+    if (!isSlotAvailable(slotInfo.start)) {
+      return;
+    }
+
+    // Slot disponible: mostrar menú para agendar o bloquear
     setSlotMenu({ x, y, fecha: slotInfo.start, hora: slotInfo.start });
-  }, [isSlotAvailable, profesionalId, toast]);
+  }, [isSlotAvailable, getBloqueoEnSlot, profesionalId, toast]);
 
   // Manejar selección de evento
   const handleSelectEvent = useCallback((event: any, e: React.SyntheticEvent) => {
@@ -617,21 +653,32 @@ export function DashboardCalendario({
           <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b border-gray-100">
             {format(slotMenu.hora, 'HH:mm')} — {format(slotMenu.fecha, 'dd/MM/yyyy')}
           </div>
-          <button
-            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            onClick={() => {
-              setSlotMenu(null);
-              onSlotSelect(slotMenu.fecha, slotMenu.hora);
-            }}
-          >
-            Agendar turno
-          </button>
-          <button
-            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-            onClick={() => handleBloquearSlot(slotMenu.fecha, slotMenu.hora)}
-          >
-            Bloquear horario
-          </button>
+          {slotMenu.bloqueoId ? (
+            <button
+              className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
+              onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!)}
+            >
+              Desbloquear horario
+            </button>
+          ) : (
+            <>
+              <button
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => {
+                  setSlotMenu(null);
+                  onSlotSelect(slotMenu.fecha, slotMenu.hora);
+                }}
+              >
+                Agendar turno
+              </button>
+              <button
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                onClick={() => handleBloquearSlot(slotMenu.fecha, slotMenu.hora)}
+              >
+                Bloquear horario
+              </button>
+            </>
+          )}
           <button
             className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
             onClick={() => setSlotMenu(null)}
