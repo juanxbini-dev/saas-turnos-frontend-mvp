@@ -440,39 +440,7 @@ export function DashboardCalendario({
     totalEvents: events.length
   });
 
-  // Si no hay eventos, crear algunos de ejemplo para pruebas
-  const eventsWithDemo = events.length === 0 ? [
-    {
-      id: 'demo-1',
-      title: 'Juan Pérez — Corte de Cabello',
-      start: new Date(new Date().setHours(10, 0, 0, 0)),
-      end: new Date(new Date().setHours(10, 30, 0, 0)),
-      resource: {
-        id: 'demo-1',
-        cliente_nombre: 'Juan Pérez',
-        servicio: 'Corte de Cabello',
-        hora: '10:00',
-        duracion_minutos: 30
-      }
-    },
-    {
-      id: 'demo-2',
-      title: 'María García — Tinte',
-      start: new Date(new Date().setHours(14, 0, 0, 0)),
-      end: new Date(new Date().setHours(15, 0, 0, 0)),
-      resource: {
-        id: 'demo-2',
-        cliente_nombre: 'María García',
-        servicio: 'Tinte',
-        hora: '14:00',
-        duracion_minutos: 60
-      }
-    }
-  ] : events;
-
-  if (events.length === 0) {
-    dashboardLogger.debug('Usando eventos de demostración');
-  }
+  const eventsWithDemo = events;
 
   // Función para verificar si un slot está bloqueado puntualmente
   const isSlotBloqueado = useCallback((date: Date) => {

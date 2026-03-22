@@ -59,17 +59,6 @@ function LoginPage() {
           onSubmit={handleSubmit}
         />
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            ¿No tienes cuenta?{' '}
-            <button 
-              className="text-blue-600 hover:text-blue-700 font-medium"
-              onClick={() => navigate('/register')}
-            >
-              Regístrate
-            </button>
-          </p>
-        </div>
       </div>
     </div>
   );

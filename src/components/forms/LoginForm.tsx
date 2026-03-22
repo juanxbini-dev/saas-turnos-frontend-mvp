@@ -75,7 +75,7 @@ export function LoginForm({
           trigger('email');
         }}
         error={errors.email?.message}
-        placeholder="usuario@empresa.com"
+        placeholder="usuario@empresa"
         disabled={loading}
         autoComplete="off"
         readOnly={loading}

@@ -1,7 +1,5 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import WelcomePage from '../pages/WelcomePage';
-import { RegisterPage } from '../pages/RegisterPage';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import UsuariosPage from '../pages/UsuariosPage';
@@ -10,8 +8,6 @@ import TurnosPage from '../pages/TurnosPage';
 import PerfilPage from '../pages/PerfilPage';
 import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
-import TestComponentPage from '../pages/TestComponentPage';
-import TestApiPage from '../pages/TestApiPage';
 import { FinanzasPage } from '../pages/FinanzasPage';
 import { EmpresaPublicPage } from '../pages/public/EmpresaPublicPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
@@ -24,10 +20,8 @@ const AppRouter = () => {
     <Routes>
       <Route path="/" element={<Navigate to="/debsalon" replace />} />
       <Route path="/login" element={<LoginPage />} />
-      {/* TEMPORAL — eliminar tras crear empresa real */}
-      <Route path="/register" element={<RegisterPage />} />
 
-      {/* Rutas públicas */}
+{/* Rutas públicas */}
       <Route path="/:empresaSlug" element={<EmpresaPublicPage />} />
 
       {/* Rutas privadas */}
@@ -51,9 +45,6 @@ const AppRouter = () => {
           } />
           <Route path="/productos" element={<ProductosPage />} />
           <Route path="/servicios" element={<ServiciosPage />} />
-          <Route path="/test-component" element={<TestComponentPage />} />
-          {/* TODO: eliminar en producción */}
-          <Route path="/test-api" element={<TestApiPage />} />
         </Route>
       </Route>
     </Routes>

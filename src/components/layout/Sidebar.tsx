@@ -14,7 +14,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  FlaskConical,
   TrendingUp,
 } from 'lucide-react';
 
@@ -34,7 +33,6 @@ const menuItems = [
   { path: '/servicios',      icon: Wrench,          label: 'Servicios',     adminOnly: false },
   { path: '/clientes',       icon: User,            label: 'Clientes',      adminOnly: false },
   { path: '/productos',      icon: Package,         label: 'Productos',     adminOnly: false },
-  { path: '/test-component', icon: FlaskConical,    label: 'Test Lab',      adminOnly: false },
   { path: '/configuracion',  icon: Settings,        label: 'Configuracion', adminOnly: true  },
 ];
 
