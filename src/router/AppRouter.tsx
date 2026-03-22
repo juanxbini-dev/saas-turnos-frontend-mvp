@@ -1,6 +1,7 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import WelcomePage from '../pages/WelcomePage';
+import { RegisterPage } from '../pages/RegisterPage';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import UsuariosPage from '../pages/UsuariosPage';
@@ -21,9 +22,11 @@ import Layout from '../components/layout/Layout';
 const AppRouter = () => {
   return (
     <Routes>
-      <Route path="/" element={<WelcomePage />} />
+      <Route path="/" element={<Navigate to="/debsalon" replace />} />
       <Route path="/login" element={<LoginPage />} />
-      
+      {/* TEMPORAL — eliminar tras crear empresa real */}
+      <Route path="/register" element={<RegisterPage />} />
+
       {/* Rutas públicas */}
       <Route path="/:empresaSlug" element={<EmpresaPublicPage />} />
 
