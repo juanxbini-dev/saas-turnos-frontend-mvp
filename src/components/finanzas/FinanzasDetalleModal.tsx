@@ -77,26 +77,32 @@ export const FinanzasDetalleModal: React.FC<FinanzasDetalleModalProps> = ({
           <h4 className="text-lg font-semibold text-gray-800 mb-4">Desglose de Precios</h4>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Precio Original:</span>
+              <span className="text-gray-600">Precio del Servicio:</span>
               <span className="font-medium text-gray-900">
                 {formatCurrency(comision.precio_original)}
               </span>
             </div>
+            {comision.productos_monto > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Productos:</span>
+                <span className="font-medium text-gray-900">
+                  {formatCurrency(comision.productos_monto)}
+                </span>
+              </div>
+            )}
             {comision.descuento_porcentaje > 0 && (
-              <>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Descuento ({comision.descuento_porcentaje}%):</span>
-                  <span className="font-medium text-red-600">
-                    -{formatCurrency(comision.descuento_monto)}
-                  </span>
-                </div>
-              </>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Descuento ({comision.descuento_porcentaje}%):</span>
+                <span className="font-medium text-red-600">
+                  -{formatCurrency(comision.descuento_monto)}
+                </span>
+              </div>
             )}
             <div className="border-t pt-3">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold text-gray-900">Total Final:</span>
                 <span className="text-lg font-bold text-gray-900">
-                  {formatCurrency(comision.total_final)}
+                  {formatCurrency(comision.total_venta)}
                 </span>
               </div>
             </div>

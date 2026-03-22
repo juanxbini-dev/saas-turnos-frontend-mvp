@@ -65,7 +65,9 @@ export const formatCurrency = (amount: number): string => {
 };
 
 export const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
+  // Parsear solo la parte de fecha para evitar el desfasaje UTC→local
+  const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+  const date = new Date(year, month - 1, day);
   return date.toLocaleDateString('es-AR', {
     day: '2-digit',
     month: '2-digit',

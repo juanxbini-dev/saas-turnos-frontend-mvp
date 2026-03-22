@@ -1,3 +1,16 @@
+// Venta directa de productos para mostrar en Finanzas
+export interface VentaDirectaFinanzas {
+  tipo: 'venta_directa';
+  id: string;
+  fecha: string;
+  cliente_nombre: string | null;
+  vendedor_nombre: string;
+  metodo_pago: 'efectivo' | 'transferencia' | 'pendiente';
+  total: number;
+  items_count: number;
+  empresa_id: string;
+}
+
 // Representa un registro de comisión por turno finalizado
 export interface ComisionProfesional {
   id: string;
@@ -34,9 +47,11 @@ export interface ComisionProfesional {
   descuento_monto: number;
   total_final: number;
   // Datos relacionados (JOIN)
+  tipo: 'turno';
   cliente_nombre: string;
   servicio_nombre: string;
   profesional_nombre?: string; // Solo visible para admin
+  tiene_productos: boolean;
 }
 
 export interface ProductoVendido {
@@ -73,6 +88,7 @@ export interface FinanzasFilters {
 
 export interface FinanzasResponse {
   data: ComisionProfesional[];
+  ventas_directas: VentaDirectaFinanzas[];
   summary: FinanzasSummary;
   total: number;
   pagina: number;

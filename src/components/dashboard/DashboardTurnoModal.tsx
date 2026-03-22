@@ -420,7 +420,7 @@ export function DashboardTurnoModal({
                 <div>
                   <p className="text-sm text-gray-600">Fecha</p>
                   <p className="font-medium text-gray-900">
-                    {turno?.fecha ? format(new Date(turno.fecha), "EEEE d 'de' MMMM", { locale: es }) : 'N/A'}
+                    {turno?.fecha ? format(new Date(turno.fecha.split('T')[0] + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es }) : 'N/A'}
                   </p>
                 </div>
               </div>

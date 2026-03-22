@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DollarSign, Percent, CreditCard, Package, Plus, X, Calculator, Search } from 'lucide-react';
@@ -36,30 +36,22 @@ export function FinalizarTurnoModal({
   const [catalogoSearch, setCatalogoSearch] = useState('');
   const [selectedCatalogProducto, setSelectedCatalogProducto] = useState<Producto | null>(null);
   const [nuevaCantidad, setNuevaCantidad] = useState(1);
-  const [calculo, setCalculo] = useState<CalculoCompletoTurno | null>(null);
-
   const { data: catalogoProductos, loading: loadingCatalogo } = useFetch(
     'productos:lista',
     () => productosService.getProductos(),
     { ttl: 60 }
   );
 
-  // Calcular totales cuando cambian los valores
-  useEffect(() => {
-    const precioServicio = precioModificado ? parseFloat(precioModificado) || 0 : turno.precio;
-    const montoProductos = productos.reduce((sum, p) => sum + p.precio_total, 0);
+  // Calcular totales derivado directo
+  const calculo = useMemo<CalculoCompletoTurno | null>(() => {
+    const precioServicio = precioModificado ? parseFloat(precioModificado) || 0 : Number(turno.precio);
+    const montoProductos = productos.reduce((sum, p) => sum + Number(p.precio_total), 0);
     const descuento = descuentoPorcentaje ? parseFloat(descuentoPorcentaje) || 0 : 0;
-
     if (precioServicio > 0 || montoProductos > 0) {
-      const resultado = calcularComisiones(
-        precioServicio,
-        montoProductos,
-        descuento,
-        comisionesConfig
-      );
-      setCalculo(resultado);
+      return calcularComisiones(precioServicio, montoProductos, descuento, comisionesConfig);
     }
-  }, [precioModificado, descuentoPorcentaje, productos, turno.precio, comisionesConfig]);
+    return null;
+  }, [precioModificado, productos, descuentoPorcentaje, turno.precio, comisionesConfig]);
 
   const handleAgregarProducto = () => {
     if (!selectedCatalogProducto) return;
@@ -130,7 +122,6 @@ export function FinalizarTurnoModal({
     setSelectedCatalogProducto(null);
     setCatalogoSearch('');
     setNuevaCantidad(1);
-    setCalculo(null);
     onClose();
   };
 
@@ -162,7 +153,7 @@ export function FinalizarTurnoModal({
             <div>
               <p className="text-sm text-gray-600">Fecha</p>
               <p className="font-medium">
-                {turno.fecha ? format(new Date(turno.fecha), "EEEE d 'de' MMMM", { locale: es }) : 'N/A'}
+                {turno.fecha ? format(new Date(turno.fecha.split('T')[0] + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es }) : 'N/A'}
               </p>
             </div>
             <div>
@@ -394,7 +385,7 @@ export function FinalizarTurnoModal({
               </div>
               <div className="flex justify-between font-medium">
                 <span>Subtotal:</span>
-                <span>{formatCurrency(calculo.subtotalOriginal)}</span>
+                <span>{formatCurrency(calculo.precioOriginalServicio + calculo.precioOriginalProductos)}</span>
               </div>
               {calculo.descuentoMonto > 0 && (
                 <>

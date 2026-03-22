@@ -172,6 +172,7 @@ export function FinanzasPage() {
       {/* Tabla */}
       <FinanzasTable
         data={finanzasResponse?.data || []}
+        ventas_directas={finanzasResponse?.ventas_directas || []}
         isLoading={loadingFinanzas}
         isAdmin={isAdmin}
         onSort={handleSort}
