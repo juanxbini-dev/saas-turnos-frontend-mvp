@@ -9,6 +9,7 @@ import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { turnoService } from '../../services/turno.service';
 import { disponibilidadService } from '../../services/disponibilidad.service';
+import { bloqueoSlotService, BloqueoSlot } from '../../services/bloqueoSlot.service';
 import { TurnoConDetalle } from '../../types/turno.types';
 import { TurnoPopover } from './TurnoPopover';
 import { DashboardTurnoModal } from './DashboardTurnoModal';
@@ -163,6 +164,7 @@ export function DashboardCalendario({
   const [selectedTurno, setSelectedTurno] = useState<TurnoConDetalle | null>(null);
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date } | null>(null);
   const toast = useToast();
 
   // Calcular rango de fechas según la vista
@@ -292,6 +294,16 @@ export function DashboardCalendario({
       }
       
       return slotsPorDia;
+    },
+    { ttl: TTL.SHORT }
+  );
+
+  // Cargar bloqueos de slots para el rango visible
+  const { data: bloqueosSlots, revalidate: revalidateBloqueos } = useFetch(
+    profesionalId ? buildKey(ENTITIES.BLOQUEOS, profesionalId, rangoInicio) : null,
+    async () => {
+      if (!profesionalId) return [];
+      return bloqueoSlotService.getByRango(rangoInicio, rangoFin);
     },
     { ttl: TTL.SHORT }
   );
@@ -462,43 +474,74 @@ export function DashboardCalendario({
     dashboardLogger.debug('Usando eventos de demostración');
   }
 
+  // Función para verificar si un slot está bloqueado puntualmente
+  const isSlotBloqueado = useCallback((date: Date) => {
+    if (!bloqueosSlots) return false;
+    const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(date) : format(date, 'yyyy-MM-dd');
+    const horaStr = USE_NEW_DATE_HELPER ? DateHelper.formatTime(date) : format(date, 'HH:mm');
+    const [h, m] = horaStr.split(':').map(Number);
+    const minutos = h * 60 + m;
+
+    return (bloqueosSlots as BloqueoSlot[]).some(b => {
+      if (b.fecha.slice(0, 10) !== fechaStr) return false;
+      const [bIH, bIM] = b.hora_inicio.split(':').map(Number);
+      const [bFH, bFM] = b.hora_fin.split(':').map(Number);
+      return minutos >= bIH * 60 + bIM && minutos < bFH * 60 + bFM;
+    });
+  }, [bloqueosSlots]);
+
   // Función para verificar si un slot está disponible
   const isSlotAvailable = useCallback((date: Date) => {
     if (!slotsDisponibles || loadingSlots) return false;
-    
+
     const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(date) : format(date, 'yyyy-MM-dd');
     const horaStr = USE_NEW_DATE_HELPER ? DateHelper.formatTime(date) : format(date, 'HH:mm');
     const slotsDelDia = (slotsDisponibles as Record<string, string[]>)[fechaStr] || [];
-    
+
     return slotsDelDia.includes(horaStr);
   }, [slotsDisponibles, loadingSlots]);
 
+  // Bloquear un slot
+  const handleBloquearSlot = useCallback(async (fecha: Date, hora: Date) => {
+    const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(fecha) : format(fecha, 'yyyy-MM-dd');
+    const horaStr = USE_NEW_DATE_HELPER ? DateHelper.formatTime(hora) : format(hora, 'HH:mm');
+    const [h, m] = horaStr.split(':').map(Number);
+    const intervalo = intervaloConfigurado;
+    const finMinutos = h * 60 + m + intervalo;
+    const horaFin = `${String(Math.floor(finMinutos / 60)).padStart(2, '0')}:${String(finMinutos % 60).padStart(2, '0')}`;
+
+    try {
+      await bloqueoSlotService.create({ fecha: fechaStr, hora_inicio: horaStr, hora_fin: horaFin });
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.BLOQUEOS));
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
+      revalidateBloqueos();
+      toast.success('Horario bloqueado');
+    } catch {
+      toast.error('Error al bloquear el horario');
+    }
+    setSlotMenu(null);
+  }, [intervaloConfigurado, revalidateBloqueos, toast]);
+
   // Manejar selección de slot con validación de disponibilidad
   const handleSelectSlot = useCallback((slotInfo: any) => {
-    // Verificar si el slot está disponible
-    if (!isSlotAvailable(slotInfo.start)) {
-      toast.error('Este horario no está disponible');
-      return;
-    }
-    
-    const fecha = slotInfo.start;
-    const hora = slotInfo.start;
-
-    dashboardLogger.debug('Slot seleccionado', {
-      fecha,
-      hora,
-      profesionalId
-    });
-
-    // Verificar que haya un profesional seleccionado
     if (!profesionalId) {
       toast.warning('Por favor, selecciona un profesional primero');
       return;
     }
 
-    // Usar la firma original de onSlotSelect (fecha, hora)
-    onSlotSelect(fecha, hora);
-  }, [isSlotAvailable, profesionalId, toast, onSlotSelect]);
+    // Verificar si el slot está disponible
+    if (!isSlotAvailable(slotInfo.start)) {
+      toast.error('Este horario no está disponible');
+      return;
+    }
+
+    // Mostrar menú contextual en lugar de abrir directo el modal
+    const e = slotInfo.box || slotInfo.bounds;
+    const x = e?.clientX ?? e?.x ?? window.innerWidth / 2;
+    const y = e?.clientY ?? e?.y ?? window.innerHeight / 2;
+
+    setSlotMenu({ x, y, fecha: slotInfo.start, hora: slotInfo.start });
+  }, [isSlotAvailable, profesionalId, toast]);
 
   // Manejar selección de evento
   const handleSelectEvent = useCallback((event: any, e: React.SyntheticEvent) => {
@@ -548,6 +591,10 @@ export function DashboardCalendario({
           <span className="text-gray-700">Disponible</span>
         </div>
         <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-red-500 rounded"></div>
+          <span className="text-gray-700">Bloqueado</span>
+        </div>
+        <div className="flex items-center gap-2">
           <div className="w-4 h-4 border-2 border-gray-300 rounded"></div>
           <span className="text-gray-700">No disponible</span>
         </div>
@@ -560,6 +607,44 @@ export function DashboardCalendario({
           <span className="text-gray-700">Turno agendado</span>
         </div>
       </div>
+
+      {/* Menú contextual de slot */}
+      {slotMenu && (
+        <div
+          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]"
+          style={{ top: slotMenu.y, left: slotMenu.x }}
+        >
+          <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b border-gray-100">
+            {format(slotMenu.hora, 'HH:mm')} — {format(slotMenu.fecha, 'dd/MM/yyyy')}
+          </div>
+          <button
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            onClick={() => {
+              setSlotMenu(null);
+              onSlotSelect(slotMenu.fecha, slotMenu.hora);
+            }}
+          >
+            Agendar turno
+          </button>
+          <button
+            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+            onClick={() => handleBloquearSlot(slotMenu.fecha, slotMenu.hora)}
+          >
+            Bloquear horario
+          </button>
+          <button
+            className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
+            onClick={() => setSlotMenu(null)}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {/* Overlay para cerrar el menú */}
+      {slotMenu && (
+        <div className="fixed inset-0 z-40" onClick={() => setSlotMenu(null)} />
+      )}
 
       <Calendar
         localizer={localizer}
@@ -583,11 +668,16 @@ export function DashboardCalendario({
         scrollToTime={new Date(new Date().setHours(primeraHoraDisponible, 0, 0, 0))}
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
+          const isBloqueado = isSlotBloqueado(date);
           const isPast = date < new Date();
-          
-          let style: React.CSSProperties = {
-            backgroundColor: isAvailable ? '#10B981' : 'transparent',
-            borderColor: isAvailable ? '#10B981' : '#E5E7EB',
+
+          let backgroundColor = 'transparent';
+          if (isBloqueado) backgroundColor = '#EF4444';
+          else if (isAvailable) backgroundColor = '#10B981';
+
+          const style: React.CSSProperties = {
+            backgroundColor,
+            borderColor: isBloqueado ? '#EF4444' : isAvailable ? '#10B981' : '#E5E7EB',
             opacity: isPast ? 0.3 : 1,
             cursor: isAvailable && !isPast ? 'pointer' : 'not-allowed',
             height: '60px',
@@ -595,7 +685,7 @@ export function DashboardCalendario({
             overflow: 'hidden',
             boxSizing: 'border-box'
           };
-          
+
           return { style };
         }}
         // eventPropGetter={(event) => ({

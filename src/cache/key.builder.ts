@@ -17,7 +17,8 @@ export const ENTITIES = {
   SLOTS: 'slots',
   CONFIGURACION: 'configuracion',
   PROFESIONALES: 'profesionales',
-  CALENDARIO: 'calendario'
+  CALENDARIO: 'calendario',
+  BLOQUEOS: 'bloqueos'
 } as const;
 
 function decodeJWT(token: string): any | null {
