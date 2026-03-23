@@ -15,6 +15,7 @@ interface SortableProfesionalCardProps {
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export function SortableProfesionalCard({ profesional, onUpdate }: SortableProfesionalCardProps) {
+  const [subtitulo, setSubtitulo] = useState(profesional.subtitulo || '');
   const [descripcion, setDescripcion] = useState(profesional.descripcion || '');
   const [savingDesc, setSavingDesc] = useState(false);
   const [togglingVisible, setTogglingVisible] = useState(false);
@@ -44,6 +45,16 @@ export function SortableProfesionalCard({ profesional, onUpdate }: SortableProfe
       toast.error('Error al cambiar visibilidad');
     } finally {
       setTogglingVisible(false);
+    }
+  };
+
+  const handleSubtituloBlur = async () => {
+    if (subtitulo === (profesional.subtitulo || '')) return;
+    try {
+      await configuracionService.updateProfesional(profesional.usuario_id, { subtitulo });
+      onUpdate({ subtitulo });
+    } catch {
+      toast.error('Error al guardar subtitulo');
     }
   };
 
@@ -161,6 +172,15 @@ export function SortableProfesionalCard({ profesional, onUpdate }: SortableProfe
               </button>
             </div>
 
+            <input
+              type="text"
+              value={subtitulo}
+              onChange={(e) => setSubtitulo(e.target.value)}
+              onBlur={handleSubtituloBlur}
+              placeholder="Subtitulo (ej: CEO, Colorista...)"
+              maxLength={100}
+              className="mt-2 w-full text-sm border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
             <textarea
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}

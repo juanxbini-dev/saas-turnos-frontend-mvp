@@ -12,7 +12,7 @@ export const configuracionService = {
     return res.data.data;
   },
 
-  async updateConfig(data: { titulo?: string; descripcion?: string; direccion?: string; horarios?: Horario[] }): Promise<LandingConfig> {
+  async updateConfig(data: { titulo?: string; descripcion?: string; direccion?: string; direccion_maps?: string; horarios?: Horario[] }): Promise<LandingConfig> {
     const res = await axiosInstance.patch('/api/configuracion', data);
     return res.data.data;
   },
@@ -40,7 +40,7 @@ export const configuracionService = {
     return res.data.data;
   },
 
-  async updateProfesional(usuarioId: string, data: { descripcion?: string; visible?: boolean }): Promise<LandingProfesional> {
+  async updateProfesional(usuarioId: string, data: { subtitulo?: string; descripcion?: string; visible?: boolean }): Promise<LandingProfesional> {
     const res = await axiosInstance.patch(`/api/configuracion/profesionales/${usuarioId}`, data);
     return res.data.data;
   },

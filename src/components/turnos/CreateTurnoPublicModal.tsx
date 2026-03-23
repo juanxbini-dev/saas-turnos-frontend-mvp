@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, Button, Input, Textarea, Card, Spinner } from '../ui';
+import { X } from 'lucide-react';
+import { Spinner } from '../ui';
 import { Calendar, TimeSlots } from '../ui';
 import { useDisponibilidad } from '../../hooks/useDisponibilidad';
 import { useFetch } from '../../hooks/useFetch';
@@ -226,340 +227,315 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     return DateHelper.formatDisplay(date);
   };
 
+  if (!isOpen) return null;
+
+  // ── helpers de estilo ──────────────────────────────────────────────────────
+  const darkCard = 'bg-[#1a1a1a] border border-white/10 p-4';
+  const darkLabel = 'block text-xs tracking-[0.15em] uppercase text-white/50 mb-1.5';
+  const darkInput = 'w-full bg-[#1a1a1a] border border-white/20 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-white/50 placeholder:text-white/20 disabled:opacity-40';
+  const ghostBtn = 'border border-white text-white text-xs tracking-[0.2em] uppercase font-medium px-6 py-2.5 rounded-full bg-transparent hover:bg-white hover:text-black transition-colors duration-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-white';
+  const ghostBtnSm = 'border border-white/30 text-white/60 text-xs tracking-[0.15em] uppercase px-4 py-1.5 rounded-full bg-transparent hover:border-white hover:text-white transition-colors duration-300';
+
   return (
     <>
-      <Modal
-        isOpen={isOpen}
-        onClose={handleClose}
-        title="Sacar turno"
-        size="lg"
-      >
-        {/* Progress indicator (3 pasos) */}
-        <div className="flex items-center justify-center mb-6">
-          {[1, 2, 3].map((stepNumber) => {
-            const isCurrentStep = step === stepNumber;
-            
-            return (
-              <div key={stepNumber} className="flex items-center">
-                <div
-                  className={`
-                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                    ${isCurrentStep
-                      ? 'bg-blue-600 text-white'
+      {/* ── Modal principal ── */}
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleClose} />
+        <div className="relative w-full max-w-lg bg-[#111] border border-white/15 max-h-[90vh] flex flex-col">
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0">
+            <div>
+              <p className="text-xs tracking-[0.3em] uppercase text-white/40 mb-0.5">
+                {profesionalNombre}
+              </p>
+              <h3
+                className="text-xl font-bold uppercase text-white tracking-wide"
+                style={{ fontFamily: 'Oswald, sans-serif' }}
+              >
+                {step === 1 && 'Elegí tu servicio'}
+                {step === 2 && 'Fecha y hora'}
+                {step === 3 && 'Tus datos'}
+              </h3>
+            </div>
+            <button onClick={handleClose} className="text-white/40 hover:text-white transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Progress */}
+          <div className="flex items-center px-6 py-3 gap-2 border-b border-white/5 flex-shrink-0">
+            {[1, 2, 3].map((stepNumber) => (
+              <React.Fragment key={stepNumber}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                    step === stepNumber
+                      ? 'bg-white text-black'
                       : isStepComplete(stepNumber)
-                      ? 'bg-green-500 text-white'
-                      : 'bg-gray-200 text-gray-500'
-                    }
-                  `}
-                >
-                  {isStepComplete(stepNumber) && !isCurrentStep ? '✓' : stepNumber}
+                      ? 'bg-white/20 text-white'
+                      : 'bg-white/10 text-white/30'
+                  }`}>
+                    {isStepComplete(stepNumber) && step !== stepNumber ? '✓' : stepNumber}
+                  </div>
+                  <span className={`text-xs tracking-wider uppercase hidden sm:block ${step === stepNumber ? 'text-white' : 'text-white/30'}`}>
+                    {stepNumber === 1 ? 'Servicio' : stepNumber === 2 ? 'Horario' : 'Datos'}
+                  </span>
                 </div>
                 {stepNumber < 3 && (
-                  <div
-                    className={`
-                      w-12 h-1 mx-2
-                      ${isStepComplete(stepNumber) ? 'bg-green-500' : 'bg-gray-200'}
-                    `}
-                  />
+                  <div className={`flex-1 h-px ${isStepComplete(stepNumber) ? 'bg-white/30' : 'bg-white/10'}`} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Body */}
+          <div className="overflow-y-auto flex-1 px-6 py-5">
+
+            {/* Step 1 - Servicio */}
+            {step === 1 && (
+              <div className="space-y-3">
+                {loadingServicios ? (
+                  <div className="flex justify-center py-8"><Spinner /></div>
+                ) : servicios?.length === 0 ? (
+                  <p className="text-center text-white/40 text-sm py-8">
+                    Sin servicios configurados por el momento.
+                  </p>
+                ) : (
+                  servicios?.map((servicio: ServicioProfesional) => (
+                    <div
+                      key={servicio.id}
+                      onClick={() => setSelectedServicio(servicio)}
+                      className={`cursor-pointer p-4 border transition-colors ${
+                        selectedServicio?.id === servicio.id
+                          ? 'border-white bg-white/5'
+                          : 'border-white/10 hover:border-white/30'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-white uppercase tracking-wide">{servicio.nombre}</p>
+                          {servicio.descripcion && (
+                            <p className="text-xs text-white/40 mt-0.5 italic">{servicio.descripcion}</p>
+                          )}
+                          <p className="text-xs text-white/30 mt-1">{servicio.duracion_minutos} min</p>
+                        </div>
+                        <p className="text-lg font-bold text-white" style={{ fontFamily: 'Oswald, sans-serif' }}>
+                          ${servicio.precio}
+                        </p>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
-            );
-          })}
-        </div>
-
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-center">
-            {step === 1 && 'Servicio'}
-            {step === 2 && 'Fecha y hora'}
-            {step === 3 && 'Tus datos'}
-          </h3>
-        </div>
-
-        {/* Mostrar profesional seleccionado */}
-        <Card className="bg-gray-50 border-gray-200 mb-4">
-          <div className="text-sm text-gray-600 mb-1">Profesional seleccionado:</div>
-          <div className="font-medium text-gray-900">
-            {profesionalNombre}
-          </div>
-        </Card>
-
-        {/* Step 1 - Servicio */}
-        {step === 1 && (
-          <div className="space-y-4">
-            {loadingServicios ? (
-              <div className="flex justify-center py-4">
-                <Spinner />
-              </div>
-            ) : servicios?.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">Este profesional no tiene servicios configurados</p>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {servicios?.map((servicio: ServicioProfesional) => (
-                  <Card
-                    key={servicio.id}
-                    className={`cursor-pointer hover:bg-blue-50 border-2 ${
-                      selectedServicio?.id === servicio.id
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'hover:border-blue-300'
-                    }`}
-                    onClick={() => setSelectedServicio(servicio)}
-                  >
-                    <div className="font-medium">{servicio.nombre}</div>
-                    <div className="text-sm text-gray-500">{servicio.descripcion}</div>
-                    <div className="mt-2 flex justify-between">
-                      <span className="text-sm font-medium">
-                        ${servicio.precio || 0}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {servicio.duracion_minutos || 0} min
-                      </span>
-                    </div>
-                  </Card>
-                ))}
-              </div>
             )}
-          </div>
-        )}
 
-        {/* Step 2 - Fecha y hora */}
-        {step === 2 && (
-          <div className="space-y-6">
-            {/* Mostrar servicio seleccionado */}
-            <Card className="bg-gray-50 border-gray-200">
-              <div className="text-sm text-gray-600 mb-1">Servicio seleccionado:</div>
-              <div className="font-medium text-gray-900">
-                {selectedServicio?.nombre}
-              </div>
-            </Card>
-
-            <Calendar
-              availableDates={availableDates}
-              selectedDate={selectedDate}
-              onDateSelect={handleDateSelect}
-              onMonthChange={handleMonthChange}
-              currentMes={mes}
-              currentAño={año}
-              loading={loadingDates}
-            />
-
-            {selectedDate && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium">Horarios disponibles</h4>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={forceRefresh}
-                    className="text-xs"
-                  >
-                    🔄 Refresh
-                  </Button>
+            {/* Step 2 - Fecha y hora */}
+            {step === 2 && (
+              <div className="space-y-5">
+                <div className={darkCard}>
+                  <p className={darkLabel}>Servicio</p>
+                  <p className="text-sm text-white font-medium">{selectedServicio?.nombre}</p>
                 </div>
-                <TimeSlots
-                  slots={slots}
-                  selectedSlot={selectedSlot}
-                  onSlotSelect={handleSlotSelect}
-                  loading={loadingSlots}
+
+                <Calendar
+                  availableDates={availableDates}
+                  selectedDate={selectedDate}
+                  onDateSelect={handleDateSelect}
+                  onMonthChange={handleMonthChange}
+                  currentMes={mes}
+                  currentAño={año}
+                  loading={loadingDates}
                 />
+
+                {selectedDate && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className={darkLabel}>Horarios disponibles</p>
+                      <button onClick={forceRefresh} className={ghostBtnSm}>
+                        🔄 Refresh
+                      </button>
+                    </div>
+                    <TimeSlots
+                      slots={slots}
+                      selectedSlot={selectedSlot}
+                      onSlotSelect={handleSlotSelect}
+                      loading={loadingSlots}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 3 - Datos del cliente */}
+            {step === 3 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className={darkCard}>
+                    <p className={darkLabel}>Servicio</p>
+                    <p className="text-sm text-white font-medium">{selectedServicio?.nombre}</p>
+                  </div>
+                  <div className={darkCard}>
+                    <p className={darkLabel}>Fecha y hora</p>
+                    <p className="text-sm text-white font-medium">
+                      {selectedDate && formatFecha(selectedDate)} {selectedSlot}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={darkLabel}>Nombre completo *</label>
+                  <input
+                    type="text"
+                    value={clienteData.nombre}
+                    onChange={(e) => setClienteData(prev => ({ ...prev, nombre: e.target.value }))}
+                    placeholder="Tu nombre completo"
+                    disabled={loading}
+                    className={darkInput}
+                  />
+                </div>
+
+                <div>
+                  <label className={darkLabel}>Email *</label>
+                  <input
+                    type="email"
+                    value={clienteData.email}
+                    onChange={(e) => setClienteData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="tu@email.com"
+                    disabled={loading}
+                    className={darkInput}
+                  />
+                </div>
+
+                <div>
+                  <label className={darkLabel}>Teléfono</label>
+                  <input
+                    type="tel"
+                    value={clienteData.telefono}
+                    onChange={(e) => setClienteData(prev => ({ ...prev, telefono: e.target.value }))}
+                    placeholder="+54 9 11 1234-5678"
+                    disabled={loading}
+                    className={darkInput}
+                  />
+                </div>
+
+                <div>
+                  <label className={darkLabel}>Notas (opcional)</label>
+                  <textarea
+                    value={notas}
+                    onChange={(e) => setNotas(e.target.value)}
+                    placeholder="Alguna indicación especial..."
+                    rows={3}
+                    disabled={loading}
+                    className={`${darkInput} resize-none`}
+                  />
+                </div>
+
+                {/* Resumen */}
+                <div className={darkCard}>
+                  <p className="text-xs tracking-[0.2em] uppercase text-white/50 mb-3" style={{ fontFamily: 'Oswald, sans-serif' }}>
+                    Resumen del turno
+                  </p>
+                  <div className="space-y-2 text-sm">
+                    {[
+                      ['Profesional', profesionalNombre],
+                      ['Servicio', selectedServicio?.nombre],
+                      ['Duración', `${selectedServicio?.duracion_minutos || 0} min`],
+                      ['Precio', `$${selectedServicio?.precio || 0}`],
+                      ['Fecha', selectedDate ? formatFecha(selectedDate) : ''],
+                      ['Hora', selectedSlot],
+                    ].map(([label, value]) => (
+                      <div key={label} className="flex justify-between">
+                        <span className="text-white/40">{label}</span>
+                        <span className="text-white font-medium">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
-        )}
 
-        {/* Step 3 - Datos del cliente */}
-        {step === 3 && (
-          <div className="space-y-4">
-            {/* Mostrar servicio y fecha seleccionados */}
-            <div className="grid grid-cols-2 gap-4">
-              <Card className="bg-gray-50 border-gray-200">
-                <div className="text-sm text-gray-600 mb-1">Servicio:</div>
-                <div className="font-medium text-gray-900">
-                  {selectedServicio?.nombre}
-                </div>
-              </Card>
-              <Card className="bg-gray-50 border-gray-200">
-                <div className="text-sm text-gray-600 mb-1">Fecha y hora:</div>
-                <div className="font-medium text-gray-900">
-                  {selectedDate && formatFecha(selectedDate)} {selectedSlot}
-                </div>
-              </Card>
-            </div>
+          {/* Footer / Navigation */}
+          <div className="flex justify-between px-6 py-4 border-t border-white/10 flex-shrink-0 gap-3">
+            <button
+              onClick={handlePrevStep}
+              disabled={step === 1}
+              className={ghostBtn}
+            >
+              Anterior
+            </button>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre completo *
-              </label>
-              <Input
-                type="text"
-                value={clienteData.nombre}
-                onChange={(e) => setClienteData(prev => ({ ...prev, nombre: e.target.value }))}
-                placeholder="Tu nombre completo"
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email *
-              </label>
-              <Input
-                type="email"
-                value={clienteData.email}
-                onChange={(e) => setClienteData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="tu@email.com"
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Teléfono
-              </label>
-              <Input
-                type="tel"
-                value={clienteData.telefono}
-                onChange={(e) => setClienteData(prev => ({ ...prev, telefono: e.target.value }))}
-                placeholder="+54 9 11 1234-5678"
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notas (opcional)
-              </label>
-              <Textarea
-                value={notas}
-                onChange={(e) => setNotas(e.target.value)}
-                placeholder="Alguna indicación especial..."
-                rows={3}
-                disabled={loading}
-              />
-            </div>
-
-            {/* Resumen */}
-            <Card className="bg-gray-50 border-gray-200">
-              <h4 className="font-medium mb-3 text-gray-900">Resumen del turno</h4>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Profesional:</span>
-                  <span className="font-medium">{profesionalNombre}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Servicio:</span>
-                  <span className="font-medium">{selectedServicio?.nombre}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Duración:</span>
-                  <span className="font-medium">{selectedServicio?.duracion_minutos || 0} min</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Precio:</span>
-                  <span className="font-medium">${selectedServicio?.precio || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Fecha:</span>
-                  <span className="font-medium">{selectedDate && formatFecha(selectedDate)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Hora:</span>
-                  <span className="font-medium">{selectedSlot}</span>
-                </div>
-              </div>
-            </Card>
+            {step < 3 ? (
+              <button
+                onClick={handleNextStep}
+                disabled={
+                  (step === 1 && !selectedServicio) ||
+                  (step === 2 && (!selectedDate || !selectedSlot))
+                }
+                className={ghostBtn}
+              >
+                Siguiente
+              </button>
+            ) : (
+              <button
+                onClick={handleValidateAndCreateTurno}
+                disabled={loading || !clienteData.nombre || !clienteData.email}
+                className={ghostBtn}
+              >
+                {loading ? 'Confirmando...' : 'Confirmar turno'}
+              </button>
+            )}
           </div>
-        )}
-
-        {/* Navigation buttons */}
-        <div className="flex justify-between pt-6">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handlePrevStep}
-            disabled={step === 1}
-          >
-            Anterior
-          </Button>
-
-          {step < 3 ? (
-            <Button
-              type="button"
-              onClick={handleNextStep}
-              disabled={
-                (step === 1 && !selectedServicio) ||
-                (step === 2 && (!selectedDate || !selectedSlot))
-              }
-            >
-              Siguiente
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              onClick={handleValidateAndCreateTurno}
-              loading={loading}
-              disabled={!clienteData.nombre || !clienteData.email}
-            >
-              Confirmar turno
-            </Button>
-          )}
         </div>
-      </Modal>
+      </div>
 
-      {/* Modal de confirmación de cliente existente */}
+      {/* ── Modal cliente existente ── */}
       {showMatchModal && existingCliente && (
-        <Modal
-          isOpen={showMatchModal}
-          onClose={() => setShowMatchModal(false)}
-          title="Cliente Identificado"
-          size="md"
-        >
-          <div className="text-center">
-            <div className="mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowMatchModal(false)} />
+          <div className="relative w-full max-w-sm bg-[#111] border border-white/15 p-6">
+            <div className="text-center mb-5">
+              <div className="w-10 h-10 border border-white/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-white text-lg">✓</span>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                ¡Hola! Te identificamos como cliente existente
-              </h3>
-              <p className="text-gray-600">
-                Tus datos ya están registrados en nuestro sistema. Usaremos tu información existente para agendar este turno.
+              <p
+                className="text-lg font-bold uppercase text-white tracking-wide mb-2"
+                style={{ fontFamily: 'Oswald, sans-serif' }}
+              >
+                Te reconocemos
+              </p>
+              <p className="text-sm text-white/50">
+                Tus datos ya están registrados. ¿Confirmamos con ellos?
               </p>
             </div>
 
-            {/* Datos existentes */}
-            <Card className="bg-green-50 border-green-200 mb-4">
-              <h4 className="font-medium text-green-900 mb-2">Tus datos registrados:</h4>
-              <div className="text-sm space-y-1">
-                <div><strong>Nombre:</strong> {existingCliente.nombre}</div>
-                <div><strong>Email:</strong> {existingCliente.email}</div>
-                {existingCliente.telefono && (
-                  <div><strong>Teléfono:</strong> {existingCliente.telefono}</div>
-                )}
+            <div className="bg-[#1a1a1a] border border-white/10 p-4 mb-5 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-white/40">Nombre</span>
+                <span className="text-white">{existingCliente.nombre}</span>
               </div>
-            </Card>
+              <div className="flex justify-between">
+                <span className="text-white/40">Email</span>
+                <span className="text-white">{existingCliente.email}</span>
+              </div>
+              {existingCliente.telefono && (
+                <div className="flex justify-between">
+                  <span className="text-white/40">Teléfono</span>
+                  <span className="text-white">{existingCliente.telefono}</span>
+                </div>
+              )}
+            </div>
 
-            {/* Botones de acción */}
-            <div className="flex space-x-3">
-              <Button 
-                onClick={handleConfirmExistingCliente}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-              >
-                Confirmar y Continuar
-              </Button>
-              <Button 
-                variant="secondary"
-                onClick={handleCreateNewCliente}
-                className="flex-1"
-              >
-                Usar otros datos
-              </Button>
+            <div className="flex gap-3">
+              <button onClick={handleConfirmExistingCliente} className={`${ghostBtn} flex-1`}>
+                Confirmar
+              </button>
+              <button onClick={handleCreateNewCliente} className={`${ghostBtn} flex-1`}>
+                Otros datos
+              </button>
             </div>
           </div>
-        </Modal>
+        </div>
       )}
     </>
   );

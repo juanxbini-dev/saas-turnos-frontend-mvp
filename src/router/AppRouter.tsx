@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import UsuariosPage from '../pages/UsuariosPage';
@@ -10,6 +10,7 @@ import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
 import { FinanzasPage } from '../pages/FinanzasPage';
 import { EmpresaPublicPage } from '../pages/public/EmpresaPublicPage';
+import { DebSalonLandingPage } from '../pages/public/DebSalonLandingPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
@@ -18,7 +19,7 @@ import Layout from '../components/layout/Layout';
 const AppRouter = () => {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/debsalon" replace />} />
+      <Route path="/" element={<DebSalonLandingPage />} />
       <Route path="/login" element={<LoginPage />} />
 
 {/* Rutas públicas */}
