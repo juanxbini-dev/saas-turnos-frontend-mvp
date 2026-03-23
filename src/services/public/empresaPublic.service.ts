@@ -15,6 +15,7 @@ export interface ProfesionalPublic {
   roles: string[];
   activo: boolean;
   avatar_url?: string | null;
+  subtitulo?: string | null;
   descripcion?: string | null; // descripcion de landing_profesionales
 }
 
