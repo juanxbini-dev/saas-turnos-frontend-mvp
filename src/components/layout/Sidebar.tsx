@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   TrendingUp,
+  X,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -41,10 +42,12 @@ const SidebarContent = ({
   collapsed,
   onToggleCollapsed,
   isMobile = false,
+  onCloseMobile,
 }: {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   isMobile?: boolean;
+  onCloseMobile?: () => void;
 }) => {
   const { state } = useAuth();
   const roles = state.authUser?.roles || [];
@@ -62,8 +65,16 @@ const SidebarContent = ({
         {(!collapsed || isMobile) && (
           <span className="text-sm font-semibold text-gray-200 truncate">Menú</span>
         )}
-        {/* Botón colapsar solo en desktop */}
-        {!isMobile && (
+        {/* Botón colapsar en desktop / cerrar en mobile */}
+        {isMobile ? (
+          <button
+            onClick={onCloseMobile}
+            className="ml-auto p-1.5 rounded-md hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+            aria-label="Cerrar menú"
+          >
+            <X size={20} />
+          </button>
+        ) : (
           <button
             onClick={onToggleCollapsed}
             className="ml-auto p-1.5 rounded-md hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
@@ -158,7 +169,7 @@ const Sidebar = ({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }: Si
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <SidebarContent collapsed={false} onToggleCollapsed={onToggleCollapsed} isMobile />
+        <SidebarContent collapsed={false} onToggleCollapsed={onToggleCollapsed} isMobile onCloseMobile={onCloseMobile} />
       </aside>
     </>
   );
