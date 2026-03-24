@@ -11,10 +11,13 @@ import { TurnosCatalogo } from '../components/turnos/TurnosCatalogo';
 import { TurnosCompletados } from '../components/turnos/TurnosCompletados';
 import { DisponibilidadConfig } from '../components/turnos/DisponibilidadConfig';
 import { CreateTurnoModal } from '../components/turnos/CreateTurnoModal';
+import { FinalizarTurnoModal } from '../components/turnos/FinalizarTurnoModal';
+import { TurnoConDetalle } from '../types/turno.types';
 
 const TurnosPage: React.FC = () => {
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('turnos');
+  const [turnoAFinalizar, setTurnoAFinalizar] = useState<TurnoConDetalle | null>(null);
   const { state: authUser } = useAuth();
   const toast = useToast();
 
@@ -62,6 +65,12 @@ const TurnosPage: React.FC = () => {
   const handleCrearSuccess = () => {
     cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
     cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
+    revalidate();
+  };
+
+  const handleFinalizarSuccess = () => {
+    setTurnoAFinalizar(null);
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
     revalidate();
   };
 
@@ -122,6 +131,7 @@ const TurnosPage: React.FC = () => {
                     isAdmin={isAdmin}
                     onCancelar={handleCancelarTurno}
                     onConfirmar={handleConfirmarTurno}
+                    onFinalizar={setTurnoAFinalizar}
                   />
                   
                   <TurnosCompletados />
@@ -146,6 +156,16 @@ const TurnosPage: React.FC = () => {
         preselectedFecha={undefined}
         preselectedHora={undefined}
       />
+
+      {turnoAFinalizar && (
+        <FinalizarTurnoModal
+          isOpen={!!turnoAFinalizar}
+          onClose={() => setTurnoAFinalizar(null)}
+          turno={turnoAFinalizar}
+          onSuccess={handleFinalizarSuccess}
+          comisionesConfig={{ comision_turno: 20, comision_producto: 20 }}
+        />
+      )}
     </div>
   );
 };
