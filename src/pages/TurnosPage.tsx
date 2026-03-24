@@ -8,7 +8,6 @@ import { Button, Tabs, Spinner } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
 import { TurnosCatalogo } from '../components/turnos/TurnosCatalogo';
-import { TurnosCompletados } from '../components/turnos/TurnosCompletados';
 import { DisponibilidadConfig } from '../components/turnos/DisponibilidadConfig';
 import { CreateTurnoModal } from '../components/turnos/CreateTurnoModal';
 import { FinalizarTurnoModal } from '../components/turnos/FinalizarTurnoModal';
@@ -133,8 +132,6 @@ const TurnosPage: React.FC = () => {
                     onConfirmar={handleConfirmarTurno}
                     onFinalizar={setTurnoAFinalizar}
                   />
-                  
-                  <TurnosCompletados />
                 </>
               )}
 
