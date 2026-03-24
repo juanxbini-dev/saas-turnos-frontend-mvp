@@ -1,195 +1,222 @@
 import React, { useState } from 'react';
 import type { FinanzasFilters } from '../../types/finanzas.types';
 import { Button, Input, Select, Card } from '../ui';
+import { Search } from 'lucide-react';
 
 interface FinanzasFiltersComponentProps {
   filters: FinanzasFilters;
   onFiltersChange: (filters: Partial<FinanzasFilters>) => void;
 }
 
-export const FinanzasFiltersComponent: React.FC<FinanzasFiltersComponentProps> = ({ 
-  filters, 
-  onFiltersChange 
+const periodos = [
+  { value: 'dia',    label: 'Hoy' },
+  { value: 'semana', label: 'Esta semana' },
+  { value: 'mes',    label: 'Este mes' },
+  { value: 'anio',   label: 'Este año' },
+  { value: 'custom', label: 'Personalizado' },
+];
+
+const metodosPago = [
+  { value: 'todos',         label: 'Todos' },
+  { value: 'efectivo',      label: 'Efectivo' },
+  { value: 'transferencia', label: 'Transferencia' },
+  { value: 'pendiente',     label: 'Pendiente' },
+];
+
+const ordenarPorOpts = [
+  { value: 'fecha',                  label: 'Fecha' },
+  { value: 'total_venta',            label: 'Total venta' },
+  { value: 'total_neto_profesional', label: 'Neto profesional' },
+];
+
+const ordenOpts = [
+  { value: 'desc', label: 'Descendente' },
+  { value: 'asc',  label: 'Ascendente' },
+];
+
+function getDatesForPeriod(periodo: FinanzasFilters['periodo']) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const toStr = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  switch (periodo) {
+    case 'dia':
+      return { fecha_desde: toStr(today), fecha_hasta: toStr(today) };
+    case 'semana': {
+      const start = new Date(today);
+      start.setDate(today.getDate() - today.getDay());
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return { fecha_desde: toStr(start), fecha_hasta: toStr(end) };
+    }
+    case 'mes':
+      return {
+        fecha_desde: toStr(new Date(now.getFullYear(), now.getMonth(), 1)),
+        fecha_hasta: toStr(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+      };
+    case 'anio':
+      return {
+        fecha_desde: toStr(new Date(now.getFullYear(), 0, 1)),
+        fecha_hasta: toStr(new Date(now.getFullYear(), 11, 31)),
+      };
+    default:
+      return null;
+  }
+}
+
+export const FinanzasFiltersComponent: React.FC<FinanzasFiltersComponentProps> = ({
+  filters,
+  onFiltersChange,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Calcular fechas según el período seleccionado
-  const getDatesForPeriod = (periodo: FinanzasFilters['periodo']) => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    let fechaDesde: Date;
-    let fechaHasta: Date = today;
+  // Draft solo para las fechas custom (los demás aplican inmediato)
+  const [customDesde, setCustomDesde] = useState(filters.fecha_desde);
+  const [customHasta, setCustomHasta] = useState(filters.fecha_hasta);
+  const [dateError, setDateError] = useState<string | null>(null);
 
-    switch (periodo) {
-      case 'dia':
-        fechaDesde = today;
-        break;
-      case 'semana':
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        fechaDesde = startOfWeek;
-        break;
-      case 'mes':
-        fechaDesde = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case 'anio':
-        fechaDesde = new Date(now.getFullYear(), 0, 1);
-        break;
-      case 'custom':
-        // No cambiar las fechas actuales
-        return {
-          fecha_desde: filters.fecha_desde,
-          fecha_hasta: filters.fecha_hasta
-        };
-      default:
-        fechaDesde = new Date(now.getFullYear(), now.getMonth(), 1);
+  // ── Período preset ──────────────────────────────────────────────────────
+  const handlePeriodoClick = (periodo: FinanzasFilters['periodo']) => {
+    if (periodo === 'custom') {
+      // Solo cambia la UI al modo custom, no dispara fetch
+      setCustomDesde(filters.fecha_desde);
+      setCustomHasta(filters.fecha_hasta);
+      setDateError(null);
+      onFiltersChange({ periodo: 'custom' });
+      return;
     }
-
-    return {
-      fecha_desde: fechaDesde.toISOString().split('T')[0],
-      fecha_hasta: fechaHasta.toISOString().split('T')[0]
-    };
+    const dates = getDatesForPeriod(periodo)!;
+    onFiltersChange({ periodo, ...dates, pagina: 1 });
   };
 
-  const handlePeriodoChange = (periodo: FinanzasFilters['periodo']) => {
-    const dates = getDatesForPeriod(periodo);
-    onFiltersChange({ 
-      periodo, 
-      ...dates,
-      pagina: 1 // Resetear página al cambiar filtros
-    });
+  // ── Fechas custom: aplican con botón ────────────────────────────────────
+  const handleApplyCustom = () => {
+    if (!customDesde || !customHasta) {
+      setDateError('Completá ambas fechas.');
+      return;
+    }
+    if (customDesde > customHasta) {
+      setDateError('La fecha "desde" no puede ser mayor que "hasta".');
+      return;
+    }
+    setDateError(null);
+    onFiltersChange({ periodo: 'custom', fecha_desde: customDesde, fecha_hasta: customHasta, pagina: 1 });
   };
 
-  const handleFechaChange = (campo: 'fecha_desde' | 'fecha_hasta', value: string) => {
-    onFiltersChange({ 
-      [campo]: value,
-      periodo: 'custom', // Cambiar a custom si se modifican las fechas manualmente
-      pagina: 1
-    });
+  // ── Filtros avanzados: aplican inmediato ────────────────────────────────
+  const handleMetodoPago = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onFiltersChange({ metodo_pago: e.target.value as FinanzasFilters['metodo_pago'], pagina: 1 });
   };
 
-  const handleFilterChange = (campo: keyof FinanzasFilters, value: any) => {
-    onFiltersChange({ 
-      [campo]: value,
-      pagina: 1
-    });
+  const handleOrdenarPor = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onFiltersChange({ ordenar_por: e.target.value as FinanzasFilters['ordenar_por'], pagina: 1 });
   };
 
-  const periodos = [
-    { value: 'dia', label: 'Hoy' },
-    { value: 'semana', label: 'Esta semana' },
-    { value: 'mes', label: 'Este mes' },
-    { value: 'anio', label: 'Este año' },
-    { value: 'custom', label: 'Personalizado' }
-  ];
+  const handleOrden = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onFiltersChange({ orden: e.target.value as FinanzasFilters['orden'], pagina: 1 });
+  };
 
-  const metodosPago = [
-    { value: 'todos', label: 'Todos' },
-    { value: 'efectivo', label: 'Efectivo' },
-    { value: 'transferencia', label: 'Transferencia' },
-    { value: 'pendiente', label: 'Pendiente' }
-  ];
-
-  const ordenarPor = [
-    { value: 'fecha', label: 'Fecha' },
-    { value: 'total_venta', label: 'Total venta' },
-    { value: 'total_neto_profesional', label: 'Neto profesional' }
-  ];
-
-  const orden = [
-    { value: 'asc', label: 'Ascendente' },
-    { value: 'desc', label: 'Descendente' }
-  ];
+  const customDatesChanged =
+    filters.periodo === 'custom' &&
+    (customDesde !== filters.fecha_desde || customHasta !== filters.fecha_hasta);
 
   return (
     <Card className="mb-6">
       <div className="space-y-4">
+
         {/* Período */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Período
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Período</label>
           <div className="flex flex-wrap gap-2">
-            {periodos.map(periodo => (
+            {periodos.map(p => (
               <Button
-                key={periodo.value}
+                key={p.value}
                 size="sm"
-                variant={filters.periodo === periodo.value ? 'primary' : 'secondary'}
-                onClick={() => handlePeriodoChange(periodo.value as FinanzasFilters['periodo'])}
+                variant={filters.periodo === p.value ? 'primary' : 'secondary'}
+                onClick={() => handlePeriodoClick(p.value as FinanzasFilters['periodo'])}
               >
-                {periodo.label}
+                {p.label}
               </Button>
             ))}
           </div>
         </div>
 
-        {/* Fechas personalizadas */}
+        {/* Fechas custom */}
         {filters.periodo === 'custom' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha desde
-              </label>
-              <Input
-                type="date"
-                value={filters.fecha_desde}
-                onChange={(e) => handleFechaChange('fecha_desde', e.target.value)}
-              />
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha desde</label>
+                <Input
+                  type="date"
+                  value={customDesde}
+                  onChange={e => { setCustomDesde(e.target.value); setDateError(null); }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha hasta</label>
+                <Input
+                  type="date"
+                  value={customHasta}
+                  onChange={e => { setCustomHasta(e.target.value); setDateError(null); }}
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha hasta
-              </label>
-              <Input
-                type="date"
-                value={filters.fecha_hasta}
-                onChange={(e) => handleFechaChange('fecha_hasta', e.target.value)}
-              />
-            </div>
+
+            {dateError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {dateError}
+              </p>
+            )}
+
+            {(customDatesChanged || dateError) && (
+              <div className="flex justify-end">
+                <Button onClick={handleApplyCustom} leftIcon={Search} size="sm">
+                  Buscar
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Filtros adicionales */}
+        {/* Filtros avanzados */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">
-              Filtros adicionales
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-            >
+            <span className="text-sm font-medium text-gray-700">Filtros adicionales</span>
+            <Button size="sm" variant="ghost" onClick={() => setShowAdvanced(!showAdvanced)}>
               {showAdvanced ? 'Ocultar' : 'Mostrar'}
             </Button>
           </div>
 
           {showAdvanced && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Select
                 label="Método de pago"
                 value={filters.metodo_pago}
-                onChange={(value) => handleFilterChange('metodo_pago', value)}
+                onChange={handleMetodoPago}
                 options={metodosPago}
               />
-
               <Select
                 label="Ordenar por"
                 value={filters.ordenar_por}
-                onChange={(value) => handleFilterChange('ordenar_por', value)}
-                options={ordenarPor}
+                onChange={handleOrdenarPor}
+                options={ordenarPorOpts}
               />
-
               <Select
                 label="Orden"
                 value={filters.orden}
-                onChange={(value) => handleFilterChange('orden', value)}
-                options={orden}
+                onChange={handleOrden}
+                options={ordenOpts}
               />
             </div>
           )}
         </div>
+
       </div>
     </Card>
   );

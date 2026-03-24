@@ -36,6 +36,7 @@ export function FinalizarTurnoModal({
   const [catalogoSearch, setCatalogoSearch] = useState('');
   const [selectedCatalogProducto, setSelectedCatalogProducto] = useState<Producto | null>(null);
   const [nuevaCantidad, setNuevaCantidad] = useState(1);
+  const [cantidadError, setCantidadError] = useState<string | null>(null);
   const { data: catalogoProductos, loading: loadingCatalogo } = useFetch(
     'productos:lista',
     () => productosService.getProductos(),
@@ -79,6 +80,7 @@ export function FinalizarTurnoModal({
     setSelectedCatalogProducto(null);
     setCatalogoSearch('');
     setNuevaCantidad(1);
+    setCantidadError(null);
     setShowAgregarProductos(false);
   };
 
@@ -87,8 +89,8 @@ export function FinalizarTurnoModal({
   };
 
   const handleFinalizar = async () => {
-    if (!metodoPago || metodoPago === 'pendiente') {
-      alert('Por favor selecciona un método de pago');
+    if (!metodoPago) {
+      alert('Por favor seleccioná un método de pago');
       return;
     }
 
@@ -122,6 +124,7 @@ export function FinalizarTurnoModal({
     setSelectedCatalogProducto(null);
     setCatalogoSearch('');
     setNuevaCantidad(1);
+    setCantidadError(null);
     onClose();
   };
 
@@ -345,21 +348,37 @@ export function FinalizarTurnoModal({
               )}
               {selectedCatalogProducto && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cantidad <span className="text-gray-400 font-normal">(stock: {selectedCatalogProducto.stock})</span>
+                  </label>
                   <Input
                     type="number"
                     min="1"
                     max={selectedCatalogProducto.stock}
                     value={nuevaCantidad}
-                    onChange={e => setNuevaCantidad(parseInt(e.target.value) || 1)}
+                    onChange={e => {
+                      const val = parseInt(e.target.value) || 1;
+                      setNuevaCantidad(val);
+                      if (val > selectedCatalogProducto.stock) {
+                        setCantidadError(`Supera el stock disponible (${selectedCatalogProducto.stock})`);
+                      } else if (val < 1) {
+                        setCantidadError('La cantidad mínima es 1');
+                      } else {
+                        setCantidadError(null);
+                      }
+                    }}
+                    className={cantidadError ? 'border-red-400' : ''}
                   />
+                  {cantidadError && (
+                    <p className="text-xs text-red-600 mt-1">{cantidadError}</p>
+                  )}
                 </div>
               )}
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={() => { setShowAgregarProductos(false); setSelectedCatalogProducto(null); setCatalogoSearch(''); }} block>
                   Cancelar
                 </Button>
-                <Button onClick={handleAgregarProducto} disabled={!selectedCatalogProducto} block>
+                <Button onClick={handleAgregarProducto} disabled={!selectedCatalogProducto || !!cantidadError} block>
                   Agregar
                 </Button>
               </div>
@@ -446,10 +465,11 @@ export function FinalizarTurnoModal({
           <Button
             onClick={handleFinalizar}
             loading={loading}
-            disabled={!metodoPago || metodoPago === 'pendiente'}
+            disabled={!metodoPago}
             block
+            variant={metodoPago === 'pendiente' ? 'secondary' : 'primary'}
           >
-            {loading ? 'Finalizando...' : 'Finalizar Turno'}
+            {loading ? 'Guardando...' : metodoPago === 'pendiente' ? 'Guardar como pendiente' : 'Finalizar Turno'}
           </Button>
         </div>
       </div>

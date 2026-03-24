@@ -45,5 +45,9 @@ export const finanzasService = {
       `/api/finanzas/profesional/${profesionalId}?${params.toString()}`
     );
     return response.data;
-  }
+  },
+
+  async cobrarPago(tipo: 'turno' | 'venta', id: string, metodo_pago: 'efectivo' | 'transferencia'): Promise<void> {
+    await axiosInstance.patch('/api/finanzas/cobrar', { tipo, id, metodo_pago });
+  },
 };

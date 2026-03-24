@@ -18,13 +18,19 @@ export function FinanzasPage() {
   // Estado local
   const [filters, setFilters] = useState<FinanzasFilters>(() => {
     const now = new Date();
+    const toLocalStr = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thirtyDaysFromNow = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
-    
+    const lastDayOfMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
     return {
       periodo: 'mes',
-      fecha_desde: firstDayOfMonth.toISOString().split('T')[0],
-      fecha_hasta: thirtyDaysFromNow.toISOString().split('T')[0],
+      fecha_desde: toLocalStr(firstDayOfMonth),
+      fecha_hasta: toLocalStr(lastDayOfMonth),
       metodo_pago: 'todos',
       estado_comision: 'todos',
       ordenar_por: 'fecha',
@@ -109,6 +115,11 @@ export function FinanzasPage() {
     handleFiltersChange({ pagina });
   };
 
+  const handleCobrarPago = async (tipo: 'turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => {
+    await finanzasService.cobrarPago(tipo, id, metodoPago);
+    revalidate();
+  };
+
   // Si hay error, mostrar mensaje
   if (finanzasError) {
     return (
@@ -159,12 +170,10 @@ export function FinanzasPage() {
       {/* Cards de resumen */}
       <FinanzasSummaryCards
         summary={finanzasResponse?.summary || {
-          total_venta: 0,
-          total_comision_empresa: 0,
-          total_neto_profesional: 0,
-          total_descuentos: 0,
-          cantidad_turnos: 0,
-          promedio_por_turno: 0,
+          total_venta: 0, total_venta_servicios: 0, total_venta_productos: 0,
+          total_comision_empresa: 0, total_comision_empresa_servicios: 0, total_comision_empresa_productos: 0,
+          total_neto_profesional: 0, total_neto_profesional_servicios: 0, total_neto_profesional_productos: 0,
+          total_descuentos: 0, cantidad_turnos: 0, cantidad_productos_vendidos: 0, promedio_por_turno: 0, total_pendiente: 0,
         }}
         isLoading={loadingFinanzas}
       />
@@ -179,6 +188,7 @@ export function FinanzasPage() {
         sortField={filters.ordenar_por}
         sortOrder={filters.orden}
         onRowClick={handleRowClick}
+        onCobrarPago={handleCobrarPago}
       />
 
       {/* Paginación */}

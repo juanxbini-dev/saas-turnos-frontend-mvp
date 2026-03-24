@@ -1,17 +1,23 @@
-// Venta directa de productos para mostrar en Finanzas
+// Venta de producto (desde turno o directa) para mostrar en Finanzas
 export interface VentaDirectaFinanzas {
-  tipo: 'venta_directa';
+  tipo: 'venta_producto';
   id: string;
   fecha: string;
+  turno_id: string | null;
+  venta_grupo_id: string | null;
   cliente_nombre: string | null;
   vendedor_nombre: string;
-  metodo_pago: 'efectivo' | 'transferencia' | 'pendiente';
+  metodo_pago: string;
   total: number;
-  items_count: number;
+  comision_porcentaje: number;
+  comision_monto: number;
+  neto_vendedor: number;
+  nombre_producto: string;
+  cantidad: number;
   empresa_id: string;
 }
 
-// Representa un registro de comisión por turno finalizado
+// Representa un registro de comisión por turno finalizado (solo servicio)
 export interface ComisionProfesional {
   id: string;
   turno_id: string;
@@ -22,15 +28,6 @@ export interface ComisionProfesional {
   servicio_comision_porcentaje: number;
   servicio_comision_monto: number;
   servicio_neto_profesional: number;
-  // Productos (puede estar vacío, preparado para el futuro)
-  productos_monto: number;
-  productos_comision_porcentaje: number;
-  productos_comision_monto: number;
-  productos_neto_profesional: number;
-  // Totales
-  total_venta: number;
-  total_comision_empresa: number;
-  total_neto_profesional: number;
   // Estado
   estado: 'pendiente' | 'pagada' | 'cancelada';
   fecha_pago: string | null;
@@ -38,6 +35,7 @@ export interface ComisionProfesional {
   created_at: string;
   updated_at: string;
   // Datos del turno (JOIN para display)
+  tipo: 'turno';
   turno_fecha: string;
   turno_hora: string;
   turno_estado: string;
@@ -47,31 +45,26 @@ export interface ComisionProfesional {
   descuento_monto: number;
   total_final: number;
   // Datos relacionados (JOIN)
-  tipo: 'turno';
   cliente_nombre: string;
   servicio_nombre: string;
-  profesional_nombre?: string; // Solo visible para admin
-  tiene_productos: boolean;
-}
-
-export interface ProductoVendido {
-  id: string;
-  turno_id: string;
-  producto_id: string | null;
-  nombre_producto: string;
-  cantidad: number;
-  precio_unitario: number;
-  precio_total: number;
-  created_at: string;
+  profesional_nombre?: string;
 }
 
 export interface FinanzasSummary {
   total_venta: number;
+  total_venta_servicios: number;
+  total_venta_productos: number;
   total_comision_empresa: number;
+  total_comision_empresa_servicios: number;
+  total_comision_empresa_productos: number;
   total_neto_profesional: number;
+  total_neto_profesional_servicios: number;
+  total_neto_profesional_productos: number;
   total_descuentos: number;
   cantidad_turnos: number;
+  cantidad_productos_vendidos: number;
   promedio_por_turno: number;
+  total_pendiente: number;
 }
 
 export interface FinanzasFilters {
@@ -94,34 +87,4 @@ export interface FinanzasResponse {
   pagina: number;
   por_pagina: number;
   total_paginas: number;
-}
-
-// Para el detalle de comisiones
-export interface DetalleFinanciero {
-  id: string;
-  fecha: string;
-  hora: string;
-  cliente: string;
-  servicio: string;
-  profesional?: string;
-  precio_original: number;
-  descuento_porcentaje: number;
-  descuento_monto: number;
-  total_final: number;
-  metodo_pago: 'efectivo' | 'transferencia' | 'pendiente';
-  servicio_monto: number;
-  servicio_comision_porcentaje: number;
-  servicio_comision_monto: number;
-  servicio_neto_profesional: number;
-  productos_monto: number;
-  productos_comision_porcentaje: number;
-  productos_comision_monto: number;
-  productos_neto_profesional: number;
-  total_venta: number;
-  total_comision_empresa: number;
-  total_neto_profesional: number;
-  estado: 'pendiente' | 'pagada' | 'cancelada';
-  fecha_pago: string | null;
-  notas: string | null;
-  productos?: ProductoVendido[];
 }
