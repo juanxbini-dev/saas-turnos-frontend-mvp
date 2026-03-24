@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Table, Button, Badge, Card } from '../ui';
 import { UsuarioServicio } from '../../types/servicio.types';
 import { Edit, Trash2 } from 'lucide-react';
@@ -16,6 +16,15 @@ export const MisServiciosList: React.FC<MisServiciosListProps> = ({
   onEditar,
   onDesuscribirse
 }) => {
+  const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
+
+  const toggleActions = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = new Set(expandedActions);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExpandedActions(next);
+  };
   // Formatear precio
   const formatearPrecio = (precio: number | null) => {
     if (precio === null || precio === undefined) return '-';
@@ -132,90 +141,68 @@ export const MisServiciosList: React.FC<MisServiciosListProps> = ({
     }
   ];
 
+  const variantMap: Record<string, any> = {
+    'básico': 'gray',
+    'intermedio': 'blue',
+    'avanzado': 'purple',
+    'experto': 'gold'
+  };
+
   // Componente móvil - Cards
   const MiServicioCard: React.FC<{ usuarioServicio: UsuarioServicio }> = ({ usuarioServicio }) => {
-    const [expandido, setExpandido] = React.useState(false);
-
-    const variantMap: Record<string, any> = {
-      'básico': 'gray',
-      'intermedio': 'blue',
-      'avanzado': 'purple',
-      'experto': 'gold'
-    };
-
     return (
-      <Card className="mb-4">
-        <div className="p-4">
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-900">
-                {usuarioServicio.nombre}
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                {usuarioServicio.descripcion || 'Sin descripción'}
-              </p>
-            </div>
-            <Badge
-              variant={usuarioServicio.habilitado ? 'green' : 'red'}
-              size="sm"
-            >
-              {usuarioServicio.habilitado ? 'Habilitado' : 'Deshabilitado'}
+      <Card className="p-4 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="font-medium text-gray-900 truncate">{usuarioServicio.nombre}</div>
+            {usuarioServicio.descripcion && (
+              <div className="text-sm text-gray-500 truncate">{usuarioServicio.descripcion}</div>
+            )}
+          </div>
+          <Badge variant={usuarioServicio.habilitado ? 'green' : 'red'} size="sm">
+            {usuarioServicio.habilitado ? 'Habilitado' : 'Deshabilitado'}
+          </Badge>
+        </div>
+
+        <div className="flex gap-4 text-sm text-gray-600">
+          <span><span className="font-medium">Precio:</span> {formatearPrecio(usuarioServicio.precio || null)}</span>
+          <span><span className="font-medium">Duración:</span> {usuarioServicio.duracion_minutos || '-'} min</span>
+        </div>
+
+        {usuarioServicio.nivel_habilidad && (
+          <div className="text-sm text-gray-600">
+            <span className="font-medium">Nivel:</span>{' '}
+            <Badge variant={variantMap[usuarioServicio.nivel_habilidad] || 'gray'} size="sm" className="ml-1">
+              {usuarioServicio.nivel_habilidad}
             </Badge>
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
-            <div>
-              <span className="font-medium">Precio:</span> {formatearPrecio(
-                usuarioServicio.precio || null
-              )}
+        <div className="pt-2 border-t border-gray-100">
+          <button
+            onClick={(e) => toggleActions(usuarioServicio.id, e)}
+            className="text-sm text-blue-600 font-medium flex items-center gap-1 hover:text-blue-800"
+          >
+            Ver acciones
+            <span className="text-xs">{expandedActions.has(usuarioServicio.id) ? '▲' : '▼'}</span>
+          </button>
+
+          {expandedActions.has(usuarioServicio.id) && (
+            <div className="mt-2 flex flex-col gap-0.5">
+              <button
+                onClick={(e) => { e.stopPropagation(); onEditar(usuarioServicio); }}
+                className="text-left text-sm text-gray-700 hover:text-gray-900 py-1.5 font-medium"
+              >
+                ✎ Editar
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDesuscribirse(usuarioServicio.servicio_id); }}
+                className="text-left text-sm text-red-500 hover:text-red-700 py-1.5 font-medium"
+              >
+                ✕ Desuscribirse
+              </button>
             </div>
-            <div>
-              <span className="font-medium">Duración:</span> {usuarioServicio.duracion_minutos || '-'} min
-            </div>
-            {usuarioServicio.nivel_habilidad && (
-              <div className="col-span-2">
-                <span className="font-medium">Nivel:</span>{' '}
-                <Badge
-                  variant={variantMap[usuarioServicio.nivel_habilidad] || 'gray'}
-                  size="sm"
-                  className="ml-1"
-                >
-                  {usuarioServicio.nivel_habilidad}
-                </Badge>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setExpandido(!expandido)}
-            >
-              {expandido ? 'Ocultar' : 'Ver'} acciones
-            </Button>
-
-            {expandido && (
-              <div className="flex items-center space-x-2 mt-3">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onEditar(usuarioServicio)}
-                >
-                  <Edit className="w-3 h-3 mr-1" />
-                  Editar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => onDesuscribirse(usuarioServicio.servicio_id)}
-                >
-                  <Trash2 className="w-3 h-3 mr-1" />
-                  Desuscribirse
-                </Button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </Card>
     );
@@ -254,7 +241,7 @@ export const MisServiciosList: React.FC<MisServiciosListProps> = ({
       </div>
 
       {/* Cards para mobile */}
-      <div className="block lg:hidden">
+      <div className="lg:hidden space-y-3">
         {misServicios.map((usuarioServicio) => (
           <MiServicioCard key={usuarioServicio.id} usuarioServicio={usuarioServicio} />
         ))}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Table, Button, Badge, Card } from '../ui';
 import { Servicio, UsuarioServicio } from '../../types/servicio.types';
 import { Edit, Trash2, Plus } from 'lucide-react';
@@ -22,6 +22,15 @@ export const ServiciosCatalogo: React.FC<ServiciosCatalogoProps> = ({
   onEliminar,
   isAdmin
 }) => {
+  const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
+
+  const toggleActions = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = new Set(expandedActions);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExpandedActions(next);
+  };
   // Verificar si un usuario ya está suscripto a un servicio
   const estaSuscripto = (servicioId: string) => {
     return misServicios.some(ms => ms.servicio_id === servicioId);
@@ -150,79 +159,65 @@ export const ServiciosCatalogo: React.FC<ServiciosCatalogoProps> = ({
   // Componente móvil - Cards expandibles
   const ServicioCard: React.FC<{ servicio: Servicio }> = ({ servicio }) => {
     const suscripto = estaSuscripto(servicio.id);
-    const [expandido, setExpandido] = React.useState(false);
 
     return (
-      <Card className="mb-4">
-        <div className="p-4">
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-900">{servicio.nombre}</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                {truncarTexto(servicio.descripcion, 100)}
-              </p>
-            </div>
-            <Badge
-              variant={servicio.activo ? 'green' : 'red'}
-              size="sm"
-            >
-              {servicio.activo ? 'Activo' : 'Inactivo'}
-            </Badge>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
-            <div>
-              <span className="font-medium">Duración:</span> {servicio.duracion} min
-            </div>
-            <div>
-              <span className="font-medium">Precio:</span> {formatearPrecio(servicio.precio_base)}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setExpandido(!expandido)}
-            >
-              {expandido ? 'Ocultar' : 'Ver'} acciones
-            </Button>
-
-            {expandido && (
-              <div className="flex items-center space-x-2 mt-3">
-                <Button
-                  size="sm"
-                  variant={suscripto ? 'secondary' : 'primary'}
-                  onClick={() => onSuscribirse(servicio)}
-                  disabled={suscripto}
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  {suscripto ? 'Suscripto' : 'Suscribirse'}
-                </Button>
-
-                {isAdmin && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => onEditar(servicio)}
-                    >
-                      <Edit className="w-3 h-3 mr-1" />
-                      Editar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => onEliminar(servicio)}
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Eliminar
-                    </Button>
-                  </>
-                )}
-              </div>
+      <Card className="p-4 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="font-medium text-gray-900 truncate">{servicio.nombre}</div>
+            {servicio.descripcion && (
+              <div className="text-sm text-gray-500 truncate">{truncarTexto(servicio.descripcion, 80)}</div>
             )}
           </div>
+          <Badge variant={servicio.activo ? 'green' : 'red'} size="sm">
+            {servicio.activo ? 'Activo' : 'Inactivo'}
+          </Badge>
+        </div>
+
+        <div className="flex gap-4 text-sm text-gray-600">
+          <span><span className="font-medium">Duración:</span> {servicio.duracion} min</span>
+          <span><span className="font-medium">Precio:</span> {formatearPrecio(servicio.precio_base)}</span>
+        </div>
+
+        <div className="pt-2 border-t border-gray-100">
+          <button
+            onClick={(e) => toggleActions(servicio.id, e)}
+            className="text-sm text-blue-600 font-medium flex items-center gap-1 hover:text-blue-800"
+          >
+            Ver acciones
+            <span className="text-xs">{expandedActions.has(servicio.id) ? '▲' : '▼'}</span>
+          </button>
+
+          {expandedActions.has(servicio.id) && (
+            <div className="mt-2 flex flex-col gap-0.5">
+              {!suscripto ? (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onSuscribirse(servicio); }}
+                  className="text-left text-sm text-blue-600 hover:text-blue-800 py-1.5 font-medium"
+                >
+                  + Suscribirse
+                </button>
+              ) : (
+                <span className="text-sm text-gray-400 py-1.5">✓ Ya suscripto</span>
+              )}
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEditar(servicio); }}
+                    className="text-left text-sm text-gray-700 hover:text-gray-900 py-1.5 font-medium"
+                  >
+                    ✎ Editar
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEliminar(servicio); }}
+                    className="text-left text-sm text-red-500 hover:text-red-700 py-1.5 font-medium"
+                  >
+                    ✕ Eliminar
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </Card>
     );
@@ -263,7 +258,7 @@ export const ServiciosCatalogo: React.FC<ServiciosCatalogoProps> = ({
       </div>
 
       {/* Cards para mobile */}
-      <div className="block lg:hidden">
+      <div className="lg:hidden space-y-3">
         {servicios.map((servicio) => (
           <ServicioCard key={servicio.id} servicio={servicio} />
         ))}
