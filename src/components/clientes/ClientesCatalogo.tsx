@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Table, Button, Badge, Card, DataControls, EmptyState } from '../ui';
 import { Cliente } from '../../types/cliente.types';
 import { Edit, Power, Users } from 'lucide-react';
@@ -18,6 +18,15 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
   onEditar,
   onToggleActivo
 }) => {
+  const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
+
+  const toggleActions = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = new Set(expandedActions);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExpandedActions(next);
+  };
   const columns: Array<any> = [
     {
       key: 'nombre',
@@ -97,67 +106,57 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
     }
   ];
 
-  // Componente móvil - Cards expandibles
+  // Componente móvil - Cards
   const ClienteCard: React.FC<{ cliente: Cliente }> = ({ cliente }) => {
-    const [expandido, setExpandido] = React.useState(false);
-
     return (
-      <Card className="mb-4">
-        <div className="p-4">
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-900">{cliente.nombre}</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                {cliente.email}
-              </p>
-            </div>
-            <Badge
-              variant={cliente.activo ? 'green' : 'red'}
-              size="sm"
-            >
-              {cliente.activo ? 'Activo' : 'Inactivo'}
-            </Badge>
+      <Card className="p-4 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="font-medium text-gray-900 truncate">{cliente.nombre}</div>
+            <div className="text-sm text-gray-500 truncate">{cliente.email}</div>
           </div>
+          <Badge variant={cliente.activo ? 'green' : 'red'} size="sm">
+            {cliente.activo ? 'Activo' : 'Inactivo'}
+          </Badge>
+        </div>
 
-          <div className="text-sm text-gray-600 mb-3">
-            <div>
-              <span className="font-medium">Teléfono:</span> {cliente.telefono || '—'}
-            </div>
+        {cliente.telefono && (
+          <div className="text-sm text-gray-600">
+            <span className="font-medium">Teléfono:</span> {cliente.telefono}
           </div>
+        )}
 
-          <div className="flex items-center justify-between">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setExpandido(!expandido)}
-            >
-              {expandido ? 'Ocultar' : 'Ver'} acciones
-            </Button>
+        <div className="pt-2 border-t border-gray-100">
+          <button
+            onClick={(e) => toggleActions(cliente.id, e)}
+            className="text-sm text-blue-600 font-medium flex items-center gap-1 hover:text-blue-800"
+          >
+            Ver acciones
+            <span className="text-xs">{expandedActions.has(cliente.id) ? '▲' : '▼'}</span>
+          </button>
 
-            {expandido && (
-              <div className="flex items-center space-x-2 mt-3">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onEditar(cliente)}
+          {expandedActions.has(cliente.id) && (
+            <div className="mt-2 flex flex-col gap-0.5">
+              <button
+                onClick={(e) => { e.stopPropagation(); onEditar(cliente); }}
+                className="text-left text-sm text-gray-700 hover:text-gray-900 py-1.5 font-medium"
+              >
+                ✎ Editar
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleActivo(cliente); }}
+                  className={`text-left text-sm py-1.5 font-medium ${
+                    cliente.activo
+                      ? 'text-red-500 hover:text-red-700'
+                      : 'text-green-600 hover:text-green-800'
+                  }`}
                 >
-                  <Edit className="w-3 h-3 mr-1" />
-                  Editar
-                </Button>
-
-                {isAdmin && (
-                  <Button
-                    size="sm"
-                    variant={cliente.activo ? 'danger' : 'primary'}
-                    onClick={() => onToggleActivo(cliente)}
-                  >
-                    <Power className="w-3 h-3 mr-1" />
-                    {cliente.activo ? 'Desactivar' : 'Activar'}
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
+                  {cliente.activo ? '✕ Desactivar' : '✓ Activar'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </Card>
     );
@@ -208,7 +207,7 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
           </div>
 
           {/* Mobile */}
-          <div className="block lg:hidden">
+          <div className="lg:hidden space-y-3">
             {filteredData.length === 0 ? (
               <EmptyState
                 icon={Users}
