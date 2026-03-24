@@ -150,7 +150,7 @@ function ConfiguracionPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-4xl mx-auto sm:py-6 sm:px-6 lg:px-8">
+      <main className="max-w-4xl mx-auto p-4 sm:py-6 sm:px-6 lg:px-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Configuracion de Landing</h1>
           <p className="text-sm text-gray-500 mt-1">

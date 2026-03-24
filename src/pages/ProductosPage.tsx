@@ -58,7 +58,7 @@ function ProductosPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-5xl mx-auto sm:py-6 sm:px-6 lg:px-8">
+      <main className="max-w-5xl mx-auto p-4 sm:py-6 sm:px-6 lg:px-8">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
