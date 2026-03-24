@@ -38,16 +38,15 @@ const TimeSlotWrapper: React.FC<any> = ({ children }) => (
   </div>
 );
 
-// Componente personalizado para eventos
-const EventComponent: React.FC<any> = ({ event }) => {
+// Factory para el componente de evento desktop con color dinámico
+const makeEventComponent = (color: string): React.FC<any> => ({ event }) => {
   const turno = event.resource as TurnoConDetalle;
-  
   return (
-    <div style={{ 
+    <div style={{
       padding: '2px 3px',
       width: '100%',
       overflow: 'hidden',
-      backgroundColor: '#8B5CF6',
+      backgroundColor: color,
       color: 'white',
       fontSize: '10px',
       fontWeight: '600',
@@ -65,34 +64,13 @@ const EventComponent: React.FC<any> = ({ event }) => {
       minHeight: '100%',
       cursor: 'pointer'
     }}>
-      <div style={{ 
-        fontWeight: '700', 
-        fontSize: '9px', 
-        whiteSpace: 'nowrap', 
-        overflow: 'hidden', 
-        textOverflow: 'ellipsis',
-        width: '100%'
-      }}>
+      <div style={{ fontWeight: '700', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
         {turno.cliente_nombre}
       </div>
-      <div style={{ 
-        fontSize: '8px', 
-        opacity: 0.9, 
-        whiteSpace: 'nowrap', 
-        overflow: 'hidden', 
-        textOverflow: 'ellipsis',
-        width: '100%'
-      }}>
+      <div style={{ fontSize: '8px', opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
         {turno.servicio}
       </div>
-      <div style={{ 
-        fontSize: '7px', 
-        opacity: 0.8, 
-        whiteSpace: 'nowrap', 
-        overflow: 'hidden', 
-        textOverflow: 'ellipsis',
-        width: '100%'
-      }}>
+      <div style={{ fontSize: '7px', opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
         {turno.hora}
       </div>
     </div>
@@ -152,15 +130,25 @@ interface DashboardCalendarioProps {
   onTurnoAction: (turno: TurnoConDetalle) => void
 }
 
-export function DashboardCalendario({ 
-  profesionalId, 
-  color, 
+export function DashboardCalendario({
+  profesionalId,
+  color,
   profesionalNombre,
   onSlotSelect,
   onTurnoAction
 }: DashboardCalendarioProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<View>('week');
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  const [currentView, setCurrentView] = useState<View>(() => window.innerWidth < 640 ? 'day' : 'week');
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 640;
+      setIsMobile(mobile);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [selectedTurno, setSelectedTurno] = useState<TurnoConDetalle | null>(null);
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -528,8 +516,8 @@ export function DashboardCalendario({
     }
 
     const e = slotInfo.box || slotInfo.bounds;
-    const x = e?.clientX ?? e?.x ?? window.innerWidth / 2;
-    const y = e?.clientY ?? e?.y ?? window.innerHeight / 2;
+    const x = isMobile ? window.innerWidth / 2 - 90 : (e?.clientX ?? e?.x ?? window.innerWidth / 2);
+    const y = isMobile ? window.innerHeight / 2 - 80 : (e?.clientY ?? e?.y ?? window.innerHeight / 2);
 
     // Si el slot está bloqueado, mostrar opción de desbloquear
     const bloqueo = getBloqueoEnSlot(slotInfo.start);
@@ -586,10 +574,12 @@ export function DashboardCalendario({
     setSelectedTurno(null);
   }, []);
 
+  const calendarHeight = isMobile ? 480 : 650;
+
   return (
-    <div className="h-[700px]">
+    <div className="flex flex-col gap-3">
       {/* Leyenda de disponibilidad */}
-      <div className="mb-4 flex items-center gap-6 text-sm">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs sm:text-sm">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500 rounded"></div>
           <span className="text-gray-700">Disponible</span>
@@ -661,10 +651,11 @@ export function DashboardCalendario({
         <div className="fixed inset-0 z-40" onClick={() => setSlotMenu(null)} />
       )}
 
+      <div style={{ height: calendarHeight }}>
       <Calendar
         localizer={localizer}
         events={eventsWithDemo}
-        defaultView="week"
+        defaultView={isMobile ? 'day' : 'week'}
         views={['day', 'week', 'month']}
         view={currentView}
         date={currentDate}
@@ -681,6 +672,7 @@ export function DashboardCalendario({
         titleAccessor="title"
         resourceAccessor="resource"
         scrollToTime={new Date(new Date().setHours(primeraHoraDisponible, 0, 0, 0))}
+        timeGutterWidth={isMobile ? 45 : 70}
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
           const isBloqueado = isSlotBloqueado(date);
@@ -703,56 +695,40 @@ export function DashboardCalendario({
 
           return { style };
         }}
-        // eventPropGetter={(event) => ({
-        //   style: { 
-        //     backgroundColor: '#8B5CF6',
-        //     borderColor: '#8B5CF6',
-        //     borderRadius: '2px',
-        //     color: 'white',
-        //     border: 'none',
-        //     fontSize: '9px',
-        //     fontWeight: '600',
-        //     padding: '1px 2px',
-        //     margin: '0',
-        //     overflow: 'hidden',
-        //     cursor: 'pointer',
-        //     maxWidth: 'calc(100% - 4px)',
-        //     maxHeight: 'calc(100% - 4px)',
-        //     width: 'auto',
-        //     height: 'auto',
-        //     left: '2px',
-        //     top: '2px',
-        //     right: '2px',
-        //     display: 'block',
-        //     boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-        //     boxSizing: 'border-box',
-        //     position: 'absolute',
-        //     textOverflow: 'ellipsis',
-        //     whiteSpace: 'nowrap'
-        //   }
-        // })}
+        eventPropGetter={() => ({
+          style: {
+            backgroundColor: color,
+            borderColor: color,
+            borderRadius: '2px',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer',
+          }
+        })}
         components={{
           timeSlotWrapper: TimeSlotWrapper,
-          event: EventComponent,
+          event: isMobile ? () => (
+            <div style={{ width: '100%', height: '100%', minHeight: '100%', borderRadius: '2px', cursor: 'pointer' }} />
+          ) : makeEventComponent(color),
           toolbar: (props) => (
             <div className="rbc-toolbar mb-4">
               <span className="rbc-btn-group">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => props.onView('day')}
                   className={props.view === 'day' ? 'rbc-active' : ''}
                 >
                   Día
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => props.onView('week')}
                   className={props.view === 'week' ? 'rbc-active' : ''}
                 >
                   Semana
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => props.onView('month')}
                   className={props.view === 'month' ? 'rbc-active' : ''}
                 >
@@ -761,24 +737,9 @@ export function DashboardCalendario({
               </span>
               <span className="rbc-toolbar-label">{props.label}</span>
               <span className="rbc-btn-group">
-                <button 
-                  type="button" 
-                  onClick={() => props.onNavigate('PREV')}
-                >
-                  Anterior
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => props.onNavigate('TODAY')}
-                >
-                  Hoy
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => props.onNavigate('NEXT')}
-                >
-                  Siguiente
-                </button>
+                <button type="button" onClick={() => props.onNavigate('PREV')}>Anterior</button>
+                <button type="button" onClick={() => props.onNavigate('TODAY')}>Hoy</button>
+                <button type="button" onClick={() => props.onNavigate('NEXT')}>Siguiente</button>
               </span>
             </div>
           )
@@ -794,7 +755,7 @@ export function DashboardCalendario({
           noEventsInRange: 'Sin turnos en este período'
         }}
       />
-
+      </div>
     </div>
   );
 }

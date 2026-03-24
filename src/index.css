@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* react-big-calendar: ajustes mobile */
+@media (max-width: 639px) {
+  .rbc-time-gutter .rbc-label,
+  .rbc-time-header-gutter {
+    font-size: 10px;
+    padding: 0 2px;
+  }
+  .rbc-event {
+    font-size: 9px !important;
+    padding: 1px 2px !important;
+  }
+}

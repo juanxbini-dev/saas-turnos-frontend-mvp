@@ -36,7 +36,7 @@ function PerfilPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-4xl mx-auto p-4 sm:py-6 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Mi Perfil</h1>
 
         <div className="grid gap-6 md:grid-cols-3">

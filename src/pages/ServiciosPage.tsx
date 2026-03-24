@@ -8,7 +8,7 @@ import { MisServiciosList } from '../components/servicios/MisServiciosList';
 import { CrearServicioModal } from '../components/servicios/CrearServicioModal';
 import { EditarServicioModal } from '../components/servicios/EditarServicioModal';
 import { EditarMiServicioModal } from '../components/servicios/EditarMiServicioModal';
-import { Button, Tabs, Modal, ConfirmDialog } from '../components/ui';
+import { Tabs, Modal, ConfirmDialog } from '../components/ui';
 import { Servicio, UsuarioServicio } from '../types/servicio.types';
 import { cacheService } from '../cache/cache.service';
 import { buildKey } from '../cache/key.builder';
@@ -148,55 +148,48 @@ function ServiciosPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">
-                  Servicios
-                </h1>
-                <p className="text-gray-600 mt-1">
-                  Gestiona el catálogo de servicios y tus suscripciones
-                </p>
-              </div>
-              
-              {state.authUser?.roles.includes('admin') && (
-                <Button onClick={handleCrearServicio}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nuevo servicio
-                </Button>
-              )}
-            </div>
-
-            <Tabs 
-              tabs={tabs} 
-              activeTab={activeTab} 
-              onChange={setActiveTab}
-              className="mb-6"
-            />
-
-            {activeTab === 'catalogo' && (
-              <ServiciosCatalogo
-                servicios={servicios || []}
-                loading={loadingServicios}
-                misServicios={misServicios || []}
-                onEditar={handleEditarServicio}
-                onSuscribirse={handleSuscribirse}
-                onEliminar={handleEliminar}
-                isAdmin={state.authUser?.roles.includes('admin') || false}
-              />
-            )}
-
-            {activeTab === 'mis-servicios' && (
-              <MisServiciosList
-                misServicios={misServicios || []}
-                loading={loadingMisServicios}
-                onEditar={handleEditarMiServicio}
-                onDesuscribirse={handleDesuscribirse}
-              />
+      <main className="max-w-7xl mx-auto sm:py-6 sm:px-6 lg:px-8">
+        <div className="p-4 sm:py-6 sm:px-0">
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="text-2xl font-bold text-gray-900">Servicios</h1>
+            {state.authUser?.roles.includes('admin') && (
+              <button
+                onClick={handleCrearServicio}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                aria-label="Nuevo servicio"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             )}
           </div>
+
+          <Tabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onChange={setActiveTab}
+            className="mb-6 mt-4"
+          />
+
+          {activeTab === 'catalogo' && (
+            <ServiciosCatalogo
+              servicios={servicios || []}
+              loading={loadingServicios}
+              misServicios={misServicios || []}
+              onEditar={handleEditarServicio}
+              onSuscribirse={handleSuscribirse}
+              onEliminar={handleEliminar}
+              isAdmin={state.authUser?.roles.includes('admin') || false}
+            />
+          )}
+
+          {activeTab === 'mis-servicios' && (
+            <MisServiciosList
+              misServicios={misServicios || []}
+              loading={loadingMisServicios}
+              onEditar={handleEditarMiServicio}
+              onDesuscribirse={handleDesuscribirse}
+            />
+          )}
         </div>
       </main>
 

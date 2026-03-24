@@ -82,8 +82,8 @@ function UsuariosPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
+        <main className="max-w-7xl mx-auto sm:py-6 sm:px-6 lg:px-8">
+          <div className="sm:py-6 sm:px-0">
             <div className="bg-white rounded-lg shadow-lg p-8">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
@@ -104,21 +104,11 @@ function UsuariosPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <main className="max-w-7xl mx-auto sm:py-6 sm:px-6 lg:px-8">
+        <div className="p-4 sm:py-6 sm:px-0">
           {/* Header */}
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">
-              Usuarios
-            </h2>
-            <p className="text-gray-600">
-              Gestión de usuarios del sistema
-            </p>
-          </div>
-
-          {/* Formulario de creación */}
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Usuarios</h2>
+            <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
             <Button
               variant="primary"
               leftIcon={UserPlus}
