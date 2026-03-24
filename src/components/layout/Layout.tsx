@@ -27,7 +27,7 @@ const Layout = () => {
         />
 
         {/* Main: ocupa todo el espacio restante horizontalmente */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto sm:p-6">
           <Outlet />
         </main>
 
