@@ -152,15 +152,25 @@ interface DashboardCalendarioProps {
   onTurnoAction: (turno: TurnoConDetalle) => void
 }
 
-export function DashboardCalendario({ 
-  profesionalId, 
-  color, 
+export function DashboardCalendario({
+  profesionalId,
+  color,
   profesionalNombre,
   onSlotSelect,
   onTurnoAction
 }: DashboardCalendarioProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<View>('week');
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  const [currentView, setCurrentView] = useState<View>(() => window.innerWidth < 640 ? 'day' : 'week');
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 640;
+      setIsMobile(mobile);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [selectedTurno, setSelectedTurno] = useState<TurnoConDetalle | null>(null);
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -528,8 +538,8 @@ export function DashboardCalendario({
     }
 
     const e = slotInfo.box || slotInfo.bounds;
-    const x = e?.clientX ?? e?.x ?? window.innerWidth / 2;
-    const y = e?.clientY ?? e?.y ?? window.innerHeight / 2;
+    const x = isMobile ? window.innerWidth / 2 - 90 : (e?.clientX ?? e?.x ?? window.innerWidth / 2);
+    const y = isMobile ? window.innerHeight / 2 - 80 : (e?.clientY ?? e?.y ?? window.innerHeight / 2);
 
     // Si el slot está bloqueado, mostrar opción de desbloquear
     const bloqueo = getBloqueoEnSlot(slotInfo.start);
@@ -586,10 +596,12 @@ export function DashboardCalendario({
     setSelectedTurno(null);
   }, []);
 
+  const calendarHeight = isMobile ? 480 : 650;
+
   return (
-    <div className="h-[700px]">
+    <div className="flex flex-col gap-3">
       {/* Leyenda de disponibilidad */}
-      <div className="mb-4 flex items-center gap-6 text-sm">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs sm:text-sm">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500 rounded"></div>
           <span className="text-gray-700">Disponible</span>
@@ -661,10 +673,11 @@ export function DashboardCalendario({
         <div className="fixed inset-0 z-40" onClick={() => setSlotMenu(null)} />
       )}
 
+      <div style={{ height: calendarHeight }}>
       <Calendar
         localizer={localizer}
         events={eventsWithDemo}
-        defaultView="week"
+        defaultView={isMobile ? 'day' : 'week'}
         views={['day', 'week', 'month']}
         view={currentView}
         date={currentDate}
@@ -737,22 +750,22 @@ export function DashboardCalendario({
           toolbar: (props) => (
             <div className="rbc-toolbar mb-4">
               <span className="rbc-btn-group">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => props.onView('day')}
                   className={props.view === 'day' ? 'rbc-active' : ''}
                 >
                   Día
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => props.onView('week')}
                   className={props.view === 'week' ? 'rbc-active' : ''}
                 >
                   Semana
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => props.onView('month')}
                   className={props.view === 'month' ? 'rbc-active' : ''}
                 >
@@ -761,24 +774,9 @@ export function DashboardCalendario({
               </span>
               <span className="rbc-toolbar-label">{props.label}</span>
               <span className="rbc-btn-group">
-                <button 
-                  type="button" 
-                  onClick={() => props.onNavigate('PREV')}
-                >
-                  Anterior
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => props.onNavigate('TODAY')}
-                >
-                  Hoy
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => props.onNavigate('NEXT')}
-                >
-                  Siguiente
-                </button>
+                <button type="button" onClick={() => props.onNavigate('PREV')}>Anterior</button>
+                <button type="button" onClick={() => props.onNavigate('TODAY')}>Hoy</button>
+                <button type="button" onClick={() => props.onNavigate('NEXT')}>Siguiente</button>
               </span>
             </div>
           )
@@ -794,7 +792,7 @@ export function DashboardCalendario({
           noEventsInRange: 'Sin turnos en este período'
         }}
       />
-
+      </div>
     </div>
   );
 }
