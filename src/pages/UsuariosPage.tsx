@@ -82,8 +82,8 @@ function UsuariosPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
+        <main className="max-w-7xl mx-auto sm:py-6 sm:px-6 lg:px-8">
+          <div className="sm:py-6 sm:px-0">
             <div className="bg-white rounded-lg shadow-lg p-8">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
