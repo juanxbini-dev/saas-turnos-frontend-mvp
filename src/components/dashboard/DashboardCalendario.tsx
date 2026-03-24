@@ -747,7 +747,16 @@ export function DashboardCalendario({
         // })}
         components={{
           timeSlotWrapper: TimeSlotWrapper,
-          event: EventComponent,
+          event: isMobile ? ({ event }: any) => (
+            <div style={{
+              width: '100%',
+              height: '100%',
+              minHeight: '100%',
+              backgroundColor: '#8B5CF6',
+              borderRadius: '2px',
+              cursor: 'pointer'
+            }} />
+          ) : EventComponent,
           toolbar: (props) => (
             <div className="rbc-toolbar mb-4">
               <span className="rbc-btn-group">
