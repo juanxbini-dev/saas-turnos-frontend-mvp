@@ -694,6 +694,7 @@ export function DashboardCalendario({
         titleAccessor="title"
         resourceAccessor="resource"
         scrollToTime={new Date(new Date().setHours(primeraHoraDisponible, 0, 0, 0))}
+        timeGutterWidth={isMobile ? 45 : 70}
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
           const isBloqueado = isSlotBloqueado(date);
