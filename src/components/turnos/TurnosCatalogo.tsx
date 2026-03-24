@@ -230,7 +230,18 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
               {/* Mobile Cards */}
               <div className="lg:hidden space-y-3">
                 {paginatedTurnos.map((turno) => (
-                  <Card key={turno.id} className="p-4">
+                  <Card key={turno.id} className="p-0 overflow-hidden">
+                    {/* Franja de fecha */}
+                    <div className="bg-gray-100 px-4 py-1.5 flex items-center justify-between border-b border-gray-200">
+                      <span className="text-xs font-semibold text-gray-700 tracking-wide">
+                        {formatFecha(turno.fecha)}
+                      </span>
+                      <span className="text-xs font-bold text-blue-600">
+                        {turno.hora}
+                      </span>
+                    </div>
+
+                    <div className="p-4">
                     {/* Cabecera siempre visible — click para expandir detalles */}
                     <div
                       className="cursor-pointer"
@@ -242,7 +253,7 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
                             {turno.cliente_nombre}
                           </div>
                           <div className="text-sm text-gray-500 truncate">
-                            {turno.servicio} • {formatFecha(turno.fecha)} {turno.hora}
+                            {turno.servicio}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 ml-2 shrink-0">
@@ -333,6 +344,7 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
                         )}
                       </div>
                     )}
+                    </div>{/* fin p-4 */}
                   </Card>
                 ))}
               </div>
