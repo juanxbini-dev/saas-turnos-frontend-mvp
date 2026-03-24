@@ -38,16 +38,15 @@ const TimeSlotWrapper: React.FC<any> = ({ children }) => (
   </div>
 );
 
-// Componente personalizado para eventos
-const EventComponent: React.FC<any> = ({ event }) => {
+// Factory para el componente de evento desktop con color dinámico
+const makeEventComponent = (color: string): React.FC<any> => ({ event }) => {
   const turno = event.resource as TurnoConDetalle;
-  
   return (
-    <div style={{ 
+    <div style={{
       padding: '2px 3px',
       width: '100%',
       overflow: 'hidden',
-      backgroundColor: '#8B5CF6',
+      backgroundColor: color,
       color: 'white',
       fontSize: '10px',
       fontWeight: '600',
@@ -65,34 +64,13 @@ const EventComponent: React.FC<any> = ({ event }) => {
       minHeight: '100%',
       cursor: 'pointer'
     }}>
-      <div style={{ 
-        fontWeight: '700', 
-        fontSize: '9px', 
-        whiteSpace: 'nowrap', 
-        overflow: 'hidden', 
-        textOverflow: 'ellipsis',
-        width: '100%'
-      }}>
+      <div style={{ fontWeight: '700', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
         {turno.cliente_nombre}
       </div>
-      <div style={{ 
-        fontSize: '8px', 
-        opacity: 0.9, 
-        whiteSpace: 'nowrap', 
-        overflow: 'hidden', 
-        textOverflow: 'ellipsis',
-        width: '100%'
-      }}>
+      <div style={{ fontSize: '8px', opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
         {turno.servicio}
       </div>
-      <div style={{ 
-        fontSize: '7px', 
-        opacity: 0.8, 
-        whiteSpace: 'nowrap', 
-        overflow: 'hidden', 
-        textOverflow: 'ellipsis',
-        width: '100%'
-      }}>
+      <div style={{ fontSize: '7px', opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
         {turno.hora}
       </div>
     </div>
@@ -717,46 +695,21 @@ export function DashboardCalendario({
 
           return { style };
         }}
-        // eventPropGetter={(event) => ({
-        //   style: { 
-        //     backgroundColor: '#8B5CF6',
-        //     borderColor: '#8B5CF6',
-        //     borderRadius: '2px',
-        //     color: 'white',
-        //     border: 'none',
-        //     fontSize: '9px',
-        //     fontWeight: '600',
-        //     padding: '1px 2px',
-        //     margin: '0',
-        //     overflow: 'hidden',
-        //     cursor: 'pointer',
-        //     maxWidth: 'calc(100% - 4px)',
-        //     maxHeight: 'calc(100% - 4px)',
-        //     width: 'auto',
-        //     height: 'auto',
-        //     left: '2px',
-        //     top: '2px',
-        //     right: '2px',
-        //     display: 'block',
-        //     boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-        //     boxSizing: 'border-box',
-        //     position: 'absolute',
-        //     textOverflow: 'ellipsis',
-        //     whiteSpace: 'nowrap'
-        //   }
-        // })}
+        eventPropGetter={() => ({
+          style: {
+            backgroundColor: color,
+            borderColor: color,
+            borderRadius: '2px',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer',
+          }
+        })}
         components={{
           timeSlotWrapper: TimeSlotWrapper,
-          event: isMobile ? ({ event }: any) => (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              minHeight: '100%',
-              backgroundColor: '#8B5CF6',
-              borderRadius: '2px',
-              cursor: 'pointer'
-            }} />
-          ) : EventComponent,
+          event: isMobile ? () => (
+            <div style={{ width: '100%', height: '100%', minHeight: '100%', borderRadius: '2px', cursor: 'pointer' }} />
+          ) : makeEventComponent(color),
           toolbar: (props) => (
             <div className="rbc-toolbar mb-4">
               <span className="rbc-btn-group">
