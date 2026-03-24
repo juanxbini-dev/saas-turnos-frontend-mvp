@@ -74,21 +74,23 @@ function ProductosPage() {
       <main className="max-w-5xl mx-auto p-4 sm:py-6 sm:px-6 lg:px-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6">
           <div className="flex items-center gap-3">
             <Package className="w-7 h-7 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
+          </div>
+          <div className="flex items-center gap-3 mt-2">
+            {isAdmin && (
+              <Button onClick={() => setProductoModal({ open: true, producto: null })} leftIcon={Plus}>
+                Nuevo producto
+              </Button>
+            )}
             {bajoStock.length > 0 && (
               <span className="flex items-center gap-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full">
                 <AlertTriangle className="w-3 h-3" /> {bajoStock.length} bajo stock
               </span>
             )}
           </div>
-          {isAdmin && (
-            <Button onClick={() => setProductoModal({ open: true, producto: null })} leftIcon={Plus}>
-              Nuevo producto
-            </Button>
-          )}
         </div>
 
         {/* Tabs */}
