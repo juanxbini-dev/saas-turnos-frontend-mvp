@@ -78,19 +78,23 @@ function ProductosPage() {
           <div className="flex items-center gap-3">
             <Package className="w-7 h-7 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-          </div>
-          <div className="flex items-center gap-3 mt-2">
             {isAdmin && (
-              <Button onClick={() => setProductoModal({ open: true, producto: null })} leftIcon={Plus}>
-                Nuevo producto
-              </Button>
+              <button
+                onClick={() => setProductoModal({ open: true, producto: null })}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                aria-label="Nuevo producto"
+              >
+                <Plus size={16} />
+              </button>
             )}
-            {bajoStock.length > 0 && (
-              <span className="flex items-center gap-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full">
+          </div>
+          {bajoStock.length > 0 && (
+            <div className="mt-2">
+              <span className="flex items-center gap-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full w-fit">
                 <AlertTriangle className="w-3 h-3" /> {bajoStock.length} bajo stock
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
