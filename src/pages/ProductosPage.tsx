@@ -3,19 +3,24 @@ import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Pow
 import { productosService } from '../services/productos.service';
 import { Producto } from '../types/producto.types';
 import { useFetch } from '../hooks/useFetch';
-import { Button, Badge, Spinner, ConfirmModal } from '../components/ui';
+import { Button, Badge, Spinner, ConfirmModal, Card } from '../components/ui';
 import { ProductoModal } from '../components/productos/ProductoModal';
 import { AgregarStockModal } from '../components/productos/AgregarStockModal';
 import { useToast } from '../hooks/useToast';
+import { useAuth } from '../context/AuthContext';
 
 type Tab = 'catalogo' | 'estadisticas';
 
 function ProductosPage() {
   const toast = useToast();
+  const { state } = useAuth();
+  const isAdmin = state.roles?.includes('admin');
+
   const [tab, setTab] = useState<Tab>('catalogo');
   const [productoModal, setProductoModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
   const [stockModal, setStockModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; producto?: Producto }>({ open: false });
+  const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
 
   const { data: productos, loading: loadingProductos, revalidate: revalidateProductos } = useFetch(
     'productos:lista',
@@ -54,6 +59,14 @@ function ProductosPage() {
     }
   };
 
+  const toggleActions = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = new Set(expandedActions);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExpandedActions(next);
+  };
+
   const bajoStock = productos?.filter(p => p.stock <= 3 && p.activo) || [];
 
   return (
@@ -71,9 +84,11 @@ function ProductosPage() {
               </span>
             )}
           </div>
-          <Button onClick={() => setProductoModal({ open: true, producto: null })} leftIcon={Plus}>
-            Nuevo producto
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => setProductoModal({ open: true, producto: null })} leftIcon={Plus}>
+              Nuevo producto
+            </Button>
+          )}
         </div>
 
         {/* Tabs */}
@@ -110,90 +125,169 @@ function ProductosPage() {
               </div>
             )}
 
-            {/* Tabla */}
             {loadingProductos ? (
               <div className="flex justify-center py-12"><Spinner /></div>
             ) : !productos?.length ? (
               <div className="bg-white rounded-xl border py-16 text-center text-gray-400">
                 <Package className="w-10 h-10 mx-auto mb-3 opacity-40" />
                 <p className="font-medium">No hay productos aún</p>
-                <p className="text-sm mt-1">Creá tu primer producto con el botón de arriba</p>
+                {isAdmin && <p className="text-sm mt-1">Creá tu primer producto con el botón de arriba</p>}
               </div>
             ) : (
-              <div className="bg-white rounded-xl border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-4 py-3 font-medium text-gray-700">Nombre</th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">Precio</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-700">Stock</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-700">Estado</th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {productos.map(p => (
-                      <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-gray-900">{p.nombre}</p>
-                          {p.descripcion && <p className="text-xs text-gray-400 mt-0.5">{p.descripcion}</p>}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                          ${p.precio.toLocaleString('es-AR')}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex items-center justify-center w-10 h-7 rounded-full text-sm font-bold ${
+              <>
+                {/* Desktop: tabla */}
+                <div className="hidden lg:block bg-white rounded-xl border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b">
+                        <th className="text-left px-4 py-3 font-medium text-gray-700">Nombre</th>
+                        <th className="text-right px-4 py-3 font-medium text-gray-700">Precio</th>
+                        <th className="text-center px-4 py-3 font-medium text-gray-700">Stock</th>
+                        <th className="text-center px-4 py-3 font-medium text-gray-700">Estado</th>
+                        {isAdmin && <th className="text-right px-4 py-3 font-medium text-gray-700">Acciones</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productos.map(p => (
+                        <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-900">{p.nombre}</p>
+                            {p.descripcion && <p className="text-xs text-gray-400 mt-0.5">{p.descripcion}</p>}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                            ${p.precio.toLocaleString('es-AR')}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center justify-center w-10 h-7 rounded-full text-sm font-bold ${
+                              p.stock <= 3 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                            }`}>
+                              {p.stock}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge variant={p.activo ? 'success' : 'default'}>
+                              {p.activo ? 'Activo' : 'Inactivo'}
+                            </Badge>
+                          </td>
+                          {isAdmin && (
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => setStockModal({ open: true, producto: p })}
+                                  title="Agregar stock"
+                                  className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                >
+                                  <PlusCircle className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setProductoModal({ open: true, producto: p })}
+                                  title="Editar"
+                                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleToggleActivo(p)}
+                                  title={p.activo ? 'Desactivar' : 'Activar'}
+                                  className={`p-1.5 rounded-lg transition-colors ${
+                                    p.activo
+                                      ? 'text-green-500 hover:text-red-500 hover:bg-red-50'
+                                      : 'text-gray-400 hover:text-green-500 hover:bg-green-50'
+                                  }`}
+                                >
+                                  <Power className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirm({ open: true, producto: p })}
+                                  title="Eliminar"
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile: cards */}
+                <div className="lg:hidden space-y-3">
+                  {productos.map(p => (
+                    <Card key={p.id} className="p-0 overflow-hidden">
+                      <div className="p-4">
+                        {/* Nombre + precio */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 truncate">{p.nombre}</p>
+                            {p.descripcion && <p className="text-xs text-gray-400 mt-0.5 truncate">{p.descripcion}</p>}
+                          </div>
+                          <span className="font-semibold text-gray-900 shrink-0">
+                            ${p.precio.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+
+                        {/* Stock + estado */}
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${
                             p.stock <= 3 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                           }`}>
-                            {p.stock}
+                            Stock: {p.stock}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
                           <Badge variant={p.activo ? 'success' : 'default'}>
                             {p.activo ? 'Activo' : 'Inactivo'}
                           </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
+                        </div>
+
+                        {/* Acciones — solo admin */}
+                        {isAdmin && (
+                          <div className="mt-3 pt-3 border-t border-gray-100">
                             <button
-                              onClick={() => setStockModal({ open: true, producto: p })}
-                              title="Agregar stock"
-                              className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                              onClick={(e) => toggleActions(p.id, e)}
+                              className="text-sm text-blue-600 font-medium flex items-center gap-1 hover:text-blue-800"
                             >
-                              <PlusCircle className="w-4 h-4" />
+                              Ver acciones
+                              <span className="text-xs">{expandedActions.has(p.id) ? '▲' : '▼'}</span>
                             </button>
-                            <button
-                              onClick={() => setProductoModal({ open: true, producto: p })}
-                              title="Editar"
-                              className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleActivo(p)}
-                              title={p.activo ? 'Desactivar' : 'Activar'}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                p.activo
-                                  ? 'text-green-500 hover:text-red-500 hover:bg-red-50'
-                                  : 'text-gray-400 hover:text-green-500 hover:bg-green-50'
-                              }`}
-                            >
-                              <Power className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm({ open: true, producto: p })}
-                              title="Eliminar"
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {expandedActions.has(p.id) && (
+                              <div className="mt-2 flex flex-col gap-0.5">
+                                <button
+                                  onClick={() => setStockModal({ open: true, producto: p })}
+                                  className="text-left text-sm text-blue-600 hover:text-blue-800 py-1.5 font-medium"
+                                >
+                                  + Agregar stock
+                                </button>
+                                <button
+                                  onClick={() => setProductoModal({ open: true, producto: p })}
+                                  className="text-left text-sm text-gray-700 hover:text-gray-900 py-1.5 font-medium"
+                                >
+                                  ✎ Editar producto
+                                </button>
+                                <button
+                                  onClick={() => handleToggleActivo(p)}
+                                  className={`text-left text-sm py-1.5 font-medium ${
+                                    p.activo ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'
+                                  }`}
+                                >
+                                  {p.activo ? '✕ Desactivar' : '✓ Activar'}
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirm({ open: true, producto: p })}
+                                  className="text-left text-sm text-red-500 hover:text-red-700 py-1.5 font-medium"
+                                >
+                                  ✕ Eliminar producto
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </>
             )}
           </>
         )}
@@ -271,38 +365,34 @@ function ProductosPage() {
         )}
       </main>
 
-      {/* Modales */}
-      {productoModal.open && (
+      {/* Modales — solo admin puede llegar acá */}
+      {isAdmin && productoModal.open && (
         <ProductoModal
           producto={productoModal.producto}
           onClose={() => setProductoModal({ open: false })}
-          onSaved={() => {
-            setProductoModal({ open: false });
-            refresh();
-          }}
+          onSaved={() => { setProductoModal({ open: false }); refresh(); }}
         />
       )}
 
-      {stockModal.open && stockModal.producto && (
+      {isAdmin && stockModal.open && stockModal.producto && (
         <AgregarStockModal
           producto={stockModal.producto}
           onClose={() => setStockModal({ open: false })}
-          onSaved={() => {
-            setStockModal({ open: false });
-            refresh();
-          }}
+          onSaved={() => { setStockModal({ open: false }); refresh(); }}
         />
       )}
 
-      <ConfirmModal
-        isOpen={deleteConfirm.open}
-        onClose={() => setDeleteConfirm({ open: false })}
-        onConfirm={handleDelete}
-        title="Eliminar producto"
-        message={`¿Estás seguro que querés eliminar <strong>${deleteConfirm.producto?.nombre}</strong>? Esta acción no se puede deshacer.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-      />
+      {isAdmin && (
+        <ConfirmModal
+          isOpen={deleteConfirm.open}
+          onClose={() => setDeleteConfirm({ open: false })}
+          onConfirm={handleDelete}
+          title="Eliminar producto"
+          message={`¿Estás seguro que querés eliminar <strong>${deleteConfirm.producto?.nombre}</strong>? Esta acción no se puede deshacer.`}
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+        />
+      )}
     </div>
   );
 }
