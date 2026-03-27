@@ -163,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'SESSION_LOADING' });
           const response = await authService.refresh();
           
+          setTokens(response.accessToken, response.refreshToken);
           dispatch({
             type: 'SESSION_SUCCESS',
             payload: {
