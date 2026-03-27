@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer, View, SlotInfo } from 'react-big-calendar';
-import { format, parse, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay } from 'date-fns';
+import { format, parse, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -265,8 +265,8 @@ export function DashboardCalendario({
       if (!profesionalId) return [];
       
       // Obtener disponibilidad para cada día en el rango
-      const startDate = new Date(rangoInicio);
-      const endDate = new Date(rangoFin);
+      const startDate = parseISO(rangoInicio);
+      const endDate = parseISO(rangoFin);
       const slotsPorDia: Record<string, string[]> = {};
       
       // Iterar por cada día en el rango
