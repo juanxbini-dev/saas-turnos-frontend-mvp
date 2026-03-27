@@ -265,8 +265,10 @@ export function DashboardCalendario({
       if (!profesionalId) return [];
       
       // Obtener disponibilidad para cada día en el rango
-      const startDate = parseISO(rangoInicio);
-      const endDate = parseISO(rangoFin);
+      const [sy, sm, sd] = rangoInicio.split('-').map(Number);
+      const [ey, em, ed] = rangoFin.split('-').map(Number);
+      const startDate = new Date(sy, sm - 1, sd);
+      const endDate = new Date(ey, em - 1, ed);
       const slotsPorDia: Record<string, string[]> = {};
       
       // Iterar por cada día en el rango
@@ -526,8 +528,8 @@ export function DashboardCalendario({
       return;
     }
 
-    // Si no está disponible (fuera de horario), no hacer nada
-    if (!isSlotAvailable(slotInfo.start)) {
+    // Si ya pasó o no está disponible (fuera de horario), no hacer nada
+    if (slotInfo.start < new Date() || !isSlotAvailable(slotInfo.start)) {
       return;
     }
 
