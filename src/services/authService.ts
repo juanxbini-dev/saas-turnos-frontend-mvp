@@ -29,7 +29,8 @@ export const authService = {
   },
 
   async refresh(): Promise<LoginResponse> {
-    const response = await axiosInstance.post('/auth/refresh', {}, {
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    const response = await axiosInstance.post('/auth/refresh', { refreshToken: storedRefreshToken }, {
       withCredentials: true // Importante para enviar cookies
     });
     
