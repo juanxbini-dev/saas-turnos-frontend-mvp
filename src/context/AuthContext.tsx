@@ -32,8 +32,10 @@ type AuthAction =
   | { type: 'REFRESH_SUCCESS'; payload: { accessToken: string; refreshToken?: string } }
   | { type: 'CLEAR_ERROR' };
 
+const hasStoredSession = !!(localStorage.getItem('accessToken') && localStorage.getItem('refreshToken'));
+
 const initialState: AuthState = {
-  status: 'unauthenticated',  // Evitar loop de hydration
+  status: hasStoredSession ? 'loading' : 'unauthenticated',
   authUser: null,
   accessToken: null,
   refreshToken: null,
