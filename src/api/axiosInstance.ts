@@ -73,7 +73,8 @@ axiosInstance.interceptors.response.use(
       authLogger.info('Access token expirado, iniciando refresh automático');
 
       try {
-        const response = await axios.post('/auth/refresh', {}, {
+        const storedRefreshToken = localStorage.getItem('refreshToken');
+        const response = await axios.post('/auth/refresh', { refreshToken: storedRefreshToken }, {
           baseURL: (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000',
           withCredentials: true // Importante para cookies
         });
