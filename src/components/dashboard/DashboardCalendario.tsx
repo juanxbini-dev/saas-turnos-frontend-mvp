@@ -586,6 +586,14 @@ export function DashboardCalendario({
         </div>
       </div>
 
+      {/* Aviso de uso en mobile */}
+      {isMobile && (
+        <div className="flex items-center gap-2 mx-2 mb-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+          <span>💡</span>
+          <span>Tocá un horario verde para agendar. Deslizá para hacer scroll.</span>
+        </div>
+      )}
+
       {/* Menú contextual de slot */}
       {slotMenu && (
         <div
