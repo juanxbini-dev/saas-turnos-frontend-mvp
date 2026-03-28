@@ -25,7 +25,7 @@ const Navbar = ({ mobileOpen, onToggleMobile }: NavbarProps) => {
         >
           {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
-        <span className="text-lg font-bold tracking-tight">Turnos System</span>
+        <span className="text-lg font-bold tracking-tight">DEB Salón - Panel</span>
       </div>
 
       {/* Derecha: info usuario + logout */}
