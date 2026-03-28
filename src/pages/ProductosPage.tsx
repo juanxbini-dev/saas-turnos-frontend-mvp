@@ -5,9 +5,10 @@ import { marcasService } from '../services/marcas.service';
 import { Producto } from '../types/producto.types';
 import { MarcaConProductos } from '../types/marca.types';
 import { useFetch } from '../hooks/useFetch';
-import { Button, Badge, Spinner, ConfirmModal, Card, Input } from '../components/ui';
+import { Button, Badge, Spinner, ConfirmModal, Card } from '../components/ui';
 import { ProductoModal } from '../components/productos/ProductoModal';
 import { AgregarStockModal } from '../components/productos/AgregarStockModal';
+import { MarcaModal } from '../components/productos/MarcaModal';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../context/AuthContext';
 
@@ -32,11 +33,8 @@ function ProductosPage() {
   const [pagina, setPagina] = useState(1);
 
   // Marcas state
-  const [marcaEditando, setMarcaEditando] = useState<MarcaConProductos | null>(null);
-  const [marcaForm, setMarcaForm] = useState('');
-  const [savingMarca, setSavingMarca] = useState(false);
+  const [marcaModal, setMarcaModal] = useState<{ open: boolean; marca?: MarcaConProductos | null }>({ open: false });
   const [deleteMarcaConfirm, setDeleteMarcaConfirm] = useState<{ open: boolean; marca?: MarcaConProductos; productosAfectados?: number }>({ open: false });
-  const [showNuevaMarca, setShowNuevaMarca] = useState(false);
 
   const { data: productos, loading: loadingProductos, revalidate: revalidateProductos } = useFetch(
     'productos:lista',
@@ -112,28 +110,6 @@ function ProductosPage() {
   };
 
   // Handlers marcas
-  const handleSaveMarca = async () => {
-    if (!marcaForm.trim()) return;
-    setSavingMarca(true);
-    try {
-      if (marcaEditando) {
-        await marcasService.updateMarca(marcaEditando.id, { nombre: marcaForm.trim() });
-        toast.success('Marca actualizada');
-        setMarcaEditando(null);
-      } else {
-        await marcasService.createMarca({ nombre: marcaForm.trim() });
-        toast.success('Marca creada');
-        setShowNuevaMarca(false);
-      }
-      setMarcaForm('');
-      revalidateMarcas();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Error al guardar marca');
-    } finally {
-      setSavingMarca(false);
-    }
-  };
-
   const handleDeleteMarca = async () => {
     if (!deleteMarcaConfirm.marca) return;
     try {
@@ -147,16 +123,6 @@ function ProductosPage() {
     }
   };
 
-  const iniciarDeleteMarca = async (marca: MarcaConProductos) => {
-    setDeleteMarcaConfirm({ open: true, marca, productosAfectados: marca.total_productos });
-  };
-
-  const iniciarEditarMarca = (marca: MarcaConProductos) => {
-    setMarcaEditando(marca);
-    setMarcaForm(marca.nombre);
-    setShowNuevaMarca(false);
-  };
-
   const bajoStock = productos?.filter(p => p.stock <= 3 && p.activo) || [];
 
   return (
@@ -168,11 +134,14 @@ function ProductosPage() {
           <div className="flex items-center gap-3">
             <Package className="w-7 h-7 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-            {isAdmin && tab === 'catalogo' && (
+            {isAdmin && (tab === 'catalogo' || tab === 'marcas') && (
               <button
-                onClick={() => setProductoModal({ open: true, producto: null })}
+                onClick={() => tab === 'catalogo'
+                  ? setProductoModal({ open: true, producto: null })
+                  : setMarcaModal({ open: true, marca: null })
+                }
                 className="w-7 h-7 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                aria-label="Nuevo producto"
+                aria-label={tab === 'catalogo' ? 'Nuevo producto' : 'Nueva marca'}
               >
                 <Plus size={16} />
               </button>
@@ -461,41 +430,13 @@ function ProductosPage() {
         {/* TAB: MARCAS */}
         {tab === 'marcas' && (
           <div className="space-y-4">
-            {isAdmin && (
-              <div className="flex justify-end">
-                {!showNuevaMarca ? (
-                  <Button onClick={() => { setShowNuevaMarca(true); setMarcaEditando(null); setMarcaForm(''); }}>
-                    <Plus className="w-4 h-4 mr-1" /> Nueva marca
-                  </Button>
-                ) : (
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      value={marcaForm}
-                      onChange={e => setMarcaForm(e.target.value)}
-                      placeholder="Nombre de la marca"
-                      onKeyDown={e => e.key === 'Enter' && handleSaveMarca()}
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                    />
-                    <Button onClick={handleSaveMarca} disabled={savingMarca || !marcaForm.trim()}>
-                      {savingMarca ? '...' : 'Crear'}
-                    </Button>
-                    <Button variant="outline" onClick={() => { setShowNuevaMarca(false); setMarcaForm(''); }}>
-                      Cancelar
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-
             {loadingMarcas ? (
               <div className="flex justify-center py-12"><Spinner /></div>
             ) : !marcas?.length ? (
               <div className="bg-white rounded-xl border py-16 text-center text-gray-400">
                 <Tag className="w-10 h-10 mx-auto mb-3 opacity-40" />
                 <p className="font-medium">No hay marcas creadas</p>
-                {isAdmin && <p className="text-sm mt-1">Creá tu primera marca con el botón de arriba</p>}
+                {isAdmin && <p className="text-sm mt-1">Creá tu primera marca con el botón + de arriba</p>}
               </div>
             ) : (
               <div className="bg-white rounded-xl border overflow-hidden">
@@ -511,29 +452,10 @@ function ProductosPage() {
                     {marcas.map(m => (
                       <tr key={m.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3">
-                          {marcaEditando?.id === m.id ? (
-                            <div className="flex gap-2 items-center">
-                              <input
-                                type="text"
-                                value={marcaForm}
-                                onChange={e => setMarcaForm(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleSaveMarca()}
-                                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                autoFocus
-                              />
-                              <Button onClick={handleSaveMarca} disabled={savingMarca || !marcaForm.trim()} className="py-1">
-                                {savingMarca ? '...' : 'Guardar'}
-                              </Button>
-                              <Button variant="outline" onClick={() => { setMarcaEditando(null); setMarcaForm(''); }} className="py-1">
-                                Cancelar
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 font-medium text-gray-900">
-                              <Tag className="w-3.5 h-3.5 text-blue-500" />
-                              {m.nombre}
-                            </span>
-                          )}
+                          <span className="inline-flex items-center gap-1.5 font-medium text-gray-900">
+                            <Tag className="w-3.5 h-3.5 text-blue-500" />
+                            {m.nombre}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold ${
@@ -542,18 +464,18 @@ function ProductosPage() {
                             {m.total_productos}
                           </span>
                         </td>
-                        {isAdmin && marcaEditando?.id !== m.id && (
+                        {isAdmin && (
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={() => iniciarEditarMarca(m)}
+                                onClick={() => setMarcaModal({ open: true, marca: m })}
                                 title="Editar"
                                 className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => iniciarDeleteMarca(m)}
+                                onClick={() => setDeleteMarcaConfirm({ open: true, marca: m, productosAfectados: m.total_productos })}
                                 title="Eliminar"
                                 className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               >
@@ -562,7 +484,6 @@ function ProductosPage() {
                             </div>
                           </td>
                         )}
-                        {isAdmin && marcaEditando?.id === m.id && <td />}
                       </tr>
                     ))}
                   </tbody>
@@ -670,6 +591,14 @@ function ProductosPage() {
           message={`¿Estás seguro que querés eliminar <strong>${deleteConfirm.producto?.nombre}</strong>? Esta acción no se puede deshacer.`}
           confirmText="Eliminar"
           cancelText="Cancelar"
+        />
+      )}
+
+      {isAdmin && marcaModal.open && (
+        <MarcaModal
+          marca={marcaModal.marca}
+          onClose={() => setMarcaModal({ open: false })}
+          onSaved={() => { setMarcaModal({ open: false }); revalidateMarcas(); }}
         />
       )}
 
