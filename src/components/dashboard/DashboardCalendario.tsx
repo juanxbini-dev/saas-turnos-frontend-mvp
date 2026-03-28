@@ -263,27 +263,7 @@ export function DashboardCalendario({
     profesionalId ? buildKey(ENTITIES.SLOTS, profesionalId, rangoInicio) : null,
     async () => {
       if (!profesionalId) return [];
-      
-      // Obtener disponibilidad para cada día en el rango
-      const [sy, sm, sd] = rangoInicio.split('-').map(Number);
-      const [ey, em, ed] = rangoFin.split('-').map(Number);
-      const startDate = new Date(sy, sm - 1, sd);
-      const endDate = new Date(ey, em - 1, ed);
-      const slotsPorDia: Record<string, string[]> = {};
-      
-      // Iterar por cada día en el rango
-      for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-        const fechaStr = format(date, 'yyyy-MM-dd');
-        try {
-          const slots = await disponibilidadService.getSlotsDisponibles(profesionalId, fechaStr);
-          slotsPorDia[fechaStr] = slots;
-        } catch (error) {
-          dashboardLogger.warn('Error obteniendo slots', { fecha: fechaStr, error: error as Error });
-          slotsPorDia[fechaStr] = [];
-        }
-      }
-      
-      return slotsPorDia;
+      return disponibilidadService.getSlotsRango(profesionalId, rangoInicio, rangoFin);
     },
     { ttl: TTL.SHORT }
   );
@@ -528,8 +508,8 @@ export function DashboardCalendario({
       return;
     }
 
-    // Si ya pasó o no está disponible (fuera de horario), no hacer nada
-    if (slotInfo.start < new Date() || !isSlotAvailable(slotInfo.start)) {
+    // Si no está disponible (fuera de horario), no hacer nada
+    if (!isSlotAvailable(slotInfo.start)) {
       return;
     }
 

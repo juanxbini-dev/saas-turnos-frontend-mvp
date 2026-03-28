@@ -25,6 +25,14 @@ export const disponibilidadService = {
     return response.data.data;
   },
 
+  async getSlotsRango(profesionalId: string, fechaInicio: string, fechaFin: string): Promise<Record<string, string[]>> {
+    const response = await axiosInstance.get(`/api/turnos/disponibilidad/${profesionalId}/slots-rango`, {
+      params: { fechaInicio, fechaFin }
+    });
+    const data: { fecha: string; slots: string[] }[] = response.data.data;
+    return Object.fromEntries(data.map(({ fecha, slots }) => [fecha, slots]));
+  },
+
   async getConfiguracion(): Promise<{
     disponibilidades: DisponibilidadSemanal[];
     vacaciones: DiasVacacion[];
