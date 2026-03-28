@@ -647,6 +647,7 @@ export function DashboardCalendario({
         onSelectEvent={handleSelectEvent}
         onRangeChange={handleRangeChange}
         selectable={true}
+        longPressThreshold={isMobile ? 10 : 250}
         step={60}
         timeslots={1}
         startAccessor="start"
