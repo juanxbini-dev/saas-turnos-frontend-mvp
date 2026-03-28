@@ -301,7 +301,10 @@ export function FinalizarTurnoModal({
                 <div className="bg-white border border-green-300 rounded-lg px-3 py-2 flex justify-between items-center">
                   <div>
                     <p className="text-sm font-medium">{selectedCatalogProducto.nombre}</p>
-                    <p className="text-xs text-gray-500">{formatCurrency(selectedCatalogProducto.precio)} c/u · Stock: {selectedCatalogProducto.stock}</p>
+                    <p className="text-xs text-gray-500">
+                      {selectedCatalogProducto.marca_nombre && <span className="text-blue-600 font-medium">{selectedCatalogProducto.marca_nombre} · </span>}
+                      {formatCurrency(selectedCatalogProducto.precio)} c/u · Stock: {selectedCatalogProducto.stock}
+                    </p>
                   </div>
                   <button onClick={() => setSelectedCatalogProducto(null)} className="text-gray-400 hover:text-red-500">
                     <X className="w-4 h-4" />
@@ -335,10 +338,13 @@ export function FinalizarTurnoModal({
                             key={p.id}
                             type="button"
                             onClick={() => { setSelectedCatalogProducto(p); setCatalogoSearch(''); }}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-0 flex justify-between"
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-0 flex justify-between items-center"
                           >
-                            <span className="text-sm font-medium">{p.nombre}</span>
-                            <span className="text-sm text-gray-500">{formatCurrency(p.precio)}</span>
+                            <div>
+                              <p className="text-sm font-medium">{p.nombre}</p>
+                              {p.marca_nombre && <p className="text-xs text-blue-600 font-medium">{p.marca_nombre}</p>}
+                            </div>
+                            <span className="text-sm text-gray-500 shrink-0">{formatCurrency(p.precio)}</span>
                           </button>
                         ))
                       )}
