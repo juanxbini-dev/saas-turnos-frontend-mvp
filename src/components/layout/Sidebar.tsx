@@ -16,7 +16,9 @@ import {
   ChevronRight,
   TrendingUp,
   X,
+  LogOut,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -49,7 +51,8 @@ const SidebarContent = ({
   isMobile?: boolean;
   onCloseMobile?: () => void;
 }) => {
-  const { state } = useAuth();
+  const { state, logout } = useAuth();
+  const navigate = useNavigate();
   const roles = state.authUser?.roles || [];
 
   const { data: productosStats } = useFetch(
@@ -116,6 +119,22 @@ const SidebarContent = ({
           );
         })}
       </nav>
+
+      {/* Cerrar sesión */}
+      <div className="px-2 py-3 border-t border-gray-700 flex-shrink-0">
+        <button
+          onClick={async () => { await logout(); navigate('/'); }}
+          className={[
+            'flex items-center w-full rounded-md px-2 py-2.5 text-sm font-medium transition-colors',
+            'text-gray-400 hover:bg-red-600 hover:text-white',
+            collapsed && !isMobile ? 'justify-center' : 'gap-3',
+          ].join(' ')}
+          title={collapsed && !isMobile ? 'Cerrar sesión' : undefined}
+        >
+          <LogOut size={20} className="flex-shrink-0" />
+          {(!collapsed || isMobile) && <span>Cerrar sesión</span>}
+        </button>
+      </div>
     </div>
   );
 };
