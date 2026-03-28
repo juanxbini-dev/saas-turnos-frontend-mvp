@@ -6,6 +6,8 @@ export interface Producto {
   precio: number;
   stock: number;
   activo: boolean;
+  marca_id: string | null;
+  marca_nombre: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -15,6 +17,7 @@ export interface CreateProductoData {
   descripcion?: string;
   precio: number;
   stock: number;
+  marca_id?: string | null;
 }
 
 export interface UpdateProductoData {
@@ -22,6 +25,7 @@ export interface UpdateProductoData {
   descripcion?: string;
   precio?: number;
   activo?: boolean;
+  marca_id?: string | null;
 }
 
 export interface TopProducto {

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Input, Textarea } from '../ui';
 import { productosService } from '../../services/productos.service';
+import { marcasService } from '../../services/marcas.service';
 import { Producto, CreateProductoData } from '../../types/producto.types';
+import { MarcaConProductos } from '../../types/marca.types';
 import { useToast } from '../../hooks/useToast';
 
 interface ProductoModalProps {
@@ -13,14 +15,41 @@ interface ProductoModalProps {
 export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose, onSaved }) => {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
+  const [marcas, setMarcas] = useState<MarcaConProductos[]>([]);
+  const [nuevaMarca, setNuevaMarca] = useState('');
+  const [creandoMarca, setCreandoMarca] = useState(false);
+  const [mostrarNuevaMarca, setMostrarNuevaMarca] = useState(false);
   const [form, setForm] = useState({
     nombre: producto?.nombre || '',
     descripcion: producto?.descripcion || '',
     precio: producto?.precio?.toString() || '0',
     stock: producto?.stock?.toString() || '0',
+    marca_id: producto?.marca_id || '',
   });
 
   const isEditing = !!producto;
+
+  useEffect(() => {
+    marcasService.getMarcas().then(setMarcas).catch(() => {});
+  }, []);
+
+  const handleCrearMarca = async () => {
+    if (!nuevaMarca.trim()) return;
+    setCreandoMarca(true);
+    try {
+      const marca = await marcasService.createMarca({ nombre: nuevaMarca.trim() });
+      const marcaConProductos = { ...marca, total_productos: 0 };
+      setMarcas(prev => [...prev, marcaConProductos].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setForm(f => ({ ...f, marca_id: marca.id }));
+      setNuevaMarca('');
+      setMostrarNuevaMarca(false);
+      toast.success(`Marca "${marca.nombre}" creada`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Error al crear marca');
+    } finally {
+      setCreandoMarca(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +64,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim() || undefined,
           precio: parseFloat(form.precio),
+          marca_id: form.marca_id || null,
         });
         toast.success('Producto actualizado');
       } else {
@@ -43,6 +73,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           descripcion: form.descripcion.trim() || undefined,
           precio: parseFloat(form.precio),
           stock: parseInt(form.stock),
+          marca_id: form.marca_id || null,
         } as CreateProductoData);
         toast.success('Producto creado');
       }
@@ -81,6 +112,47 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
               placeholder="Descripción opcional"
               rows={2}
             />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">Marca</label>
+              <button
+                type="button"
+                className="text-xs text-blue-600 hover:underline"
+                onClick={() => setMostrarNuevaMarca(v => !v)}
+              >
+                {mostrarNuevaMarca ? 'Cancelar' : '+ Nueva marca'}
+              </button>
+            </div>
+            {mostrarNuevaMarca ? (
+              <div className="flex gap-2">
+                <Input
+                  value={nuevaMarca}
+                  onChange={e => setNuevaMarca(e.target.value)}
+                  placeholder="Nombre de la marca"
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleCrearMarca())}
+                />
+                <Button
+                  type="button"
+                  onClick={handleCrearMarca}
+                  disabled={creandoMarca || !nuevaMarca.trim()}
+                  className="shrink-0"
+                >
+                  {creandoMarca ? '...' : 'Crear'}
+                </Button>
+              </div>
+            ) : (
+              <select
+                value={form.marca_id}
+                onChange={e => setForm(f => ({ ...f, marca_id: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Sin marca</option>
+                {marcas.map(m => (
+                  <option key={m.id} value={m.id}>{m.nombre}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
