@@ -154,6 +154,8 @@ export function DashboardCalendario({
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date; bloqueoId?: string } | null>(null);
   const toast = useToast();
+  const touchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
+  const touchMovedRef = React.useRef(false);
 
   // Calcular rango de fechas según la vista
   const getDateRange = useCallback((date: Date, view: View) => {
@@ -633,7 +635,30 @@ export function DashboardCalendario({
         <div className="fixed inset-0 z-40" onClick={() => setSlotMenu(null)} />
       )}
 
-      <div style={{ height: calendarHeight }}>
+      <div
+        style={{ height: calendarHeight }}
+        onTouchStart={isMobile ? (e) => {
+          touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() };
+          touchMovedRef.current = false;
+        } : undefined}
+        onTouchMove={isMobile ? (e) => {
+          if (!touchStartRef.current) return;
+          const dx = Math.abs(e.touches[0].clientX - touchStartRef.current.x);
+          const dy = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
+          if (dx > 5 || dy > 5) touchMovedRef.current = true;
+        } : undefined}
+        onTouchEnd={isMobile ? (e) => {
+          if (!touchStartRef.current || touchMovedRef.current) return;
+          const elapsed = Date.now() - touchStartRef.current.time;
+          if (elapsed < 300) {
+            // Tap rápido: simular click en el elemento tocado
+            const touch = e.changedTouches[0];
+            const el = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
+            el?.click();
+          }
+          touchStartRef.current = null;
+        } : undefined}
+      >
       <Calendar
         localizer={localizer}
         events={eventsWithDemo}
@@ -647,7 +672,7 @@ export function DashboardCalendario({
         onSelectEvent={handleSelectEvent}
         onRangeChange={handleRangeChange}
         selectable={true}
-        longPressThreshold={isMobile ? 10 : 250}
+        longPressThreshold={250}
         step={60}
         timeslots={1}
         startAccessor="start"
