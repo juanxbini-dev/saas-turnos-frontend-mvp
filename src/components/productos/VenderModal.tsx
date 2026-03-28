@@ -259,7 +259,10 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                       >
                         <div>
                           <p className="text-sm font-medium">{p.nombre}</p>
-                          <p className="text-xs text-gray-500">Stock: {p.stock}</p>
+                          <p className="text-xs text-gray-500">
+                            {p.marca_nombre && <span className="text-blue-600 font-medium">{p.marca_nombre} · </span>}
+                            Stock: {p.stock}
+                          </p>
                         </div>
                         <span className="text-sm font-semibold text-gray-900">${p.precio.toLocaleString('es-AR')}</span>
                       </button>
