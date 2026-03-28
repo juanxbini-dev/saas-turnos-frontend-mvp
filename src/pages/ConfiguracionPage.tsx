@@ -14,10 +14,9 @@ import {
 } from '@dnd-kit/sortable';
 import { Card, Tabs, Textarea, Spinner, Button } from '../components/ui';
 import { ImageUploadCard } from '../components/configuracion/ImageUploadCard';
-import { HorarioEditor } from '../components/configuracion/HorarioEditor';
 import { SortableProfesionalCard } from '../components/configuracion/SortableProfesionalCard';
 import { configuracionService } from '../services/configuracion.service';
-import { LandingConfig, LandingProfesional, Horario } from '../types/landing.types';
+import { LandingConfig, LandingProfesional } from '../types/landing.types';
 import { useToast } from '../hooks/useToast';
 
 const TABS = [
@@ -39,7 +38,7 @@ function ConfiguracionPage() {
   const [descripcion, setDescripcion] = useState('');
   const [direccion, setDireccion] = useState('');
   const [direccionMaps, setDireccionMaps] = useState('');
-  const [horarios, setHorarios] = useState<Horario[]>([]);
+  const [horariosTexto, setHorariosTexto] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -62,7 +61,7 @@ function ConfiguracionPage() {
       setDescripcion(cfg.descripcion || '');
       setDireccion(cfg.direccion || '');
       setDireccionMaps(cfg.direccion_maps || '');
-      setHorarios(cfg.horarios || []);
+      setHorariosTexto(cfg.horarios_texto || '');
       setProfesionales(profs);
     } catch {
       toast.error('Error al cargar la configuracion');
@@ -87,7 +86,7 @@ function ConfiguracionPage() {
   const handleGuardarInformacion = async () => {
     setSaving(true);
     try {
-      const updated = await configuracionService.updateConfig({ direccion, direccion_maps: direccionMaps, horarios });
+      const updated = await configuracionService.updateConfig({ direccion, direccion_maps: direccionMaps, horarios_texto: horariosTexto });
       setConfig(updated);
       toast.success('Informacion guardada');
     } catch {
@@ -243,7 +242,16 @@ function ConfiguracionPage() {
                   <p className="text-xs text-gray-400 mt-1">Se usa para mostrar el mapa. Cuanto mas completa, mas precisa la ubicacion.</p>
                 </div>
 
-                <HorarioEditor horarios={horarios} onChange={setHorarios} />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Horarios de atención</label>
+                  <Textarea
+                    value={horariosTexto}
+                    onChange={(e) => setHorariosTexto(e.target.value)}
+                    placeholder={"Ej:\nLunes a Viernes: 9:00 - 18:00\nSábados: 9:00 - 13:00"}
+                    rows={4}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Se muestra tal cual en la página pública.</p>
+                </div>
 
                 <div className="flex justify-end">
                   <Button onClick={handleGuardarInformacion} disabled={saving}>
