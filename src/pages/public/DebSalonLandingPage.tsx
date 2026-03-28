@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Instagram, Facebook, X } from 'lucide-react';
+import { Instagram, Facebook, X, MapPin, Clock } from 'lucide-react';
 import { Spinner } from '../../components/ui';
 import { CreateTurnoPublicModal } from '../../components/turnos/CreateTurnoPublicModal';
 import { configuracionService } from '../../services/configuracion.service';
@@ -330,6 +330,7 @@ export const DebSalonLandingPage: React.FC = () => {
   const tieneFondo = !!landingConfig?.fondo_url;
   const tieneLogo = !!landingConfig?.logo_url;
   const tieneMapa = !!landingConfig?.direccion_maps;
+  const tieneInfo = !!(landingConfig?.direccion || landingConfig?.horarios_texto);
 
   if (loading) {
     return (
@@ -448,6 +449,36 @@ export const DebSalonLandingPage: React.FC = () => {
           <span className="text-[10px] tracking-[0.2em] uppercase">Scroll</span>
         </div>
       </section>
+
+      {/* ── INFO ─────────────────────────────────────────────────────────── */}
+      {tieneInfo && (
+        <section className="border-t border-b border-white/10 bg-[#111]">
+          <div className="max-w-6xl mx-auto px-6 py-10">
+            <Reveal>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-center gap-8 sm:gap-16">
+                {landingConfig?.direccion && (
+                  <div className="flex items-start gap-3">
+                    <MapPin className="w-4 h-4 text-white/40 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] tracking-[0.3em] uppercase text-white/30 mb-1">Dirección</p>
+                      <p className="text-sm text-white/70">{landingConfig.direccion}</p>
+                    </div>
+                  </div>
+                )}
+                {landingConfig?.horarios_texto && (
+                  <div className="flex items-start gap-3">
+                    <Clock className="w-4 h-4 text-white/40 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] tracking-[0.3em] uppercase text-white/30 mb-1">Horarios</p>
+                      <p className="text-sm text-white/70 whitespace-pre-line leading-relaxed">{landingConfig.horarios_texto}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      )}
 
       {/* ── EQUIPO ───────────────────────────────────────────────────────── */}
       <section id="equipo" className="max-w-6xl mx-auto px-6 py-20">
