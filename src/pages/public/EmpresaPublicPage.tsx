@@ -123,7 +123,7 @@ export const EmpresaPublicPage: React.FC = () => {
   const descripcionHero = landingConfig?.descripcion || 'Selecciona un profesional y reserva tu turno en segundos';
   const tieneFondo = !!landingConfig?.fondo_url;
   const tieneLogo = !!landingConfig?.logo_url;
-  const tieneInfo = !!(landingConfig?.direccion || (landingConfig?.horarios && landingConfig.horarios.length > 0));
+  const tieneInfo = !!(landingConfig?.direccion || landingConfig?.horarios_texto);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -182,20 +182,13 @@ export const EmpresaPublicPage: React.FC = () => {
                 </div>
               </Card>
             )}
-            {landingConfig?.horarios && landingConfig.horarios.length > 0 && (
+            {landingConfig?.horarios_texto && (
               <Card>
                 <div className="p-5 flex gap-3">
                   <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-gray-900 text-sm mb-2">Horarios</p>
-                    <ul className="space-y-1">
-                      {landingConfig.horarios.map((h, i) => (
-                        <li key={i} className="text-sm text-gray-600 flex justify-between gap-4">
-                          <span className="font-medium">{h.dia}</span>
-                          <span>{h.apertura} – {h.cierre}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="font-semibold text-gray-900 text-sm mb-1">Horarios</p>
+                    <p className="text-sm text-gray-600 whitespace-pre-line">{landingConfig.horarios_texto}</p>
                   </div>
                 </div>
               </Card>

@@ -1,9 +1,3 @@
-export interface Horario {
-  dia: string;
-  apertura: string;
-  cierre: string;
-}
-
 export interface LandingConfig {
   id: string;
   empresa_id: string;
@@ -15,7 +9,7 @@ export interface LandingConfig {
   fondo_public_id: string | null;
   direccion: string | null;
   direccion_maps: string | null;
-  horarios: Horario[];
+  horarios_texto: string | null;
   created_at: string;
   updated_at: string;
 }

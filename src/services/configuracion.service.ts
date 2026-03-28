@@ -1,6 +1,6 @@
 import axios from 'axios';
 import axiosInstance from '../api/axiosInstance';
-import { LandingConfig, LandingProfesional, LandingPublicaData, Horario } from '../types/landing.types';
+import { LandingConfig, LandingProfesional, LandingPublicaData } from '../types/landing.types';
 
 const publicAxios = axios.create({
   baseURL: (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000',
@@ -12,7 +12,7 @@ export const configuracionService = {
     return res.data.data;
   },
 
-  async updateConfig(data: { titulo?: string; descripcion?: string; direccion?: string; direccion_maps?: string; horarios?: Horario[] }): Promise<LandingConfig> {
+  async updateConfig(data: { titulo?: string; descripcion?: string; direccion?: string; direccion_maps?: string; horarios_texto?: string }): Promise<LandingConfig> {
     const res = await axiosInstance.patch('/api/configuracion', data);
     return res.data.data;
   },
