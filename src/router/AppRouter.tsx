@@ -9,7 +9,6 @@ import PerfilPage from '../pages/PerfilPage';
 import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
 import { FinanzasPage } from '../pages/FinanzasPage';
-import { EmpresaPublicPage } from '../pages/public/EmpresaPublicPage';
 import { DebSalonLandingPage } from '../pages/public/DebSalonLandingPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
 import { PrivateRoute } from '../components/PrivateRoute';
@@ -21,9 +20,6 @@ const AppRouter = () => {
     <Routes>
       <Route path="/" element={<DebSalonLandingPage />} />
       <Route path="/login" element={<LoginPage />} />
-
-{/* Rutas públicas */}
-      <Route path="/:empresaSlug" element={<EmpresaPublicPage />} />
 
       {/* Rutas privadas */}
 
