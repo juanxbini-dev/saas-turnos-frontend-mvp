@@ -167,35 +167,35 @@ export const EmpresaPublicPage: React.FC = () => {
         </div>
       </section>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Info: ubicacion y horarios */}
-        {tieneInfo && (
-          <div className="grid sm:grid-cols-2 gap-4 mb-10">
-            {landingConfig?.direccion && (
-              <Card>
-                <div className="p-5 flex gap-3">
-                  <MapPin className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+      {/* Banda info: dirección y horarios */}
+      {tieneInfo && (
+        <div className="bg-white border-b border-gray-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:divide-x divide-gray-200 gap-4 sm:gap-0">
+              {landingConfig?.direccion && (
+                <div className="flex items-start gap-2 sm:pr-8">
+                  <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-gray-900 text-sm mb-1">Ubicacion</p>
-                    <p className="text-sm text-gray-600 whitespace-pre-line">{landingConfig.direccion}</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Dirección</p>
+                    <p className="text-sm text-gray-700">{landingConfig.direccion}</p>
                   </div>
                 </div>
-              </Card>
-            )}
-            {landingConfig?.horarios_texto && (
-              <Card>
-                <div className="p-5 flex gap-3">
-                  <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              )}
+              {landingConfig?.horarios_texto && (
+                <div className="flex items-start gap-2 sm:pl-8">
+                  <Clock className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-gray-900 text-sm mb-1">Horarios</p>
-                    <p className="text-sm text-gray-600 whitespace-pre-line">{landingConfig.horarios_texto}</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Horarios</p>
+                    <p className="text-sm text-gray-700 whitespace-pre-line">{landingConfig.horarios_texto}</p>
                   </div>
                 </div>
-              </Card>
-            )}
+              )}
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Profesionales */}
         <div>
           <h3 className="text-2xl font-bold text-gray-900 mb-6">Nuestros Profesionales</h3>
