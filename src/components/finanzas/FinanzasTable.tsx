@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { ComisionProfesional, VentaDirectaFinanzas, FinanzasFilters } from '../../types/finanzas.types';
+import type { ComisionProfesional, VentaGrupadaFinanzas, VentaItemFinanzas, EntradaFinanzas, FinanzasFilters } from '../../types/finanzas.types';
 import { formatCurrency, formatDate } from '../../utils/calculos.utils';
 import { Badge, EmptyState, Card } from '../ui';
 import { Calendar, ShoppingBag, Package, Scissors, CheckCircle } from 'lucide-react';
@@ -7,8 +7,7 @@ import { Calendar, ShoppingBag, Package, Scissors, CheckCircle } from 'lucide-re
 type TipoFiltro = 'todos' | 'turnos' | 'productos' | 'pendientes';
 
 interface FinanzasTableProps {
-  data: ComisionProfesional[];
-  ventas_directas: VentaDirectaFinanzas[];
+  items: EntradaFinanzas[];
   isLoading: boolean;
   isAdmin: boolean;
   onSort: (campo: FinanzasFilters['ordenar_por']) => void;
@@ -18,7 +17,7 @@ interface FinanzasTableProps {
   onCobrarPago: (tipo: 'turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => Promise<void>;
 }
 
-// Un grupo de ventas de productos (agrupadas por turno_id o venta_grupo_id)
+// Grupo de venta para render interno (mapeado desde VentaGrupadaFinanzas)
 interface GrupoVenta {
   grupo_id: string;
   turno_id: string | null;
@@ -29,69 +28,42 @@ interface GrupoVenta {
   total: number;
   comision_monto: number;
   neto_vendedor: number;
-  items: VentaDirectaFinanzas[];
+  items: VentaItemFinanzas[];
 }
 
 type EntradaServicio = { kind: 'servicio'; comision: ComisionProfesional };
 type EntradaVenta   = { kind: 'venta';    grupo: GrupoVenta };
 type Entrada = EntradaServicio | EntradaVenta;
 
-function agruparVentas(ventas: VentaDirectaFinanzas[]): GrupoVenta[] {
-  const map = new Map<string, GrupoVenta>();
-  for (const v of ventas) {
-    const key = v.turno_id ?? v.venta_grupo_id ?? v.id;
-    if (!map.has(key)) {
-      map.set(key, {
-        grupo_id: key,
-        turno_id: v.turno_id,
-        fecha: v.fecha,
-        cliente_nombre: v.cliente_nombre,
-        vendedor_nombre: v.vendedor_nombre,
-        metodo_pago: v.metodo_pago,
-        total: 0,
-        comision_monto: 0,
-        neto_vendedor: 0,
-        items: [],
-      });
-    }
-    const g = map.get(key)!;
-    g.total += Number(v.total);
-    g.comision_monto += Number(v.comision_monto);
-    g.neto_vendedor += Number(v.neto_vendedor);
-    g.items.push(v);
-  }
-  return Array.from(map.values());
+function toGrupoVenta(v: VentaGrupadaFinanzas): GrupoVenta {
+  return {
+    grupo_id:       v.venta_grupo_id,
+    turno_id:       v.turno_id,
+    fecha:          v.fecha,
+    cliente_nombre: v.cliente_nombre,
+    vendedor_nombre:v.vendedor_nombre,
+    metodo_pago:    v.metodo_pago,
+    total:          v.total,
+    comision_monto: v.comision_monto,
+    neto_vendedor:  v.neto_vendedor,
+    items:          v.items,
+  };
 }
 
-function buildEntradas(
-  turnos: ComisionProfesional[],
-  ventas: VentaDirectaFinanzas[],
-  tipo: TipoFiltro
-): Entrada[] {
-  const grupos = agruparVentas(ventas);
-  const entradas: Entrada[] = [];
-
-  if (tipo === 'pendientes') {
-    for (const c of turnos) {
-      if (c.metodo_pago === 'pendiente') entradas.push({ kind: 'servicio', comision: c });
-    }
-    for (const g of grupos) {
-      if (g.metodo_pago === 'pendiente') entradas.push({ kind: 'venta', grupo: g });
-    }
-  } else {
-    if (tipo === 'todos' || tipo === 'turnos') {
-      for (const c of turnos) entradas.push({ kind: 'servicio', comision: c });
-    }
-    if (tipo === 'todos' || tipo === 'productos') {
-      for (const g of grupos) entradas.push({ kind: 'venta', grupo: g });
-    }
-  }
-
-  return entradas.sort((a, b) => {
-    const fechaA = a.kind === 'servicio' ? a.comision.turno_fecha : a.grupo.fecha;
-    const fechaB = b.kind === 'servicio' ? b.comision.turno_fecha : b.grupo.fecha;
-    return new Date(fechaB).getTime() - new Date(fechaA).getTime();
-  });
+function buildEntradas(items: EntradaFinanzas[], tipo: TipoFiltro): Entrada[] {
+  return items
+    .filter(item => {
+      if (tipo === 'turnos')    return item.tipo === 'turno';
+      if (tipo === 'productos') return item.tipo === 'venta_producto';
+      if (tipo === 'pendientes') return item.metodo_pago === 'pendiente';
+      return true; // 'todos'
+    })
+    .map(item => {
+      if (item.tipo === 'turno') {
+        return { kind: 'servicio' as const, comision: item as ComisionProfesional };
+      }
+      return { kind: 'venta' as const, grupo: toGrupoVenta(item as VentaGrupadaFinanzas) };
+    });
 }
 
 const MetodoPagoBadge = ({ metodo }: { metodo: string }) => {
@@ -217,7 +189,7 @@ const VentaRow = ({
       </td>
       {isAdmin && <td className="px-4 py-3 text-sm text-gray-700">{grupo.vendedor_nombre}</td>}
       <td className="px-4 py-3 text-sm text-gray-900">{grupo.cliente_nombre || <span className="text-gray-400 italic">Sin cliente</span>}</td>
-      <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title={productosLabel}>{productosLabel}</td>
+      <td className="pxadd py-3 text-sm text-gray-700 max-w-xs truncate" title={productosLabel}>{productosLabel}</td>
       <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(grupo.total)}</td>
       <td className="px-4 py-3">
         {isPendientesTab
@@ -345,7 +317,7 @@ const TABS: { value: TipoFiltro; label: string }[] = [
 // ─── Componente principal ─────────────────────────────────────────────────
 
 export const FinanzasTable: React.FC<FinanzasTableProps> = ({
-  data, ventas_directas, isLoading, isAdmin, onSort, sortField, sortOrder, onRowClick, onCobrarPago,
+  items, isLoading, isAdmin, onSort, sortField, sortOrder, onRowClick, onCobrarPago,
 }) => {
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos');
 
@@ -361,7 +333,7 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
     );
   }
 
-  const entradas = buildEntradas(data, ventas_directas ?? [], tipoFiltro);
+  const entradas = buildEntradas(items ?? [], tipoFiltro);
   const isPendientesTab = tipoFiltro === 'pendientes';
 
   const getSortIcon = (campo: FinanzasFilters['ordenar_por']) => {

@@ -1,20 +1,29 @@
-// Venta de producto (desde turno o directa) para mostrar en Finanzas
-export interface VentaDirectaFinanzas {
-  tipo: 'venta_producto';
+// Item individual dentro de una venta agrupada
+export interface VentaItemFinanzas {
   id: string;
-  fecha: string;
-  turno_id: string | null;
-  venta_grupo_id: string | null;
-  cliente_nombre: string | null;
-  vendedor_nombre: string;
-  metodo_pago: string;
-  total: number;
+  nombre_producto: string;
+  cantidad: number;
+  precio_total: number;
   comision_porcentaje: number;
   comision_monto: number;
   neto_vendedor: number;
-  nombre_producto: string;
-  cantidad: number;
+}
+
+// Venta de producto agrupada por transacción
+export interface VentaGrupadaFinanzas {
+  tipo: 'venta_producto';
+  id: string;
+  venta_grupo_id: string;
+  turno_id: string | null;
+  fecha: string;
+  metodo_pago: string;
+  total: number;
+  comision_monto: number;
+  neto_vendedor: number;
+  cliente_nombre: string | null;
+  vendedor_nombre: string;
   empresa_id: string;
+  items: VentaItemFinanzas[];
 }
 
 // Representa un registro de comisión por turno finalizado (solo servicio)
@@ -50,6 +59,8 @@ export interface ComisionProfesional {
   profesional_nombre?: string;
 }
 
+export type EntradaFinanzas = ComisionProfesional | VentaGrupadaFinanzas;
+
 export interface FinanzasSummary {
   total_venta: number;
   total_venta_servicios: number;
@@ -80,8 +91,7 @@ export interface FinanzasFilters {
 }
 
 export interface FinanzasResponse {
-  data: ComisionProfesional[];
-  ventas_directas: VentaDirectaFinanzas[];
+  items: EntradaFinanzas[];
   summary: FinanzasSummary;
   total: number;
   pagina: number;
