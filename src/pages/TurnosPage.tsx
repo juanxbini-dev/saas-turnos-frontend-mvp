@@ -26,11 +26,6 @@ const TurnosPage: React.FC = () => {
   const isSuperAdmin = authUser?.roles.includes('super_admin') || false;
   const isAdmin = authUser?.roles.includes('admin') || false;
 
-  console.log('[TurnosPage] RENDER - profesionales.length:', profesionales.length, '| isSuperAdmin:', isSuperAdmin, '| loading:', loading);
-  console.log('[TurnosPage] authUser state:', authUser);
-  console.log('[TurnosPage] roles:', authUser?.roles);
-  console.log('[TurnosPage] isSuperAdmin:', isSuperAdmin);
-
   useEffect(() => {
     console.log('[TurnosPage] useEffect ejecutado - isSuperAdmin:', isSuperAdmin);
     if (isSuperAdmin) {
@@ -64,6 +59,8 @@ const TurnosPage: React.FC = () => {
     () => turnoService.getTurnos(),
     { ttl: 300 }
   );
+
+  console.log('[TurnosPage] RENDER - profesionales.length:', profesionales.length, '| isSuperAdmin:', isSuperAdmin, '| loading:', loading);
 
   // Para staff, usar el ID del usuario autenticado. Para admin, undefined para que seleccione.
   const preselectedProfesionalId = !isAdmin ? authUser?.authUser?.id || '' : '';
