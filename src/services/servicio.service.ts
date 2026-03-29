@@ -26,17 +26,21 @@ export const servicioService = {
     await axiosInstance.delete(`/api/servicios/${id}`);
   },
 
-  async suscribirse(servicioId: string): Promise<UsuarioServicio> {
-    const response = await axiosInstance.post(`/api/servicios/${servicioId}/suscribirse`);
+  async suscribirse(servicioId: string, usuarioId?: string): Promise<UsuarioServicio> {
+    const body = usuarioId ? { usuario_id: usuarioId } : {};
+    const response = await axiosInstance.post(`/api/servicios/${servicioId}/suscribirse`, body);
     return response.data.data;
   },
 
-  async desuscribirse(servicioId: string): Promise<void> {
-    await axiosInstance.delete(`/api/servicios/${servicioId}/suscribirse`);
+  async desuscribirse(servicioId: string, usuarioId?: string): Promise<void> {
+    await axiosInstance.delete(`/api/servicios/${servicioId}/suscribirse`, {
+      data: usuarioId ? { usuario_id: usuarioId } : undefined
+    });
   },
 
-  async getMisServicios(): Promise<UsuarioServicio[]> {
-    const response = await axiosInstance.get('/api/servicios/mis-servicios');
+  async getMisServicios(usuarioId?: string): Promise<UsuarioServicio[]> {
+    const params = usuarioId ? { usuarioId } : undefined;
+    const response = await axiosInstance.get('/api/servicios/mis-servicios', { params });
     return response.data.data;
   },
 

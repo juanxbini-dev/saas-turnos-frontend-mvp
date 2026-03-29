@@ -15,13 +15,15 @@ interface ExcepcionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  profesionalId?: string;
 }
 
 export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
   excepcion,
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  profesionalId
 }) => {
   const { state: authUser } = useAuth();
   
@@ -85,6 +87,7 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
       const dataForService = {
         fecha: formData.fecha,
         disponible: formData.disponible,
+        ...(profesionalId && { profesional_id: profesionalId }),
         ...(formData.disponible && {
           hora_inicio: formData.hora_inicio,
           hora_fin: formData.hora_fin,

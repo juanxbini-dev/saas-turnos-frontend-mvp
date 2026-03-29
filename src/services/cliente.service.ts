@@ -7,8 +7,9 @@ export const clienteService = {
     return response.data.data;
   },
 
-  async getMisClientes(): Promise<Cliente[]> {
-    const response = await axiosInstance.get('/api/clientes/mis-clientes');
+  async getMisClientes(usuarioId?: string): Promise<Cliente[]> {
+    const params = usuarioId ? { usuarioId } : undefined;
+    const response = await axiosInstance.get('/api/clientes/mis-clientes', { params });
     return response.data.data;
   },
 

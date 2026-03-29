@@ -8,12 +8,14 @@ interface VacacionesTabProps {
   vacaciones: DiasVacacion[];
   loading: boolean;
   onRevalidate: () => void;
+  profesionalId?: string;
 }
 
 export const VacacionesTab: React.FC<VacacionesTabProps> = ({
   vacaciones,
   loading,
-  onRevalidate
+  onRevalidate,
+  profesionalId
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVacacion, setSelectedVacacion] = useState<DiasVacacion | null>(null);
@@ -44,7 +46,7 @@ export const VacacionesTab: React.FC<VacacionesTabProps> = ({
     if (!deleteTargetId) return;
 
     try {
-      await disponibilidadService.deleteVacacion(deleteTargetId);
+      await disponibilidadService.deleteVacacion(deleteTargetId, profesionalId);
       onRevalidate();
       setIsDeleteDialogOpen(false);
       setDeleteTargetId(null);
@@ -188,6 +190,7 @@ export const VacacionesTab: React.FC<VacacionesTabProps> = ({
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onSuccess={handleSuccess}
+        profesionalId={profesionalId}
       />
 
       <ConfirmDialog

@@ -15,13 +15,15 @@ interface VacacionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  profesionalId?: string;
 }
 
 export const VacacionModal: React.FC<VacacionModalProps> = ({
   vacacion,
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  profesionalId
 }) => {
   const { state: authUser } = useAuth();
   
@@ -74,7 +76,8 @@ export const VacacionModal: React.FC<VacacionModalProps> = ({
         fecha: formData.fecha,
         fecha_fin: formData.fecha_fin || undefined,
         tipo: formData.tipo,
-        motivo: formData.motivo || undefined
+        motivo: formData.motivo || undefined,
+        ...(profesionalId && { profesional_id: profesionalId })
       };
 
       vacacionLogger.debug('Guardando vacación', { 
