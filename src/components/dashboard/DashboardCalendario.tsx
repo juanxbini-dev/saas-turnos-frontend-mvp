@@ -83,44 +83,28 @@ const localizer = dateFnsLocalizer({
   startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
   getDay,
   locales: { es },
-  messages: {
-    date: 'Fecha',
-    time: 'Hora',
-    event: 'Evento',
-    allDay: 'Todo el día',
-    week: 'Semana',
-    work_week: 'Semana laboral',
-    day: 'Día',
-    month: 'Mes',
-    previous: 'Anterior',
-    next: 'Siguiente',
-    yesterday: 'Ayer',
-    tomorrow: 'Mañana',
-    today: 'Hoy',
-    agenda: 'Agenda',
-    noEventsInRange: 'No hay eventos en este rango.',
-    showMore: (total: number) => `+${total} más`
-  },
-  formats: {
-    dateFormat: 'dd MMMM yyyy',
-    dayFormat: 'ddd',
-    weekdayFormat: 'EEEE',
-    dayRangeHeaderFormat: 'dd MMM yyyy',
-    agendaHeaderFormat: (date: Date) => format(date, 'EEEE d MMMM', { locale: es }),
-    agendaDateFormat: (date: Date) => format(date, 'd', { locale: es }),
-    agendaTimeFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
-    agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
-      `${format(start, 'HH:mm', { locale: es })} - ${format(end, 'HH:mm', { locale: es })}`,
-    selectRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
-      `${format(start, 'dd MMM yyyy', { locale: es })} - ${format(end, 'dd MMM yyyy', { locale: es })}`,
-    eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
-      `${format(start, 'HH:mm', { locale: es })} - ${format(end, 'HH:mm', { locale: es })}`,
-    eventTimeRangeStartFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
-    eventTimeRangeEndFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
-    monthHeaderFormat: (date: Date) => format(date, 'MMMM yyyy', { locale: es }),
-    dayHeaderFormat: (date: Date) => format(date, 'EEEE d', { locale: es })
-  }
 });
+
+const calendarFormats = {
+  dateFormat: 'dd MMMM yyyy',
+  dayFormat: (date: Date) => format(date, 'EEE d', { locale: es }),
+  weekdayFormat: (date: Date) => format(date, 'EEE', { locale: es }),
+  dayRangeHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, 'dd MMM yyyy', { locale: es })} - ${format(end, 'dd MMM yyyy', { locale: es })}`,
+  agendaHeaderFormat: (date: Date) => format(date, 'EEEE d MMMM', { locale: es }),
+  agendaDateFormat: (date: Date) => format(date, 'd', { locale: es }),
+  agendaTimeFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
+  agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, 'HH:mm', { locale: es })} - ${format(end, 'HH:mm', { locale: es })}`,
+  selectRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, 'dd MMM yyyy', { locale: es })} - ${format(end, 'dd MMM yyyy', { locale: es })}`,
+  eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, 'HH:mm', { locale: es })} - ${format(end, 'HH:mm', { locale: es })}`,
+  eventTimeRangeStartFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
+  eventTimeRangeEndFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
+  monthHeaderFormat: (date: Date) => format(date, 'MMMM yyyy', { locale: es }),
+  dayHeaderFormat: (date: Date) => format(date, 'EEEE d', { locale: es }),
+};
 
 interface DashboardCalendarioProps {
   profesionalId: string
@@ -563,7 +547,7 @@ export function DashboardCalendario({
   return (
     <div className="flex flex-col gap-3">
       {/* Leyenda de disponibilidad */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs sm:text-sm">
+      <div className="hidden sm:flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs sm:text-sm">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500 rounded"></div>
           <span className="text-gray-700">Disponible</span>
@@ -669,6 +653,8 @@ export function DashboardCalendario({
       >
       <Calendar
         localizer={localizer}
+        culture="es"
+        formats={calendarFormats}
         events={eventsWithDemo}
         defaultView={isMobile ? 'day' : 'week'}
         views={['day', 'week', 'month']}

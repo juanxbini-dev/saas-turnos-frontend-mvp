@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Input, Button } from '../ui';
 import { ComisionesData } from '../../types/usuario.types';
 import { Percent, DollarSign, Calculator } from 'lucide-react';
@@ -16,23 +16,40 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
   disabled = false,
   showTitle = true
 }) => {
+  const [turnoStr, setTurnoStr] = useState(String(comisiones.comision_turno));
+  const [productoStr, setProductoStr] = useState(String(comisiones.comision_producto));
+
+  useEffect(() => {
+    if (turnoStr === '' && comisiones.comision_turno === 0) return;
+    setTurnoStr(String(comisiones.comision_turno));
+  }, [comisiones.comision_turno]);
+
+  useEffect(() => {
+    if (productoStr === '' && comisiones.comision_producto === 0) return;
+    setProductoStr(String(comisiones.comision_producto));
+  }, [comisiones.comision_producto]);
+
   const handleComisionTurnoChange = (value: string) => {
-    const numValue = parseFloat(value) || 0;
-    if (numValue >= 0 && numValue <= 100) {
-      onChange({
-        ...comisiones,
-        comision_turno: numValue
-      });
+    setTurnoStr(value);
+    if (value === '') {
+      onChange({ ...comisiones, comision_turno: 0 });
+      return;
+    }
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+      onChange({ ...comisiones, comision_turno: numValue });
     }
   };
 
   const handleComisionProductoChange = (value: string) => {
-    const numValue = parseFloat(value) || 0;
-    if (numValue >= 0 && numValue <= 100) {
-      onChange({
-        ...comisiones,
-        comision_producto: numValue
-      });
+    setProductoStr(value);
+    if (value === '') {
+      onChange({ ...comisiones, comision_producto: 0 });
+      return;
+    }
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+      onChange({ ...comisiones, comision_producto: numValue });
     }
   };
 
@@ -73,7 +90,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
               max="100"
               step="0.1"
               placeholder="20.0"
-              value={comisiones.comision_turno || ''}
+              value={turnoStr}
               onChange={(e) => handleComisionTurnoChange(e.target.value)}
               disabled={disabled}
               className={disabled ? 'bg-gray-50' : ''}
@@ -104,7 +121,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
               max="100"
               step="0.1"
               placeholder="20.0"
-              value={comisiones.comision_producto || ''}
+              value={productoStr}
               onChange={(e) => handleComisionProductoChange(e.target.value)}
               disabled={disabled}
               className={disabled ? 'bg-gray-50' : ''}
@@ -159,21 +176,6 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
           </div>
         )}
 
-        {/* Información Adicional */}
-        {!disabled && (
-          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
-            <div className="text-sm text-blue-800">
-              <div className="font-medium mb-1">ℹ️ Información importante:</div>
-              <ul className="text-xs space-y-1">
-                <li>• Los porcentajes indican cuánto recibe la empresa</li>
-                <li>• El resto va directamente al profesional (staff o admin)</li>
-                <li>• Puedes configurar diferentes % para servicios y productos</li>
-                <li>• Si no configuras valores, se usará 20% por defecto</li>
-                <li>• Aplica tanto para staff como para administradores que atienden</li>
-              </ul>
-            </div>
-          </div>
-        )}
       </div>
     </Card>
   );
