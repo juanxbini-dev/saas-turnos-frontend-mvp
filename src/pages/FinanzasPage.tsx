@@ -8,7 +8,6 @@ import FinanzasFiltersComponent from '../components/finanzas/FinanzasFilters';
 import { FinanzasTable } from '../components/finanzas/FinanzasTable';
 import { FinanzasDetalleModal } from '../components/finanzas/FinanzasDetalleModal';
 import { ProfesionalSelector } from '../components/finanzas/ProfesionalSelector';
-import { Pagination } from '../components/ui';
 import { usuarioService } from '../services/usuario.service';
 
 export function FinanzasPage() {
@@ -188,20 +187,12 @@ export function FinanzasPage() {
         sortOrder={filters.orden}
         onRowClick={handleRowClick}
         onCobrarPago={handleCobrarPago}
+        page={filters.pagina}
+        totalPages={finanzasResponse?.total_paginas ?? 1}
+        total={finanzasResponse?.total ?? 0}
+        limit={filters.por_pagina}
+        onPageChange={handlePageChange}
       />
-
-      {/* Paginación */}
-      {finanzasResponse && finanzasResponse.total_paginas > 1 && (
-        <div className="mt-6 flex justify-center">
-          <Pagination
-            page={filters.pagina}
-            totalPages={finanzasResponse.total_paginas}
-            total={finanzasResponse.total}
-            limit={filters.por_pagina}
-            onPageChange={handlePageChange}
-          />
-        </div>
-      )}
 
       {/* Modal de detalle */}
       <FinanzasDetalleModal
