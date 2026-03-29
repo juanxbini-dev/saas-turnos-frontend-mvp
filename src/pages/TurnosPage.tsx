@@ -29,7 +29,10 @@ const TurnosPage: React.FC = () => {
   useEffect(() => {
     if (isSuperAdmin) {
       disponibilidadService.getProfesionales({ limit: 100 })
-        .then(res => setProfesionales(res.data || []))
+        .then(res => {
+          const lista = (res as any)?.data?.profesionales || (res as any)?.data || [];
+          setProfesionales(lista);
+        })
         .catch(() => {});
     }
   }, [isSuperAdmin]);
