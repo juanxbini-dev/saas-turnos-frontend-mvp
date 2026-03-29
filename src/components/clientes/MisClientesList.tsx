@@ -7,15 +7,23 @@ import { Cliente } from '../../types/cliente.types';
 import { Table, Badge, Card, DataControls, EmptyState } from '../ui';
 import { Users } from 'lucide-react';
 
-export function MisClientesList() {
+interface MisClientesListProps {
+  usuarioId?: string;
+}
+
+export function MisClientesList({ usuarioId }: MisClientesListProps = {}) {
+  const cacheKey = usuarioId
+    ? buildKey(ENTITIES.MIS_CLIENTES, usuarioId)
+    : buildKey(ENTITIES.MIS_CLIENTES);
+
   const {
     data: clientes,
     loading,
     error
   } = useFetch(
-    buildKey(ENTITIES.MIS_CLIENTES),
-    () => clienteService.getMisClientes(),
-    { ttl: 300 } // 5 minutos de caché
+    cacheKey,
+    () => clienteService.getMisClientes(usuarioId),
+    { ttl: 300 }
   );
 
   const columns: Array<any> = [
