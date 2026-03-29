@@ -255,6 +255,11 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
                           <div className="text-sm text-gray-500 truncate">
                             {turno.servicio}
                           </div>
+                          {isAdmin && (
+                            <div className="text-xs text-blue-600 truncate mt-0.5">
+                              {turno.usuario_nombre}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 ml-2 shrink-0">
                           <TurnoEstadoBadge estado={turno.estado} />
