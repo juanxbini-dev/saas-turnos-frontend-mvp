@@ -130,7 +130,7 @@ export const Calendar: React.FC<CalendarProps> = ({
   const dayNames = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4">
+    <div className="bg-white rounded-lg shadow-md p-4 text-gray-900">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <button
