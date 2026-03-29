@@ -50,8 +50,8 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
       setDatosForm({
         nombre: usuario.nombre,
         username: usuario.username,
-        comision_turno: usuario.comision_turno || 20,
-        comision_producto: usuario.comision_producto || 20
+        comision_turno: usuario.comision_turno ?? 20,
+        comision_producto: usuario.comision_producto ?? 20
       });
       setPasswordForm({
         passwordActual: '',
@@ -218,8 +218,8 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
               {editMode ? (
                 <ComisionesForm
                   comisiones={{
-                    comision_turno: datosForm.comision_turno || 20,
-                    comision_producto: datosForm.comision_producto || 20
+                    comision_turno: datosForm.comision_turno ?? 20,
+                    comision_producto: datosForm.comision_producto ?? 20
                   }}
                   onChange={handleComisionesChange}
                   disabled={loading}
@@ -228,8 +228,8 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
               ) : (
                 <ComisionesForm
                   comisiones={{
-                    comision_turno: usuario.comision_turno || 20,
-                    comision_producto: usuario.comision_producto || 20
+                    comision_turno: usuario.comision_turno ?? 20,
+                    comision_producto: usuario.comision_producto ?? 20
                   }}
                   onChange={() => {}}
                   disabled={true}
@@ -330,8 +330,8 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
               {editMode ? (
                 <ComisionesForm
                   comisiones={{
-                    comision_turno: datosForm.comision_turno || 20,
-                    comision_producto: datosForm.comision_producto || 20
+                    comision_turno: datosForm.comision_turno ?? 20,
+                    comision_producto: datosForm.comision_producto ?? 20
                   }}
                   onChange={handleComisionesChange}
                   disabled={loading}
@@ -340,8 +340,8 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
               ) : (
                 <ComisionesForm
                   comisiones={{
-                    comision_turno: usuario.comision_turno || 20,
-                    comision_producto: usuario.comision_producto || 20
+                    comision_turno: usuario.comision_turno ?? 20,
+                    comision_producto: usuario.comision_producto ?? 20
                   }}
                   onChange={() => {}}
                   disabled={true}
