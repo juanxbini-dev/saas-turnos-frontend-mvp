@@ -33,7 +33,7 @@ const TurnosPage: React.FC = () => {
           const lista = (res as any)?.data?.profesionales || (res as any)?.data || [];
           setProfesionales(lista);
         })
-        .catch(() => {});
+        .catch((err) => console.error('Error al cargar profesionales:', err));
     }
   }, [isSuperAdmin]);
 
@@ -97,25 +97,6 @@ const TurnosPage: React.FC = () => {
     { id: 'disponibilidad', label: isSuperAdmin ? 'Disponibilidad' : 'Mi disponibilidad' }
   ];
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">Error al cargar los turnos</p>
-          <Button onClick={revalidate}>Reintentar</Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto sm:py-6 sm:px-6 lg:px-8">
@@ -164,14 +145,22 @@ const TurnosPage: React.FC = () => {
 
               {activeTab === 'turnos' && (
                 <>
-                  <TurnosCatalogo
-                    turnos={turnosFiltrados}
-                    loading={loading}
-                    isAdmin={isAdmin}
-                    onCancelar={handleCancelarTurno}
-                    onConfirmar={handleConfirmarTurno}
-                    onFinalizar={setTurnoAFinalizar}
-                  />
+                  {error && (
+                    <div className="py-8 text-center">
+                      <p className="text-red-500 mb-4">Error al cargar los turnos</p>
+                      <Button onClick={revalidate}>Reintentar</Button>
+                    </div>
+                  )}
+                  {!error && (
+                    <TurnosCatalogo
+                      turnos={turnosFiltrados}
+                      loading={loading}
+                      isAdmin={isAdmin}
+                      onCancelar={handleCancelarTurno}
+                      onConfirmar={handleConfirmarTurno}
+                      onFinalizar={setTurnoAFinalizar}
+                    />
+                  )}
                 </>
               )}
 
