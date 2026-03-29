@@ -11,12 +11,18 @@ import { VacacionesTab } from './VacacionesTab';
 
 interface DisponibilidadConfigProps {
   onRevalidate?: () => void;
+  profesionalId?: string;
 }
 
 export const DisponibilidadConfig: React.FC<DisponibilidadConfigProps> = ({
-  onRevalidate
+  onRevalidate,
+  profesionalId
 }) => {
   const [activeTab, setActiveTab] = useState('horarios');
+
+  const cacheKey = profesionalId
+    ? buildKey(ENTITIES.CONFIGURACION, profesionalId)
+    : buildKey(ENTITIES.CONFIGURACION);
 
   const {
     data: configuracion,
@@ -24,8 +30,8 @@ export const DisponibilidadConfig: React.FC<DisponibilidadConfigProps> = ({
     error,
     revalidate
   } = useFetch(
-    buildKey(ENTITIES.CONFIGURACION),
-    () => disponibilidadService.getConfiguracion(),
+    cacheKey,
+    () => disponibilidadService.getConfiguracion(profesionalId),
     { ttl: 300 }
   );
 
@@ -72,6 +78,7 @@ export const DisponibilidadConfig: React.FC<DisponibilidadConfigProps> = ({
           disponibilidades={configuracion?.disponibilidades || []}
           loading={loading}
           onRevalidate={handleRevalidate}
+          profesionalId={profesionalId}
         />
       )}
 
@@ -80,6 +87,7 @@ export const DisponibilidadConfig: React.FC<DisponibilidadConfigProps> = ({
           excepciones={configuracion?.excepciones || []}
           loading={loading}
           onRevalidate={handleRevalidate}
+          profesionalId={profesionalId}
         />
       )}
 
@@ -88,6 +96,7 @@ export const DisponibilidadConfig: React.FC<DisponibilidadConfigProps> = ({
           vacaciones={configuracion?.vacaciones || []}
           loading={loading}
           onRevalidate={handleRevalidate}
+          profesionalId={profesionalId}
         />
       )}
     </div>

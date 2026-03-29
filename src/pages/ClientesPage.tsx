@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, Button, ConfirmModal } from '../components/ui';
 import { ClientesCatalogo } from '../components/clientes/ClientesCatalogo';
 import { ClienteModal } from '../components/clientes/ClienteModal';
 import { MisClientesList } from '../components/clientes/MisClientesList';
 import { clienteService } from '../services/cliente.service';
+import { disponibilidadService } from '../services/disponibilidad.service';
 import { useFetch } from '../hooks/useFetch';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
 import { buildKey, ENTITIES } from '../cache/key.builder';
 import { TTL } from '../cache/ttl';
 import { Cliente } from '../types/cliente.types';
+import { Profesional } from '../types/turno.types';
 import { Plus } from 'lucide-react';
 
 function ClientesPage() {
@@ -22,8 +24,22 @@ function ClientesPage() {
     isOpen: false,
     cliente: null
   });
+  const [profesionales, setProfesionales] = useState<Profesional[]>([]);
+  const [profesionalSeleccionado, setProfesionalSeleccionado] = useState<Profesional | null>(null);
 
   const isAdmin = authState.roles.includes('admin');
+  const isSuperAdmin = authState.roles.includes('super_admin');
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      disponibilidadService.getProfesionales({ limit: 100 })
+        .then(res => {
+          const lista = (res as any)?.data?.profesionales || (res as any)?.data || [];
+          setProfesionales(lista);
+        })
+        .catch(() => {});
+    }
+  }, [isSuperAdmin]);
 
   // Obtener clientes con caché
   const { data: clientes, loading, revalidate } = useFetch(
@@ -69,7 +85,9 @@ function ClientesPage() {
 
   const tabs = [
     { id: 'clientes', label: 'Clientes' },
-    { id: 'mis-clientes', label: 'Mis clientes' }
+    isSuperAdmin
+      ? { id: 'mis-clientes', label: 'Clientes por profesional' }
+      : { id: 'mis-clientes', label: 'Mis clientes' }
   ];
 
   return (
@@ -113,7 +131,37 @@ function ClientesPage() {
           )}
 
           {activeTab === 'mis-clientes' && (
-            <MisClientesList />
+            isSuperAdmin ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Profesional
+                  </label>
+                  <select
+                    className="block w-full sm:w-72 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    value={profesionalSeleccionado?.id || ''}
+                    onChange={e => {
+                      const p = profesionales.find(p => p.id === e.target.value) || null;
+                      setProfesionalSeleccionado(p);
+                    }}
+                  >
+                    <option value="">Seleccionar profesional...</option>
+                    {profesionales.map(p => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                {profesionalSeleccionado ? (
+                  <MisClientesList usuarioId={profesionalSeleccionado.id} />
+                ) : (
+                  <p className="text-center text-gray-500 py-8">
+                    Seleccioná un profesional para ver sus clientes.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <MisClientesList />
+            )
           )}
 
           <ClienteModal

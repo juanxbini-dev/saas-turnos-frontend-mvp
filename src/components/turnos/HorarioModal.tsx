@@ -15,6 +15,7 @@ interface HorarioModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  profesionalId?: string;
 }
 
 const diasSemana = [
@@ -37,9 +38,11 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
   horario,
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  profesionalId
 }) => {
   const { state: authUser } = useAuth();
+  const efectivoProfesionalId = profesionalId || authUser?.authUser?.id || '';
   
   const [formData, setFormData] = useState({
     dia_inicio: horario?.dia_inicio?.toString() || '1',
@@ -95,7 +98,7 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
       
       // Convertir strings a numbers para el servicio
       const dataForService = {
-        profesional_id: authUser?.authUser?.id || '',
+        profesional_id: efectivoProfesionalId,
         dia_inicio: parseInt(formData.dia_inicio),
         dia_fin: parseInt(formData.dia_fin),
         hora_inicio: formData.hora_inicio,

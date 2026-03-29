@@ -8,12 +8,14 @@ interface HorariosAtencionTabProps {
   disponibilidades: DisponibilidadSemanal[];
   loading: boolean;
   onRevalidate: () => void;
+  profesionalId?: string;
 }
 
 export const HorariosAtencionTab: React.FC<HorariosAtencionTabProps> = ({
   disponibilidades,
   loading,
-  onRevalidate
+  onRevalidate,
+  profesionalId
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedHorario, setSelectedHorario] = useState<DisponibilidadSemanal | null>(null);
@@ -44,7 +46,7 @@ export const HorariosAtencionTab: React.FC<HorariosAtencionTabProps> = ({
     if (!deleteTargetId) return;
 
     try {
-      await disponibilidadService.deleteDisponibilidad(deleteTargetId);
+      await disponibilidadService.deleteDisponibilidad(deleteTargetId, profesionalId);
       onRevalidate();
       setIsDeleteDialogOpen(false);
       setDeleteTargetId(null);
@@ -138,6 +140,7 @@ export const HorariosAtencionTab: React.FC<HorariosAtencionTabProps> = ({
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onSuccess={handleSuccess}
+        profesionalId={profesionalId}
       />
 
       <ConfirmDialog

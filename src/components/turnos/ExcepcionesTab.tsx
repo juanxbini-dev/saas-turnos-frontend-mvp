@@ -8,12 +8,14 @@ interface ExcepcionesTabProps {
   excepciones: ExcepcionDia[];
   loading: boolean;
   onRevalidate: () => void;
+  profesionalId?: string;
 }
 
 export const ExcepcionesTab: React.FC<ExcepcionesTabProps> = ({
   excepciones,
   loading,
-  onRevalidate
+  onRevalidate,
+  profesionalId
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExcepcion, setSelectedExcepcion] = useState<ExcepcionDia | null>(null);
@@ -44,7 +46,7 @@ export const ExcepcionesTab: React.FC<ExcepcionesTabProps> = ({
     if (!deleteTargetId) return;
 
     try {
-      await disponibilidadService.deleteExcepcion(deleteTargetId);
+      await disponibilidadService.deleteExcepcion(deleteTargetId, profesionalId);
       onRevalidate();
       setIsDeleteDialogOpen(false);
       setDeleteTargetId(null);
@@ -180,6 +182,7 @@ export const ExcepcionesTab: React.FC<ExcepcionesTabProps> = ({
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onSuccess={handleSuccess}
+        profesionalId={profesionalId}
       />
 
       <ConfirmDialog

@@ -72,11 +72,13 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
 
             {/* Badges en columna */}
             <div className="flex flex-col items-end gap-1 shrink-0">
-              {usuario.roles.map((rol) => (
-                <Badge key={rol} variant={rol === 'admin' ? 'blue' : 'gray'} size="sm">
-                  {rol === 'admin' ? 'Admin' : 'Staff'}
-                </Badge>
-              ))}
+              {usuario.roles.includes('super_admin') ? (
+                <Badge variant="yellow" size="sm">★ Super Admin</Badge>
+              ) : usuario.roles.includes('admin') ? (
+                <Badge variant="blue" size="sm">Admin</Badge>
+              ) : (
+                <Badge variant="gray" size="sm">Staff</Badge>
+              )}
               <Badge variant={usuario.activo ? 'green' : 'red'} size="sm">
                 {usuario.activo ? 'Activo' : 'Inactivo'}
               </Badge>
