@@ -103,8 +103,8 @@ const localizer = dateFnsLocalizer({
   },
   formats: {
     dateFormat: 'dd MMMM yyyy',
-    dayFormat: 'ddd',
-    weekdayFormat: 'EEEE',
+    dayFormat: (date: Date) => format(date, 'EEE d', { locale: es }),
+    weekdayFormat: (date: Date) => format(date, 'EEE', { locale: es }),
     dayRangeHeaderFormat: 'dd MMM yyyy',
     agendaHeaderFormat: (date: Date) => format(date, 'EEEE d MMMM', { locale: es }),
     agendaDateFormat: (date: Date) => format(date, 'd', { locale: es }),
@@ -563,7 +563,7 @@ export function DashboardCalendario({
   return (
     <div className="flex flex-col gap-3">
       {/* Leyenda de disponibilidad */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs sm:text-sm">
+      <div className="hidden sm:flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs sm:text-sm">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500 rounded"></div>
           <span className="text-gray-700">Disponible</span>

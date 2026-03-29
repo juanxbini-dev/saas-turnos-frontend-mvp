@@ -73,7 +73,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
               max="100"
               step="0.1"
               placeholder="20.0"
-              value={comisiones.comision_turno || ''}
+              value={comisiones.comision_turno ?? ''}
               onChange={(e) => handleComisionTurnoChange(e.target.value)}
               disabled={disabled}
               className={disabled ? 'bg-gray-50' : ''}
@@ -104,7 +104,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
               max="100"
               step="0.1"
               placeholder="20.0"
-              value={comisiones.comision_producto || ''}
+              value={comisiones.comision_producto ?? ''}
               onChange={(e) => handleComisionProductoChange(e.target.value)}
               disabled={disabled}
               className={disabled ? 'bg-gray-50' : ''}
