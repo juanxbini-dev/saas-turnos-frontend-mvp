@@ -26,14 +26,30 @@ const TurnosPage: React.FC = () => {
   const isSuperAdmin = authUser?.roles.includes('super_admin') || false;
   const isAdmin = authUser?.roles.includes('admin') || false;
 
+  console.log('[TurnosPage] authUser state:', authUser);
+  console.log('[TurnosPage] roles:', authUser?.roles);
+  console.log('[TurnosPage] isSuperAdmin:', isSuperAdmin);
+
   useEffect(() => {
+    console.log('[TurnosPage] useEffect ejecutado - isSuperAdmin:', isSuperAdmin);
     if (isSuperAdmin) {
+      console.log('[TurnosPage] Llamando getProfesionales...');
       disponibilidadService.getProfesionales({ limit: 100 })
         .then(res => {
+          console.log('[TurnosPage] getProfesionales respuesta cruda:', res);
+          console.log('[TurnosPage] res.data:', (res as any)?.data);
+          console.log('[TurnosPage] res.data.profesionales:', (res as any)?.data?.profesionales);
           const lista = (res as any)?.data?.profesionales || (res as any)?.data || [];
+          console.log('[TurnosPage] lista final a setear:', lista);
           setProfesionales(lista);
         })
-        .catch((err) => console.error('Error al cargar profesionales:', err));
+        .catch((err) => {
+          console.error('[TurnosPage] Error al cargar profesionales:', err);
+          console.error('[TurnosPage] Error status:', err?.response?.status);
+          console.error('[TurnosPage] Error data:', err?.response?.data);
+        });
+    } else {
+      console.log('[TurnosPage] No es superAdmin, no se cargan profesionales');
     }
   }, [isSuperAdmin]);
 
