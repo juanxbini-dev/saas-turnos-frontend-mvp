@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ComisionProfesional, VentaGrupadaFinanzas, VentaItemFinanzas, EntradaFinanzas, FinanzasFilters } from '../../types/finanzas.types';
 import { formatCurrency, formatDate } from '../../utils/calculos.utils';
-import { Badge, EmptyState, Card } from '../ui';
+import { Badge, EmptyState, Card, Pagination } from '../ui';
 import { Calendar, ShoppingBag, Package, Scissors, CheckCircle } from 'lucide-react';
 
 type TipoFiltro = 'todos' | 'turnos' | 'productos' | 'pendientes';
@@ -15,6 +15,12 @@ interface FinanzasTableProps {
   sortOrder: FinanzasFilters['orden'];
   onRowClick: (comision: ComisionProfesional) => void;
   onCobrarPago: (tipo: 'turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => Promise<void>;
+  // Paginación (solo se muestra en tab "todos")
+  page: number;
+  totalPages: number;
+  total: number;
+  limit: number;
+  onPageChange: (page: number) => void;
 }
 
 // Grupo de venta para render interno (mapeado desde VentaGrupadaFinanzas)
@@ -318,6 +324,7 @@ const TABS: { value: TipoFiltro; label: string }[] = [
 
 export const FinanzasTable: React.FC<FinanzasTableProps> = ({
   items, isLoading, isAdmin, onSort, sortField, sortOrder, onRowClick, onCobrarPago,
+  page, totalPages, total, limit, onPageChange,
 }) => {
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos');
 
@@ -427,6 +434,19 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
             })}
           </div>
         </>
+      )}
+
+      {/* Paginación — solo en tab "todos" y cuando hay más de una página */}
+      {tipoFiltro === 'todos' && totalPages > 1 && (
+        <div className="mt-6 flex justify-center">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={limit}
+            onPageChange={onPageChange}
+          />
+        </div>
       )}
     </div>
   );
