@@ -45,7 +45,12 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
         if (!usuario || !usuario.roles) return null;
         return (
           <div className="flex flex-wrap gap-1">
-            {usuario.roles.map((rol) => (
+            {usuario.roles.includes('super_admin') && (
+              <Badge key="super_admin" variant="yellow" size="sm">
+                ★ Super Admin
+              </Badge>
+            )}
+            {usuario.roles.filter(r => r !== 'super_admin').map((rol) => (
               <Badge
                 key={rol}
                 variant={rol === 'admin' ? 'blue' : 'gray'}
