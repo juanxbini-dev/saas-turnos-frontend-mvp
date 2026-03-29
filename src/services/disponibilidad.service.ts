@@ -33,12 +33,13 @@ export const disponibilidadService = {
     return Object.fromEntries(data.map(({ fecha, slots }) => [fecha, slots]));
   },
 
-  async getConfiguracion(): Promise<{
+  async getConfiguracion(profesionalId?: string): Promise<{
     disponibilidades: DisponibilidadSemanal[];
     vacaciones: DiasVacacion[];
     excepciones: ExcepcionDia[];
   }> {
-    const response = await axiosInstance.get('/api/turnos/configuracion');
+    const params = profesionalId ? { profesionalId } : undefined;
+    const response = await axiosInstance.get('/api/turnos/configuracion', { params });
     return response.data.data;
   },
 
@@ -68,13 +69,15 @@ export const disponibilidadService = {
     return response.data.data;
   },
 
-  async updateDisponibilidad(id: string, data: Partial<DisponibilidadSemanal>): Promise<DisponibilidadSemanal> {
+  async updateDisponibilidad(id: string, data: Partial<DisponibilidadSemanal> & { profesional_id?: string }): Promise<DisponibilidadSemanal> {
     const response = await axiosInstance.put(`/api/turnos/disponibilidad/${id}`, data);
     return response.data.data;
   },
 
-  async deleteDisponibilidad(id: string): Promise<void> {
-    await axiosInstance.delete(`/api/turnos/disponibilidad/${id}`);
+  async deleteDisponibilidad(id: string, profesionalId?: string): Promise<void> {
+    await axiosInstance.delete(`/api/turnos/disponibilidad/${id}`, {
+      data: profesionalId ? { profesional_id: profesionalId } : undefined
+    });
   },
 
   // CRUD Vacaciones
@@ -88,13 +91,15 @@ export const disponibilidadService = {
     return response.data.data;
   },
 
-  async updateVacacion(id: string, data: Partial<DiasVacacion>): Promise<DiasVacacion> {
+  async updateVacacion(id: string, data: Partial<DiasVacacion> & { profesional_id?: string }): Promise<DiasVacacion> {
     const response = await axiosInstance.put(`/api/turnos/vacaciones/${id}`, data);
     return response.data.data;
   },
 
-  async deleteVacacion(id: string): Promise<void> {
-    await axiosInstance.delete(`/api/turnos/vacaciones/${id}`);
+  async deleteVacacion(id: string, profesionalId?: string): Promise<void> {
+    await axiosInstance.delete(`/api/turnos/vacaciones/${id}`, {
+      data: profesionalId ? { profesional_id: profesionalId } : undefined
+    });
   },
 
   // CRUD Excepciones
@@ -110,12 +115,14 @@ export const disponibilidadService = {
     return response.data.data;
   },
 
-  async updateExcepcion(id: string, data: Partial<ExcepcionDia>): Promise<ExcepcionDia> {
+  async updateExcepcion(id: string, data: Partial<ExcepcionDia> & { profesional_id?: string }): Promise<ExcepcionDia> {
     const response = await axiosInstance.put(`/api/turnos/excepciones/${id}`, data);
     return response.data.data;
   },
 
-  async deleteExcepcion(id: string): Promise<void> {
-    await axiosInstance.delete(`/api/turnos/excepciones/${id}`);
+  async deleteExcepcion(id: string, profesionalId?: string): Promise<void> {
+    await axiosInstance.delete(`/api/turnos/excepciones/${id}`, {
+      data: profesionalId ? { profesional_id: profesionalId } : undefined
+    });
   }
 };

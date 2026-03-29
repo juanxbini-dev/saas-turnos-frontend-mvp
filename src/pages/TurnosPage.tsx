@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { buildKey } from '../cache/key.builder';
 import { ENTITIES } from '../cache/key.builder';
 import { turnoService } from '../services/turno.service';
+import { disponibilidadService } from '../services/disponibilidad.service';
 import { cacheService } from '../cache/cache.service';
 import { Button, Tabs, Spinner } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
@@ -11,14 +12,27 @@ import { TurnosCatalogo } from '../components/turnos/TurnosCatalogo';
 import { DisponibilidadConfig } from '../components/turnos/DisponibilidadConfig';
 import { CreateTurnoModal } from '../components/turnos/CreateTurnoModal';
 import { FinalizarTurnoModal } from '../components/turnos/FinalizarTurnoModal';
-import { TurnoConDetalle } from '../types/turno.types';
+import { TurnoConDetalle, Profesional } from '../types/turno.types';
 
 const TurnosPage: React.FC = () => {
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('turnos');
   const [turnoAFinalizar, setTurnoAFinalizar] = useState<TurnoConDetalle | null>(null);
+  const [profesionales, setProfesionales] = useState<Profesional[]>([]);
+  const [profesionalSeleccionado, setProfesionalSeleccionado] = useState<Profesional | null>(null);
   const { state: authUser } = useAuth();
   const toast = useToast();
+
+  const isSuperAdmin = authUser?.roles.includes('super_admin') || false;
+  const isAdmin = authUser?.roles.includes('admin') || false;
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      disponibilidadService.getProfesionales({ limit: 100 })
+        .then(res => setProfesionales(res.data || []))
+        .catch(() => {});
+    }
+  }, [isSuperAdmin]);
 
   const {
     data: turnos,
@@ -31,11 +45,13 @@ const TurnosPage: React.FC = () => {
     { ttl: 300 }
   );
 
-  const isAdmin = authUser?.roles.includes('admin');
-  
   // Para staff, usar el ID del usuario autenticado. Para admin, undefined para que seleccione.
   const preselectedProfesionalId = !isAdmin ? authUser?.authUser?.id || '' : '';
   const preselectedProfesionalNombre = !isAdmin ? authUser?.authUser?.nombre : undefined;
+
+  const turnosFiltrados = isSuperAdmin && profesionalSeleccionado
+    ? (turnos || []).filter(t => (t as any).profesional_id === profesionalSeleccionado.id)
+    : turnos || [];
 
   const handleCancelarTurno = async (turno: any) => {
     try {
@@ -75,7 +91,7 @@ const TurnosPage: React.FC = () => {
 
   const tabs = [
     { id: 'turnos', label: 'Turnos' },
-    { id: 'disponibilidad', label: 'Mi disponibilidad' }
+    { id: 'disponibilidad', label: isSuperAdmin ? 'Disponibilidad' : 'Mi disponibilidad' }
   ];
 
   if (loading) {
@@ -113,6 +129,27 @@ const TurnosPage: React.FC = () => {
                   </Button>
                 )}
               </div>
+
+              {isSuperAdmin && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Profesional
+                  </label>
+                  <select
+                    className="block w-full sm:w-72 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    value={profesionalSeleccionado?.id || ''}
+                    onChange={e => {
+                      const p = profesionales.find(p => p.id === e.target.value) || null;
+                      setProfesionalSeleccionado(p);
+                    }}
+                  >
+                    <option value="">Todos los profesionales</option>
+                    {profesionales.map(p => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="p-6">
@@ -125,7 +162,7 @@ const TurnosPage: React.FC = () => {
               {activeTab === 'turnos' && (
                 <>
                   <TurnosCatalogo
-                    turnos={turnos || []}
+                    turnos={turnosFiltrados}
                     loading={loading}
                     isAdmin={isAdmin}
                     onCancelar={handleCancelarTurno}
@@ -136,7 +173,16 @@ const TurnosPage: React.FC = () => {
               )}
 
               {activeTab === 'disponibilidad' && (
-                <DisponibilidadConfig onRevalidate={revalidate} />
+                isSuperAdmin && !profesionalSeleccionado ? (
+                  <div className="py-12 text-center text-gray-500">
+                    Seleccioná un profesional para ver su disponibilidad.
+                  </div>
+                ) : (
+                  <DisponibilidadConfig
+                    onRevalidate={revalidate}
+                    profesionalId={profesionalSeleccionado?.id}
+                  />
+                )
               )}
             </div>
           </div>

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFetch } from '../hooks/useFetch';
 import { servicioService } from '../services/servicio.service';
+import { disponibilidadService } from '../services/disponibilidad.service';
 import { ServiciosCatalogo } from '../components/servicios/ServiciosCatalogo';
 import { MisServiciosList } from '../components/servicios/MisServiciosList';
 import { CrearServicioModal } from '../components/servicios/CrearServicioModal';
@@ -10,6 +11,7 @@ import { EditarServicioModal } from '../components/servicios/EditarServicioModal
 import { EditarMiServicioModal } from '../components/servicios/EditarMiServicioModal';
 import { Tabs, Modal, ConfirmDialog } from '../components/ui';
 import { Servicio, UsuarioServicio } from '../types/servicio.types';
+import { Profesional } from '../types/turno.types';
 import { cacheService } from '../cache/cache.service';
 import { buildKey } from '../cache/key.builder';
 import { ENTITIES } from '../cache/key.builder';
@@ -17,6 +19,7 @@ import { TTL } from '../cache/ttl';
 
 function ServiciosPage() {
   const { state } = useAuth();
+  const isSuperAdmin = state.authUser?.roles.includes('super_admin') || false;
   const [selectedServicio, setSelectedServicio] = useState<Servicio | null>(null);
   const [servicioParaSuscripcion, setServicioParaSuscripcion] = useState<UsuarioServicio | null>(null);
   const [servicioParaEliminar, setServicioParaEliminar] = useState<Servicio | null>(null);
@@ -25,6 +28,17 @@ function ServiciosPage() {
   const [isMiServicioModalOpen, setIsMiServicioModalOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('catalogo');
+  const [profesionales, setProfesionales] = useState<Profesional[]>([]);
+  const [profesionalSeleccionado, setProfesionalSeleccionado] = useState<Profesional | null>(null);
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      disponibilidadService.getProfesionales({ limit: 100 })
+        .then(res => setProfesionales(res.data || []))
+        .catch(() => {});
+    }
+  }, [isSuperAdmin]);
+
 
   // Catálogo de servicios
   const { 
@@ -37,14 +51,18 @@ function ServiciosPage() {
     { ttl: TTL.MEDIUM }
   );
 
-  // Mis servicios
-  const { 
-    data: misServicios = [], 
-    loading: loadingMisServicios, 
-    revalidate: revalidateMisServicios 
+  const misServiciosCacheKey = isSuperAdmin && profesionalSeleccionado
+    ? buildKey(ENTITIES.MIS_SERVICIOS, profesionalSeleccionado.id)
+    : buildKey(ENTITIES.MIS_SERVICIOS);
+
+  // Mis servicios (o los del profesional seleccionado para super_admin)
+  const {
+    data: misServicios = [],
+    loading: loadingMisServicios,
+    revalidate: revalidateMisServicios
   } = useFetch<UsuarioServicio[]>(
-    buildKey(ENTITIES.MIS_SERVICIOS),
-    () => servicioService.getMisServicios(),
+    misServiciosCacheKey,
+    () => servicioService.getMisServicios(profesionalSeleccionado?.id),
     { ttl: TTL.SHORT }
   );
 
@@ -63,10 +81,10 @@ function ServiciosPage() {
   };
 
   const handleSuscribirse = (servicio: Servicio) => {
-    // Buscar si ya está suscripto
     const yaSuscripto = misServicios?.some(ms => ms.servicio_id === servicio.id) || false;
     if (!yaSuscripto) {
-      servicioService.suscribirse(servicio.id)
+      const usuarioId = isSuperAdmin && profesionalSeleccionado ? profesionalSeleccionado.id : undefined;
+      servicioService.suscribirse(servicio.id, usuarioId)
         .then(() => {
           cacheService.invalidateByPrefix(buildKey(ENTITIES.MIS_SERVICIOS));
           revalidateMisServicios();
@@ -81,7 +99,8 @@ function ServiciosPage() {
   };
 
   const handleDesuscribirse = (servicioId: string) => {
-    servicioService.desuscribirse(servicioId)
+    const usuarioId = isSuperAdmin && profesionalSeleccionado ? profesionalSeleccionado.id : undefined;
+    servicioService.desuscribirse(servicioId, usuarioId)
       .then(() => {
         cacheService.invalidateByPrefix(buildKey(ENTITIES.MIS_SERVICIOS));
         revalidateMisServicios();
@@ -143,7 +162,9 @@ function ServiciosPage() {
 
   const tabs = [
     { id: 'catalogo', label: 'Servicios' },
-    { id: 'mis-servicios', label: 'Mis servicios' }
+    ...(isSuperAdmin
+      ? [{ id: 'profesional-servicios', label: 'Servicios por profesional' }]
+      : [{ id: 'mis-servicios', label: 'Mis servicios' }])
   ];
 
   return (
@@ -189,6 +210,42 @@ function ServiciosPage() {
               onEditar={handleEditarMiServicio}
               onDesuscribirse={handleDesuscribirse}
             />
+          )}
+
+          {activeTab === 'profesional-servicios' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Profesional
+                </label>
+                <select
+                  className="block w-full sm:w-72 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={profesionalSeleccionado?.id || ''}
+                  onChange={e => {
+                    const p = profesionales.find(p => p.id === e.target.value) || null;
+                    setProfesionalSeleccionado(p);
+                  }}
+                >
+                  <option value="">Seleccionar profesional...</option>
+                  {profesionales.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {profesionalSeleccionado ? (
+                <MisServiciosList
+                  misServicios={misServicios || []}
+                  loading={loadingMisServicios}
+                  onEditar={handleEditarMiServicio}
+                  onDesuscribirse={handleDesuscribirse}
+                />
+              ) : (
+                <p className="text-center text-gray-500 py-8">
+                  Seleccioná un profesional para ver y gestionar sus servicios.
+                </p>
+              )}
+            </div>
           )}
         </div>
       </main>
