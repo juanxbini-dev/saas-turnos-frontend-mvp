@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Input, Button } from '../ui';
 import { ComisionesData } from '../../types/usuario.types';
 import { Percent, DollarSign, Calculator } from 'lucide-react';
@@ -16,23 +16,38 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
   disabled = false,
   showTitle = true
 }) => {
+  const [turnoStr, setTurnoStr] = useState(String(comisiones.comision_turno));
+  const [productoStr, setProductoStr] = useState(String(comisiones.comision_producto));
+
+  useEffect(() => {
+    setTurnoStr(String(comisiones.comision_turno));
+  }, [comisiones.comision_turno]);
+
+  useEffect(() => {
+    setProductoStr(String(comisiones.comision_producto));
+  }, [comisiones.comision_producto]);
+
   const handleComisionTurnoChange = (value: string) => {
-    const numValue = parseFloat(value) || 0;
-    if (numValue >= 0 && numValue <= 100) {
-      onChange({
-        ...comisiones,
-        comision_turno: numValue
-      });
+    setTurnoStr(value);
+    if (value === '') {
+      onChange({ ...comisiones, comision_turno: 0 });
+      return;
+    }
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+      onChange({ ...comisiones, comision_turno: numValue });
     }
   };
 
   const handleComisionProductoChange = (value: string) => {
-    const numValue = parseFloat(value) || 0;
-    if (numValue >= 0 && numValue <= 100) {
-      onChange({
-        ...comisiones,
-        comision_producto: numValue
-      });
+    setProductoStr(value);
+    if (value === '') {
+      onChange({ ...comisiones, comision_producto: 0 });
+      return;
+    }
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+      onChange({ ...comisiones, comision_producto: numValue });
     }
   };
 
@@ -73,7 +88,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
               max="100"
               step="0.1"
               placeholder="20.0"
-              value={comisiones.comision_turno ?? ''}
+              value={turnoStr}
               onChange={(e) => handleComisionTurnoChange(e.target.value)}
               disabled={disabled}
               className={disabled ? 'bg-gray-50' : ''}
@@ -104,7 +119,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
               max="100"
               step="0.1"
               placeholder="20.0"
-              value={comisiones.comision_producto ?? ''}
+              value={productoStr}
               onChange={(e) => handleComisionProductoChange(e.target.value)}
               disabled={disabled}
               className={disabled ? 'bg-gray-50' : ''}
