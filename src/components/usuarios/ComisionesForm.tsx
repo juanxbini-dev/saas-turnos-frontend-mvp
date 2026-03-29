@@ -176,21 +176,6 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
           </div>
         )}
 
-        {/* Información Adicional */}
-        {!disabled && (
-          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
-            <div className="text-sm text-blue-800">
-              <div className="font-medium mb-1">ℹ️ Información importante:</div>
-              <ul className="text-xs space-y-1">
-                <li>• Los porcentajes indican cuánto recibe la empresa</li>
-                <li>• El resto va directamente al profesional (staff o admin)</li>
-                <li>• Puedes configurar diferentes % para servicios y productos</li>
-                <li>• Si no configuras valores, se usará 20% por defecto</li>
-                <li>• Aplica tanto para staff como para administradores que atienden</li>
-              </ul>
-            </div>
-          </div>
-        )}
       </div>
     </Card>
   );

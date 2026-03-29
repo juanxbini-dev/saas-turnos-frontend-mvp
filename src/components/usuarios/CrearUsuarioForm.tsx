@@ -23,8 +23,8 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
     email: '',
     password: '',
     rol: 'staff' as UsuarioRol,
-    comision_turno: 20,
-    comision_producto: 20
+    comision_turno: 0,
+    comision_producto: 0
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,8 +88,8 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
         email: '',
         password: '',
         rol: 'staff',
-        comision_turno: 20,
-        comision_producto: 20
+        comision_turno: 0,
+        comision_producto: 0
       });
       
       onSuccess();
