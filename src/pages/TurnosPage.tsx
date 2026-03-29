@@ -26,6 +26,7 @@ const TurnosPage: React.FC = () => {
   const isSuperAdmin = authUser?.roles.includes('super_admin') || false;
   const isAdmin = authUser?.roles.includes('admin') || false;
 
+  console.log('[TurnosPage] RENDER - profesionales.length:', profesionales.length, '| isSuperAdmin:', isSuperAdmin, '| loading:', loading);
   console.log('[TurnosPage] authUser state:', authUser);
   console.log('[TurnosPage] roles:', authUser?.roles);
   console.log('[TurnosPage] isSuperAdmin:', isSuperAdmin);
