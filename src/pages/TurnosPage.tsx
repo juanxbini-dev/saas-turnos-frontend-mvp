@@ -27,25 +27,13 @@ const TurnosPage: React.FC = () => {
   const isAdmin = authUser?.roles.includes('admin') || false;
 
   useEffect(() => {
-    console.log('[TurnosPage] useEffect ejecutado - isSuperAdmin:', isSuperAdmin);
     if (isSuperAdmin) {
-      console.log('[TurnosPage] Llamando getProfesionales...');
       disponibilidadService.getProfesionales({ limit: 100 })
         .then(res => {
-          console.log('[TurnosPage] getProfesionales respuesta cruda:', res);
-          console.log('[TurnosPage] res.data:', (res as any)?.data);
-          console.log('[TurnosPage] res.data.profesionales:', (res as any)?.data?.profesionales);
           const lista = (res as any)?.data?.profesionales || (res as any)?.data || [];
-          console.log('[TurnosPage] lista final a setear:', lista);
           setProfesionales(lista);
         })
-        .catch((err) => {
-          console.error('[TurnosPage] Error al cargar profesionales:', err);
-          console.error('[TurnosPage] Error status:', err?.response?.status);
-          console.error('[TurnosPage] Error data:', err?.response?.data);
-        });
-    } else {
-      console.log('[TurnosPage] No es superAdmin, no se cargan profesionales');
+        .catch((err) => console.error('Error al cargar profesionales:', err));
     }
   }, [isSuperAdmin]);
 
@@ -60,14 +48,12 @@ const TurnosPage: React.FC = () => {
     { ttl: 300 }
   );
 
-  console.log('[TurnosPage] RENDER - profesionales.length:', profesionales.length, '| isSuperAdmin:', isSuperAdmin, '| loading:', loading);
-
   // Para staff, usar el ID del usuario autenticado. Para admin, undefined para que seleccione.
   const preselectedProfesionalId = !isAdmin ? authUser?.authUser?.id || '' : '';
   const preselectedProfesionalNombre = !isAdmin ? authUser?.authUser?.nombre : undefined;
 
   const turnosFiltrados = isSuperAdmin && profesionalSeleccionado
-    ? (turnos || []).filter(t => (t as any).profesional_id === profesionalSeleccionado.id)
+    ? (turnos || []).filter(t => t.usuario_id === profesionalSeleccionado.id)
     : turnos || [];
 
   const handleCancelarTurno = async (turno: any) => {
