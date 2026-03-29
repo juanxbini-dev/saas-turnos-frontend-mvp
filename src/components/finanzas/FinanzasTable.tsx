@@ -357,7 +357,7 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
         {TABS.map(tab => (
           <button
             key={tab.value}
-            onClick={() => setTipoFiltro(tab.value)}
+            onClick={() => { setTipoFiltro(tab.value); if (page > 1) onPageChange(1); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tipoFiltro === tab.value
                 ? tab.value === 'pendientes'
