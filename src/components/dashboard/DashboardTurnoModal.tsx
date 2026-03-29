@@ -68,7 +68,7 @@ export function DashboardTurnoModal({
   // Cargar servicios del profesional
   const { data: servicios, loading: loadingServicios } = useFetch(
     profesionalId ? buildKey(ENTITIES.SERVICIOS, profesionalId) : null,
-    () => servicioService.getMisServicios(),
+    () => servicioService.getMisServicios(profesionalId),
     { ttl: 300 }
   );
 
