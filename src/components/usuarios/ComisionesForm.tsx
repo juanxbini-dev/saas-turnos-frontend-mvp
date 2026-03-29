@@ -20,10 +20,12 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
   const [productoStr, setProductoStr] = useState(String(comisiones.comision_producto));
 
   useEffect(() => {
+    if (turnoStr === '' && comisiones.comision_turno === 0) return;
     setTurnoStr(String(comisiones.comision_turno));
   }, [comisiones.comision_turno]);
 
   useEffect(() => {
+    if (productoStr === '' && comisiones.comision_producto === 0) return;
     setProductoStr(String(comisiones.comision_producto));
   }, [comisiones.comision_producto]);
 
