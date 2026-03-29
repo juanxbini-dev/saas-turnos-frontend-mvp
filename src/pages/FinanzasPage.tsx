@@ -180,8 +180,7 @@ export function FinanzasPage() {
 
       {/* Tabla */}
       <FinanzasTable
-        data={finanzasResponse?.data || []}
-        ventas_directas={finanzasResponse?.ventas_directas || []}
+        items={finanzasResponse?.items || []}
         isLoading={loadingFinanzas}
         isAdmin={isAdmin}
         onSort={handleSort}
