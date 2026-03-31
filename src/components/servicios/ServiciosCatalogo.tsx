@@ -11,6 +11,7 @@ interface ServiciosCatalogoProps {
   onSuscribirse: (servicio: Servicio) => void;
   onEliminar: (servicio: Servicio) => void;
   isAdmin: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export const ServiciosCatalogo: React.FC<ServiciosCatalogoProps> = ({
@@ -20,7 +21,8 @@ export const ServiciosCatalogo: React.FC<ServiciosCatalogoProps> = ({
   onEditar,
   onSuscribirse,
   onEliminar,
-  isAdmin
+  isAdmin,
+  isSuperAdmin = false
 }) => {
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
 
@@ -118,16 +120,26 @@ export const ServiciosCatalogo: React.FC<ServiciosCatalogoProps> = ({
         
         return (
           <div className="flex items-center space-x-2">
-            {/* Botón de suscripción para todos */}
-            <Button
-              size="sm"
-              variant={suscripto ? 'secondary' : 'primary'}
-              onClick={() => onSuscribirse(servicio)}
-              disabled={suscripto}
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              {suscripto ? 'Suscripto' : 'Suscribirse'}
-            </Button>
+            {isSuperAdmin ? (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => onSuscribirse(servicio)}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Suscribir usuario
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant={suscripto ? 'secondary' : 'primary'}
+                onClick={() => onSuscribirse(servicio)}
+                disabled={suscripto}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                {suscripto ? 'Suscripto' : 'Suscribirse'}
+              </Button>
+            )}
 
             {/* Botones de admin */}
             {isAdmin && (
@@ -190,7 +202,14 @@ export const ServiciosCatalogo: React.FC<ServiciosCatalogoProps> = ({
 
           {expandedActions.has(servicio.id) && (
             <div className="mt-2 flex flex-col gap-0.5">
-              {!suscripto ? (
+              {isSuperAdmin ? (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onSuscribirse(servicio); }}
+                  className="text-left text-sm text-blue-600 hover:text-blue-800 py-1.5 font-medium"
+                >
+                  + Suscribir usuario
+                </button>
+              ) : !suscripto ? (
                 <button
                   onClick={(e) => { e.stopPropagation(); onSuscribirse(servicio); }}
                   className="text-left text-sm text-blue-600 hover:text-blue-800 py-1.5 font-medium"

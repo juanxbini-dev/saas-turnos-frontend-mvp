@@ -9,6 +9,7 @@ import { MisServiciosList } from '../components/servicios/MisServiciosList';
 import { CrearServicioModal } from '../components/servicios/CrearServicioModal';
 import { EditarServicioModal } from '../components/servicios/EditarServicioModal';
 import { EditarMiServicioModal } from '../components/servicios/EditarMiServicioModal';
+import { SuscribirUsuarioModal } from '../components/servicios/SuscribirUsuarioModal';
 import { Tabs, Modal, ConfirmDialog } from '../components/ui';
 import { Servicio, UsuarioServicio } from '../types/servicio.types';
 import { Profesional } from '../types/turno.types';
@@ -30,6 +31,7 @@ function ServiciosPage() {
   const [activeTab, setActiveTab] = useState('catalogo');
   const [profesionales, setProfesionales] = useState<Profesional[]>([]);
   const [profesionalSeleccionado, setProfesionalSeleccionado] = useState<Profesional | null>(null);
+  const [servicioParaSuscribirUsuario, setServicioParaSuscribirUsuario] = useState<Servicio | null>(null);
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -84,14 +86,16 @@ function ServiciosPage() {
   };
 
   const handleSuscribirse = (servicio: Servicio) => {
+    if (isSuperAdmin) {
+      setServicioParaSuscribirUsuario(servicio);
+      return;
+    }
     const yaSuscripto = misServicios?.some(ms => ms.servicio_id === servicio.id) || false;
     if (!yaSuscripto) {
-      const usuarioId = isSuperAdmin && profesionalSeleccionado ? profesionalSeleccionado.id : undefined;
-      servicioService.suscribirse(servicio.id, usuarioId)
+      servicioService.suscribirse(servicio.id)
         .then(() => {
           cacheService.invalidateByPrefix(buildKey(ENTITIES.MIS_SERVICIOS));
           revalidateMisServicios();
-          // También invalidar servicios para actualizar el estado de suscripción
           cacheService.invalidateByPrefix(buildKey(ENTITIES.SERVICIOS));
           revalidateServicios();
         })
@@ -99,6 +103,12 @@ function ServiciosPage() {
           console.error('Error al suscribirse:', error);
         });
     }
+  };
+
+  const handleSuscribirUsuario = async (servicioId: string, usuarioId: string) => {
+    await servicioService.suscribirse(servicioId, usuarioId);
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.MIS_SERVICIOS));
+    revalidateMisServicios();
   };
 
   const handleDesuscribirse = (servicioId: string) => {
@@ -203,6 +213,7 @@ function ServiciosPage() {
               onSuscribirse={handleSuscribirse}
               onEliminar={handleEliminar}
               isAdmin={state.authUser?.roles.includes('admin') || false}
+              isSuperAdmin={isSuperAdmin}
             />
           )}
 
@@ -294,6 +305,23 @@ function ServiciosPage() {
             usuarioServicio={servicioParaSuscripcion}
             onClose={() => setIsMiServicioModalOpen(false)}
             onServicioActualizado={handleMiServicioActualizado}
+          />
+        )}
+      </Modal>
+
+      {/* Modal para suscribir usuario (super_admin) */}
+      <Modal
+        isOpen={!!servicioParaSuscribirUsuario}
+        onClose={() => setServicioParaSuscribirUsuario(null)}
+        title="Suscribir usuario al servicio"
+        size="sm"
+      >
+        {servicioParaSuscribirUsuario && (
+          <SuscribirUsuarioModal
+            servicio={servicioParaSuscribirUsuario}
+            profesionales={profesionales}
+            onClose={() => setServicioParaSuscribirUsuario(null)}
+            onSuscribir={handleSuscribirUsuario}
           />
         )}
       </Modal>
