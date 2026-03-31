@@ -26,6 +26,8 @@ function ClientesPage() {
   });
   const [profesionales, setProfesionales] = useState<Profesional[]>([]);
   const [profesionalSeleccionado, setProfesionalSeleccionado] = useState<Profesional | null>(null);
+  const [pagina, setPagina] = useState(1);
+  const [busqueda, setBusqueda] = useState('');
 
   const isAdmin = authState.roles.includes('admin');
   const isSuperAdmin = authState.roles.includes('super_admin');
@@ -41,12 +43,21 @@ function ClientesPage() {
     }
   }, [isSuperAdmin]);
 
-  // Obtener clientes con caché
-  const { data: clientes, loading, revalidate } = useFetch(
-    buildKey(ENTITIES.CLIENTES),
-    () => clienteService.getClientes(),
+  // Obtener clientes con caché (paginado + búsqueda)
+  const { data: clientesResp, loading, revalidate } = useFetch(
+    buildKey(ENTITIES.CLIENTES, `${pagina}:${busqueda}`),
+    () => clienteService.getClientes(pagina, 20, busqueda || undefined),
     { ttl: TTL.SHORT }
   );
+
+  const clientes = clientesResp?.items || [];
+  const totalPaginas = clientesResp?.total_paginas ?? 1;
+  const totalClientes = clientesResp?.total ?? 0;
+
+  const handleBusquedaChange = (valor: string) => {
+    setBusqueda(valor);
+    setPagina(1);
+  };
 
   const handleOpenModal = (cliente: Cliente | null = null) => {
     setSelectedCliente(cliente);
@@ -121,11 +132,18 @@ function ClientesPage() {
               )}
               
               <ClientesCatalogo
-                clientes={clientes || []}
+                clientes={clientes}
                 loading={loading}
                 isAdmin={isAdmin}
                 onEditar={handleEditar}
                 onToggleActivo={handleToggleActivo}
+                pagina={pagina}
+                totalPaginas={totalPaginas}
+                total={totalClientes}
+                porPagina={20}
+                busqueda={busqueda}
+                onPaginaChange={setPagina}
+                onBusquedaChange={handleBusquedaChange}
               />
             </div>
           )}
