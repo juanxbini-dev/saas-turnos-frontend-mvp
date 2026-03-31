@@ -116,7 +116,12 @@ export const VenderModal: React.FC<VenderModalProps> = ({
     setItems(prev => prev.filter(i => i.producto.id !== productoId));
   };
 
-  const total = items.reduce((sum, i) => sum + i.producto.precio * i.cantidad, 0);
+  const getPrecioUnitario = (producto: Producto): number => {
+    if (metodoPago === 'transferencia') return Number(producto.precio_transferencia) || 0;
+    return Number(producto.precio_efectivo) || 0;
+  };
+
+  const total = items.reduce((sum, i) => sum + getPrecioUnitario(i.producto) * i.cantidad, 0);
 
   const handleSubmit = async () => {
     if (items.length === 0) {
@@ -133,7 +138,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
         items: items.map(i => ({
           producto_id: i.producto.id,
           cantidad: i.cantidad,
-          precio_unitario: i.producto.precio,
+          precio_unitario: getPrecioUnitario(i.producto),
         })),
       });
       toast.success('Venta registrada');
@@ -265,7 +270,9 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                             Stock: {p.stock}
                           </p>
                         </div>
-                        <span className="text-sm font-semibold text-gray-900">${p.precio.toLocaleString('es-AR')}</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          ${getPrecioUnitario(p).toLocaleString('es-AR')}
+                        </span>
                       </button>
                     ))
                   )}
@@ -280,7 +287,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                   <div key={item.producto.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.producto.nombre}</p>
-                      <p className="text-xs text-gray-500">${item.producto.precio.toLocaleString('es-AR')} c/u</p>
+                      <p className="text-xs text-gray-500">${getPrecioUnitario(item.producto).toLocaleString('es-AR')} c/u</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -301,7 +308,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                       </button>
                     </div>
                     <span className="text-sm font-semibold w-20 text-right">
-                      ${(item.producto.precio * item.cantidad).toLocaleString('es-AR')}
+                      ${(getPrecioUnitario(item.producto) * item.cantidad).toLocaleString('es-AR')}
                     </span>
                     <button type="button" onClick={() => handleRemove(item.producto.id)} className="text-gray-400 hover:text-red-500">
                       <Trash2 className="w-4 h-4" />

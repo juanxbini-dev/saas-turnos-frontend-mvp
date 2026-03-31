@@ -3,7 +3,9 @@ export interface Producto {
   empresa_id: string;
   nombre: string;
   descripcion: string | null;
-  precio: number;
+  precio_efectivo: number | null;
+  precio_transferencia: number | null;
+  costo: number | null;
   stock: number;
   activo: boolean;
   marca_id: string | null;
@@ -15,7 +17,9 @@ export interface Producto {
 export interface CreateProductoData {
   nombre: string;
   descripcion?: string;
-  precio: number;
+  precio_efectivo: number;
+  precio_transferencia: number;
+  costo?: number | null;
   stock: number;
   marca_id?: string | null;
 }
@@ -23,9 +27,28 @@ export interface CreateProductoData {
 export interface UpdateProductoData {
   nombre?: string;
   descripcion?: string;
-  precio?: number;
+  precio_efectivo?: number;
+  precio_transferencia?: number;
+  costo?: number | null;
   activo?: boolean;
   marca_id?: string | null;
+}
+
+export interface ProductoVentaFinanzas {
+  producto_id: string;
+  nombre: string;
+  precio_efectivo: number | null;
+  precio_transferencia: number | null;
+  costo: number | null;
+  total_unidades: number;
+  unidades_efectivo: number;
+  unidades_transferencia: number;
+  unidades_pendiente: number;
+  total_efectivo: number;
+  total_transferencia: number;
+  total_pendiente: number;
+  total_comision: number;
+  total_neto_vendedor: number;
 }
 
 export interface TopProducto {

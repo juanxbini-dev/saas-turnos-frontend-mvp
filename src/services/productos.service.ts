@@ -1,5 +1,5 @@
 import axiosInstance from '../api/axiosInstance';
-import { Producto, CreateProductoData, UpdateProductoData, ProductosStats } from '../types/producto.types';
+import { Producto, CreateProductoData, UpdateProductoData, ProductosStats, ProductoVentaFinanzas } from '../types/producto.types';
 
 export const productosService = {
   async getProductos(): Promise<Producto[]> {
@@ -29,5 +29,13 @@ export const productosService = {
 
   async deleteProducto(id: string): Promise<void> {
     await axiosInstance.delete(`/api/productos/${id}`);
+  },
+
+  async getVentasFinanzas(fechaDesde?: string, fechaHasta?: string): Promise<ProductoVentaFinanzas[]> {
+    const params: Record<string, string> = {};
+    if (fechaDesde) params.fecha_desde = fechaDesde;
+    if (fechaHasta) params.fecha_hasta = fechaHasta;
+    const res = await axiosInstance.get('/api/productos/ventas-finanzas', { params });
+    return res.data.data;
   },
 };

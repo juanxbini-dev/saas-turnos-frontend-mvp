@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power, Trash2, Tag, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ProductosVentasTab } from '../components/productos/ProductosVentasTab';
 import { productosService } from '../services/productos.service';
 import { marcasService } from '../services/marcas.service';
 import { Producto } from '../types/producto.types';
@@ -12,7 +13,7 @@ import { MarcaModal } from '../components/productos/MarcaModal';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../context/AuthContext';
 
-type Tab = 'catalogo' | 'marcas' | 'estadisticas';
+type Tab = 'catalogo' | 'marcas' | 'estadisticas' | 'ventas';
 
 const PAGE_SIZE = 10;
 
@@ -158,7 +159,7 @@ function ProductosPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit">
-          {(['catalogo', 'marcas', 'estadisticas'] as Tab[]).map(t => (
+          {(['catalogo', 'marcas', 'estadisticas', 'ventas'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -166,7 +167,7 @@ function ProductosPage() {
                 tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              {t === 'catalogo' ? 'Catálogo' : t === 'marcas' ? 'Marcas' : 'Estadísticas'}
+              {t === 'catalogo' ? 'Catálogo' : t === 'marcas' ? 'Marcas' : t === 'estadisticas' ? 'Estadísticas' : 'Ventas'}
             </button>
           ))}
         </div>
@@ -174,22 +175,6 @@ function ProductosPage() {
         {/* TAB: CATÁLOGO */}
         {tab === 'catalogo' && (
           <>
-            {/* Alerta bajo stock */}
-            {bajoStock.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-red-600" />
-                  <span className="text-sm font-semibold text-red-800">Productos con stock bajo (≤3 unidades)</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {bajoStock.map(p => (
-                    <span key={p.id} className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full">
-                      {p.nombre}: <strong>{p.stock}</strong>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Filtros */}
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -232,7 +217,7 @@ function ProductosPage() {
                       <tr className="bg-gray-50 border-b">
                         <th className="text-left px-4 py-3 font-medium text-gray-700">Nombre</th>
                         <th className="text-left px-4 py-3 font-medium text-gray-700">Marca</th>
-                        <th className="text-right px-4 py-3 font-medium text-gray-700">Precio</th>
+                        <th className="text-right px-4 py-3 font-medium text-gray-700">Ef. / Transf.</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Stock</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Estado</th>
                         {isAdmin && <th className="text-right px-4 py-3 font-medium text-gray-700">Acciones</th>}
@@ -251,8 +236,10 @@ function ProductosPage() {
                               : <span className="text-xs text-gray-300">—</span>
                             }
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                            ${p.precio.toLocaleString('es-AR')}
+                          <td className="px-4 py-3 text-right text-sm text-gray-900">
+                            <span className="font-semibold">${Number(p.precio_efectivo || 0).toLocaleString('es-AR')}</span>
+                            <span className="text-gray-400 mx-1">/</span>
+                            <span className="font-semibold">${Number(p.precio_transferencia || 0).toLocaleString('es-AR')}</span>
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span className={`inline-flex items-center justify-center w-10 h-7 rounded-full text-sm font-bold ${
@@ -325,9 +312,10 @@ function ProductosPage() {
                               </span>
                             )}
                           </div>
-                          <span className="font-semibold text-gray-900 shrink-0">
-                            ${p.precio.toLocaleString('es-AR')}
-                          </span>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs text-gray-500">Ef. <span className="font-semibold text-gray-900">${Number(p.precio_efectivo || 0).toLocaleString('es-AR')}</span></p>
+                            <p className="text-xs text-gray-500">Tr. <span className="font-semibold text-gray-900">${Number(p.precio_transferencia || 0).toLocaleString('es-AR')}</span></p>
+                          </div>
                         </div>
                         <div className="mt-2 flex items-center gap-2">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${
@@ -564,6 +552,9 @@ function ProductosPage() {
           </div>
         )}
       </main>
+
+        {/* TAB: VENTAS */}
+        {tab === 'ventas' && <ProductosVentasTab />}
 
       {/* Modales */}
       {isAdmin && productoModal.open && (

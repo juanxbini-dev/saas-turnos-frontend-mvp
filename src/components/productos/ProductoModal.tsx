@@ -22,7 +22,9 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
   const [form, setForm] = useState({
     nombre: producto?.nombre || '',
     descripcion: producto?.descripcion || '',
-    precio: producto?.precio?.toString() || '0',
+    precio_efectivo: producto?.precio_efectivo?.toString() || '0',
+    precio_transferencia: producto?.precio_transferencia?.toString() || '0',
+    costo: producto?.costo?.toString() || '',
     stock: producto?.stock?.toString() || '0',
     marca_id: producto?.marca_id || '',
   });
@@ -63,7 +65,9 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
         await productosService.updateProducto(producto!.id, {
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim() || undefined,
-          precio: parseFloat(form.precio),
+          precio_efectivo: parseFloat(form.precio_efectivo),
+          precio_transferencia: parseFloat(form.precio_transferencia),
+          costo: form.costo !== '' ? parseFloat(form.costo) : null,
           marca_id: form.marca_id || null,
         });
         toast.success('Producto actualizado');
@@ -71,10 +75,12 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
         await productosService.createProducto({
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim() || undefined,
-          precio: parseFloat(form.precio),
+          precio_efectivo: parseFloat(form.precio_efectivo),
+          precio_transferencia: parseFloat(form.precio_transferencia),
+          costo: form.costo !== '' ? parseFloat(form.costo) : null,
           stock: parseInt(form.stock),
           marca_id: form.marca_id || null,
-        } as CreateProductoData);
+        });
         toast.success('Producto creado');
       }
       onSaved();
@@ -156,14 +162,38 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Precio ($)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Precio efectivo ($)</label>
               <Input
                 type="number"
                 min="0"
                 step="0.01"
-                value={form.precio}
-                onChange={e => setForm(f => ({ ...f, precio: e.target.value }))}
+                value={form.precio_efectivo}
+                onChange={e => setForm(f => ({ ...f, precio_efectivo: e.target.value }))}
                 required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Precio transferencia ($)</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.precio_transferencia}
+                onChange={e => setForm(f => ({ ...f, precio_transferencia: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Costo ($)</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.costo}
+                onChange={e => setForm(f => ({ ...f, costo: e.target.value }))}
+                placeholder="Opcional"
               />
             </div>
             {!isEditing && (

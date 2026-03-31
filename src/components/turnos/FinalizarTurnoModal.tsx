@@ -43,6 +43,20 @@ export function FinalizarTurnoModal({
     { ttl: 60 }
   );
 
+  // Recalcular precios de productos cuando cambia el método de pago
+  React.useEffect(() => {
+    if (!catalogoProductos || productos.length === 0) return;
+    setProductos(prev => prev.map(p => {
+      const catalogoProd = catalogoProductos.find(c => c.id === p.producto_id);
+      if (!catalogoProd) return p;
+      const nuevoPrecio = metodoPago === 'transferencia'
+        ? Number(catalogoProd.precio_transferencia) || 0
+        : Number(catalogoProd.precio_efectivo) || 0;
+      return { ...p, precio_unitario: nuevoPrecio, precio_total: nuevoPrecio * p.cantidad };
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metodoPago]);
+
   // Calcular totales derivado directo
   const calculo = useMemo<CalculoCompletoTurno | null>(() => {
     const precioServicio = precioModificado ? parseFloat(precioModificado) || 0 : Number(turno.precio);
@@ -66,13 +80,16 @@ export function FinalizarTurnoModal({
           : p
       ));
     } else {
-      const producto: VentaProductoData = {
+      const precioUnitario = metodoPago === 'transferencia'
+        ? Number(selectedCatalogProducto.precio_transferencia) || 0
+        : Number(selectedCatalogProducto.precio_efectivo) || 0;
+    const producto: VentaProductoData = {
         id: generarId(),
         producto_id: selectedCatalogProducto.id,
         nombre_producto: selectedCatalogProducto.nombre,
         cantidad: nuevaCantidad,
-        precio_unitario: selectedCatalogProducto.precio,
-        precio_total: selectedCatalogProducto.precio * nuevaCantidad,
+        precio_unitario: precioUnitario,
+        precio_total: precioUnitario * nuevaCantidad,
       };
       setProductos([...productos, producto]);
     }
