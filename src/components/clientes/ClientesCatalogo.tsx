@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Table, Button, Badge, Card, DataControls, EmptyState } from '../ui';
+import { Table, Button, Badge, Card, EmptyState, Pagination } from '../ui';
 import { Cliente } from '../../types/cliente.types';
-import { Edit, Power, Users } from 'lucide-react';
+import { Edit, Power, Users, Search } from 'lucide-react';
 
 interface ClientesCatalogoProps {
   clientes: Cliente[];
@@ -9,6 +9,13 @@ interface ClientesCatalogoProps {
   isAdmin: boolean;
   onEditar: (cliente: Cliente) => void;
   onToggleActivo: (cliente: Cliente) => void;
+  pagina: number;
+  totalPaginas: number;
+  total: number;
+  porPagina: number;
+  busqueda: string;
+  onPaginaChange: (p: number) => void;
+  onBusquedaChange: (v: string) => void;
 }
 
 export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
@@ -16,7 +23,14 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
   loading,
   isAdmin,
   onEditar,
-  onToggleActivo
+  onToggleActivo,
+  pagina,
+  totalPaginas,
+  total,
+  porPagina,
+  busqueda,
+  onPaginaChange,
+  onBusquedaChange
 }) => {
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
 
@@ -162,66 +176,59 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
     );
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-gray-500">Cargando clientes...</div>
-      </div>
-    );
-  }
-
-  // Estado vacío inicial sin datos
-  if (clientes.length === 0) {
-    return (
-      <EmptyState
-        icon={Users}
-        title="No hay clientes"
-        message={isAdmin ? "Creá tu primer cliente usando el botón 'Nuevo cliente'" : "No hay clientes disponibles"}
-      />
-    );
-  }
-
   return (
-    <DataControls
-      data={clientes}
-      searchFields={['nombre', 'email', 'telefono']}
-      sortOptions={[
-        { value: 'nombre', label: 'Nombre' },
-        { value: 'email', label: 'Email' },
-        { value: 'created_at', label: 'Fecha de creación' },
-        { value: 'activo', label: 'Estado' },
-      ]}
-      defaultSort="nombre"
-      pageSize={10}
-    >
-      {(filteredData) => (
+    <div className="space-y-4">
+      {/* Búsqueda */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Buscar por nombre, email o teléfono..."
+          value={busqueda}
+          onChange={e => onBusquedaChange(e.target.value)}
+          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="text-gray-500">Cargando clientes...</div>
+        </div>
+      ) : clientes.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No hay clientes"
+          message={busqueda ? "No se encontraron clientes con ese criterio de búsqueda" : isAdmin ? "Creá tu primer cliente usando el botón 'Nuevo cliente'" : "No hay clientes disponibles"}
+        />
+      ) : (
         <>
           {/* Desktop */}
           <div className="hidden lg:block">
-            <Table 
-              columns={columns} 
-              data={filteredData} 
+            <Table
+              columns={columns}
+              data={clientes}
               loading={loading}
-              emptyMessage="No se encontraron clientes con los filtros aplicados"
+              emptyMessage="No se encontraron clientes"
             />
           </div>
 
           {/* Mobile */}
           <div className="lg:hidden space-y-3">
-            {filteredData.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title="No hay clientes"
-                message="No se encontraron clientes con los filtros aplicados"
-              />
-            ) : (
-              filteredData.map(cliente => (
-                <ClienteCard key={cliente.id} cliente={cliente} />
-              ))
-            )}
+            {clientes.map(cliente => (
+              <ClienteCard key={cliente.id} cliente={cliente} />
+            ))}
           </div>
+
+          <Pagination
+            page={pagina}
+            totalPages={totalPaginas}
+            total={total}
+            limit={porPagina}
+            onPageChange={onPaginaChange}
+            className="mt-4"
+          />
         </>
       )}
-    </DataControls>
+    </div>
   );
 };
