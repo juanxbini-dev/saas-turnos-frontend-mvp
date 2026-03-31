@@ -143,15 +143,16 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     }
   }, [servicios]);
 
-  // Obtener clientes
+  // Obtener clientes (todos, sin paginación para el selector)
   const {
-    data: clientes,
+    data: clientesResp,
     loading: loadingClientes
   } = useFetch(
-    buildKey(ENTITIES.CLIENTES),
-    () => clienteService.getClientes(),
+    buildKey(ENTITIES.CLIENTES, 'all'),
+    () => clienteService.getClientes(1, 1000),
     { ttl: 300 }
   );
+  const clientes = clientesResp?.items;
 
   // Búsqueda de clientes
   const [clienteSearch, setClienteSearch] = useState('');

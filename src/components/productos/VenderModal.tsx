@@ -48,11 +48,12 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('efectivo');
   const [notas, setNotas] = useState('');
 
-  const { data: clientes, loading: loadingClientes } = useFetch(
-    buildKey(ENTITIES.CLIENTES),
-    () => clienteService.getClientes(),
+  const { data: clientesResp, loading: loadingClientes } = useFetch(
+    buildKey(ENTITIES.CLIENTES, 'all'),
+    () => clienteService.getClientes(1, 1000),
     { ttl: 300 }
   );
+  const clientes = clientesResp?.items;
 
   const { data: productos, loading: loadingProductos } = useFetch(
     'productos:lista',

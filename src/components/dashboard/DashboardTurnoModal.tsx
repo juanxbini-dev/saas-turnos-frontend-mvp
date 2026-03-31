@@ -58,12 +58,13 @@ export function DashboardTurnoModal({
   const fechaStr = fecha ? format(fecha, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }) : '';
   const horaStr = hora ? format(hora, 'HH:mm', { locale: es }) : '';
 
-  // Cargar clientes
-  const { data: clientes, loading: loadingClientes } = useFetch(
-    buildKey(ENTITIES.CLIENTES),
-    () => clienteService.getClientes(),
+  // Cargar clientes (todos, sin paginación para el selector)
+  const { data: clientesResp, loading: loadingClientes } = useFetch(
+    buildKey(ENTITIES.CLIENTES, 'all'),
+    () => clienteService.getClientes(1, 1000),
     { ttl: 300 }
   );
+  const clientes = clientesResp?.items;
 
   // Cargar servicios del profesional
   const { data: servicios, loading: loadingServicios } = useFetch(
