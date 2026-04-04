@@ -586,12 +586,8 @@ export function DashboardCalendario({
           <span className="text-gray-700">Disponible</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-500 rounded"></div>
-          <span className="text-gray-700">Bloqueado</span>
-        </div>
-        <div className="flex items-center gap-2">
           <div className="w-4 h-4 border border-gray-300 rounded bg-black/[.03]"></div>
-          <span className="text-gray-700">Habilitable</span>
+          <span className="text-gray-700">No disponible</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 border-2 border-gray-300 rounded opacity-30"></div>
@@ -725,17 +721,16 @@ export function DashboardCalendario({
           const isPast = date < new Date();
 
           let backgroundColor = 'transparent';
-          if (isBloqueado) backgroundColor = '#EF4444';
-          else if (isAvailable) backgroundColor = '#10B981';
+          if (isAvailable) backgroundColor = '#10B981';
           else if (!isPast) backgroundColor = 'rgba(0,0,0,0.03)';
 
           const isHabilitable = !isAvailable && !isBloqueado && !isPast;
 
           const style: React.CSSProperties = {
             backgroundColor,
-            borderColor: isBloqueado ? '#EF4444' : isAvailable ? '#10B981' : '#E5E7EB',
+            borderColor: isAvailable ? '#10B981' : '#E5E7EB',
             opacity: isPast ? 0.3 : 1,
-            cursor: (isAvailable || isHabilitable) && !isPast ? 'pointer' : 'not-allowed',
+            cursor: (isAvailable || isBloqueado || isHabilitable) && !isPast ? 'pointer' : 'not-allowed',
             height: '60px',
             position: 'relative',
             overflow: 'hidden',
