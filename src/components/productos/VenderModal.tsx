@@ -167,6 +167,27 @@ export const VenderModal: React.FC<VenderModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Método de pago */}
+          <section>
+            <label className="text-sm font-medium text-gray-700 block mb-2">Método de pago</label>
+            <div className="flex gap-2">
+              {(['efectivo', 'transferencia', 'pendiente'] as MetodoPago[]).map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMetodoPago(m)}
+                  className={`flex-1 py-2 rounded-lg border text-sm font-medium capitalize transition-colors ${
+                    metodoPago === m
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </section>
+
           {/* Cliente */}
           <section>
             <div className="flex items-center justify-between mb-2">
@@ -321,27 +342,6 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                 </div>
               </div>
             )}
-          </section>
-
-          {/* Método de pago */}
-          <section>
-            <label className="text-sm font-medium text-gray-700 block mb-2">Método de pago</label>
-            <div className="flex gap-2">
-              {(['efectivo', 'transferencia', 'pendiente'] as MetodoPago[]).map(m => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMetodoPago(m)}
-                  className={`flex-1 py-2 rounded-lg border text-sm font-medium capitalize transition-colors ${
-                    metodoPago === m
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
           </section>
 
           {/* Notas */}
