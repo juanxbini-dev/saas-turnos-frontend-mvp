@@ -40,8 +40,10 @@ const TimeSlotWrapper: React.FC<any> = ({ children }) => (
 );
 
 // Factory para el componente de evento con color dinámico
-const makeEventComponent = (color: string): React.FC<any> => ({ event, title }) => {
+const makeEventComponent = (color: string): React.FC<any> => ({ event }) => {
   const turno = event.resource as TurnoConDetalle;
+  const finalizado = turno?.estado === 'finalizado';
+  const bgColor = finalizado ? '#9CA3AF' : color;
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [showServicio, setShowServicio] = React.useState(true);
 
@@ -63,7 +65,7 @@ const makeEventComponent = (color: string): React.FC<any> => ({ event, title }) 
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        backgroundColor: color,
+        backgroundColor: bgColor,
         color: 'white',
         borderLeft: '3px solid rgba(255,255,255,0.6)',
         borderRadius: '2px',
@@ -73,6 +75,7 @@ const makeEventComponent = (color: string): React.FC<any> => ({ event, title }) 
         justifyContent: 'center',
         gap: '1px',
         cursor: 'pointer',
+        opacity: finalizado ? 0.6 : 1,
       }}
     >
       <div style={{ fontWeight: '700', fontSize: '12px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -80,7 +83,7 @@ const makeEventComponent = (color: string): React.FC<any> => ({ event, title }) 
       </div>
       {showServicio && (
         <div style={{ fontSize: '10px', opacity: 0.85, lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {turno.servicio}
+          {finalizado ? 'Finalizado' : turno.servicio}
         </div>
       )}
     </div>
@@ -746,16 +749,21 @@ export function DashboardCalendario({
 
           return { style };
         }}
-        eventPropGetter={() => ({
-          style: {
-            backgroundColor: color,
-            borderColor: color,
-            borderRadius: '2px',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer',
-          }
-        })}
+        eventPropGetter={(event: any) => {
+          const turno = event.resource as TurnoConDetalle;
+          const finalizado = turno?.estado === 'finalizado';
+          return {
+            style: {
+              backgroundColor: finalizado ? '#9CA3AF' : color,
+              borderColor: finalizado ? '#9CA3AF' : color,
+              borderRadius: '2px',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              opacity: finalizado ? 0.6 : 1,
+            }
+          };
+        }}
         components={{
           timeSlotWrapper: TimeSlotWrapper,
           event: makeEventComponent(color),
