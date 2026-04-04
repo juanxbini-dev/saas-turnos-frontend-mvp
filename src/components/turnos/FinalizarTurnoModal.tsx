@@ -320,7 +320,7 @@ export function FinalizarTurnoModal({
                     <p className="text-sm font-medium">{selectedCatalogProducto.nombre}</p>
                     <p className="text-xs text-gray-500">
                       {selectedCatalogProducto.marca_nombre && <span className="text-blue-600 font-medium">{selectedCatalogProducto.marca_nombre} · </span>}
-                      {formatCurrency(selectedCatalogProducto.precio)} c/u · Stock: {selectedCatalogProducto.stock}
+                      {formatCurrency(metodoPago === 'transferencia' ? selectedCatalogProducto.precio_transferencia ?? 0 : selectedCatalogProducto.precio_efectivo ?? 0)} c/u · Stock: {selectedCatalogProducto.stock}
                     </p>
                   </div>
                   <button onClick={() => setSelectedCatalogProducto(null)} className="text-gray-400 hover:text-red-500">
@@ -361,7 +361,7 @@ export function FinalizarTurnoModal({
                               <p className="text-sm font-medium">{p.nombre}</p>
                               {p.marca_nombre && <p className="text-xs text-blue-600 font-medium">{p.marca_nombre}</p>}
                             </div>
-                            <span className="text-sm text-gray-500 shrink-0">{formatCurrency(p.precio)}</span>
+                            <span className="text-sm text-gray-500 shrink-0">{formatCurrency(metodoPago === 'transferencia' ? p.precio_transferencia ?? 0 : p.precio_efectivo ?? 0)}</span>
                           </button>
                         ))
                       )}
