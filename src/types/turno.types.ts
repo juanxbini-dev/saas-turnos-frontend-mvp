@@ -71,6 +71,7 @@ export interface ExcepcionDia {
   profesional_id: string;
   fecha: string;
   disponible: boolean;
+  tipo: 'reemplazo' | 'adicional';
   hora_inicio: string | null;
   hora_fin: string | null;
   intervalo_minutos: number | null;
