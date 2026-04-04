@@ -15,7 +15,9 @@ import { ShoppingCart } from 'lucide-react';
 
 export function DashboardPage() {
   // Dashboard público de la empresa - muestra calendario de turnos y disponibilidad
-  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
+  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(() =>
+    localStorage.getItem(`dashboard_profesional_${authUser?.authUser?.id ?? 'default'}`)
+  );
   const [modalOpen, setModalOpen] = useState(false);
   const [venderModalOpen, setVenderModalOpen] = useState(false);
   const [modalData, setModalData] = useState<{
@@ -29,6 +31,8 @@ export function DashboardPage() {
 
   const { state: authUser } = useAuth();
   const toast = useToast();
+
+  const storageKey = `dashboard_profesional_${authUser?.authUser?.id ?? 'default'}`;
 
   // Colores para profesionales
   const colors = [
@@ -60,21 +64,28 @@ export function DashboardPage() {
 
   // Seleccionar profesional por defecto (usuario autenticado si es profesional)
   useEffect(() => {
-    if (profesionales.length > 0 && !selectedProfesionalId) {
-      // Buscar al usuario autenticado en la lista de profesionales
-      const authProfesional = profesionales.find((p: any) => p.id === authUser?.authUser?.id);
-      if (authProfesional) {
-        setSelectedProfesionalId(authProfesional.id);
-      } else if (profesionales.length > 0) {
-        // Si no es profesional, seleccionar el primero
-        setSelectedProfesionalId(profesionales[0].id);
-      }
+    if (profesionales.length === 0) return;
+
+    // Si hay uno guardado en localStorage y existe en la lista, mantenerlo
+    const guardado = localStorage.getItem(storageKey);
+    if (guardado && profesionales.find((p: any) => p.id === guardado)) {
+      if (selectedProfesionalId !== guardado) setSelectedProfesionalId(guardado);
+      return;
     }
-  }, [profesionales, selectedProfesionalId, authUser]);
+
+    // Si no hay selección válida, usar el usuario autenticado o el primero
+    if (!selectedProfesionalId) {
+      const authProfesional = profesionales.find((p: any) => p.id === authUser?.authUser?.id);
+      const defaultId = authProfesional ? authProfesional.id : profesionales[0].id;
+      setSelectedProfesionalId(defaultId);
+      localStorage.setItem(storageKey, defaultId);
+    }
+  }, [profesionales, authUser, storageKey]);
 
   // Manejar selección de profesional
   const handleProfesionalSelect = (profesionalId: string) => {
     setSelectedProfesionalId(profesionalId);
+    localStorage.setItem(storageKey, profesionalId);
   };
 
   // Manejar selección de slot en el calendario
