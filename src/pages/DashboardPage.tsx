@@ -15,9 +15,12 @@ import { ShoppingCart } from 'lucide-react';
 
 export function DashboardPage() {
   // Dashboard público de la empresa - muestra calendario de turnos y disponibilidad
-  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(() =>
-    localStorage.getItem(`dashboard_profesional_${authUser?.authUser?.id ?? 'default'}`)
-  );
+  const { state: authUser } = useAuth();
+  const toast = useToast();
+
+  const storageKey = `dashboard_profesional_${authUser?.authUser?.id ?? 'default'}`;
+
+  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [venderModalOpen, setVenderModalOpen] = useState(false);
   const [modalData, setModalData] = useState<{
@@ -29,10 +32,11 @@ export function DashboardPage() {
     turno?: TurnoConDetalle;
   } | null>(null);
 
-  const { state: authUser } = useAuth();
-  const toast = useToast();
-
-  const storageKey = `dashboard_profesional_${authUser?.authUser?.id ?? 'default'}`;
+  // Restaurar profesional seleccionado desde localStorage al montar
+  useEffect(() => {
+    const guardado = localStorage.getItem(storageKey);
+    if (guardado) setSelectedProfesionalId(guardado);
+  }, [storageKey]);
 
   // Colores para profesionales
   const colors = [
