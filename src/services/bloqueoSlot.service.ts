@@ -12,9 +12,9 @@ export interface BloqueoSlot {
 }
 
 export const bloqueoSlotService = {
-  async getByRango(fechaInicio: string, fechaFin: string): Promise<BloqueoSlot[]> {
+  async getByRango(fechaInicio: string, fechaFin: string, profesionalId?: string): Promise<BloqueoSlot[]> {
     const response = await axiosInstance.get('/api/bloqueo-slots', {
-      params: { fecha_inicio: fechaInicio, fecha_fin: fechaFin }
+      params: { fecha_inicio: fechaInicio, fecha_fin: fechaFin, ...(profesionalId && { profesional_id: profesionalId }) }
     });
     return response.data.data;
   },
@@ -24,6 +24,7 @@ export const bloqueoSlotService = {
     hora_inicio: string;
     hora_fin: string;
     motivo?: string;
+    profesional_id?: string;
   }): Promise<BloqueoSlot> {
     const response = await axiosInstance.post('/api/bloqueo-slots', data);
     return response.data.data;

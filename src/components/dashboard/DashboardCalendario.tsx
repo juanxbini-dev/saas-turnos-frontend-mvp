@@ -269,7 +269,7 @@ export function DashboardCalendario({
     profesionalId ? buildKey(ENTITIES.BLOQUEOS, profesionalId, rangoInicio) : null,
     async () => {
       if (!profesionalId) return [];
-      return bloqueoSlotService.getByRango(rangoInicio, rangoFin);
+      return bloqueoSlotService.getByRango(rangoInicio, rangoFin, profesionalId);
     },
     { ttl: TTL.SHORT }
   );
@@ -460,7 +460,7 @@ export function DashboardCalendario({
     const horaFin = `${String(Math.floor(finMinutos / 60)).padStart(2, '0')}:${String(finMinutos % 60).padStart(2, '0')}`;
 
     try {
-      await bloqueoSlotService.create({ fecha: fechaStr, hora_inicio: horaStr, hora_fin: horaFin });
+      await bloqueoSlotService.create({ fecha: fechaStr, hora_inicio: horaStr, hora_fin: horaFin, profesional_id: profesionalId });
       cacheService.invalidateByPrefix(buildKey(ENTITIES.BLOQUEOS));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
       revalidateBloqueos();
@@ -758,36 +758,44 @@ export function DashboardCalendario({
           timeSlotWrapper: TimeSlotWrapper,
           event: makeEventComponent(color),
           toolbar: (props) => (
-            <div className="rbc-toolbar mb-4">
-              <span className="rbc-btn-group">
-                <button
-                  type="button"
-                  onClick={() => props.onView('day')}
-                  className={props.view === 'day' ? 'rbc-active' : ''}
-                >
-                  Día
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.onView('week')}
-                  className={props.view === 'week' ? 'rbc-active' : ''}
-                >
-                  Semana
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.onView('month')}
-                  className={props.view === 'month' ? 'rbc-active' : ''}
-                >
-                  Mes
-                </button>
-              </span>
-              <span className="rbc-toolbar-label">{props.label}</span>
-              <span className="rbc-btn-group">
-                <button type="button" onClick={() => props.onNavigate('PREV')}>Anterior</button>
-                <button type="button" onClick={() => props.onNavigate('TODAY')}>Hoy</button>
-                <button type="button" onClick={() => props.onNavigate('NEXT')}>Siguiente</button>
-              </span>
+            <div className="mb-4" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {/* Fila 1: vistas (Día / Semana / Mes) */}
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <span className="rbc-btn-group">
+                  <button
+                    type="button"
+                    onClick={() => props.onView('day')}
+                    className={props.view === 'day' ? 'rbc-active' : ''}
+                  >
+                    Día
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => props.onView('week')}
+                    className={props.view === 'week' ? 'rbc-active' : ''}
+                  >
+                    Semana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => props.onView('month')}
+                    className={props.view === 'month' ? 'rbc-active' : ''}
+                  >
+                    Mes
+                  </button>
+                </span>
+              </div>
+              {/* Fila 2: navegación + label */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <span className="rbc-btn-group">
+                  <button type="button" onClick={() => props.onNavigate('PREV')}>‹</button>
+                  <button type="button" onClick={() => props.onNavigate('TODAY')}>Hoy</button>
+                  <button type="button" onClick={() => props.onNavigate('NEXT')}>›</button>
+                </span>
+                <span className="rbc-toolbar-label" style={{ flex: 1, textAlign: 'center', fontWeight: 600, fontSize: isMobile ? '13px' : '16px' }}>
+                  {props.label}
+                </span>
+              </div>
             </div>
           )
         }}
