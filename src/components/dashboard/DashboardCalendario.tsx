@@ -478,7 +478,14 @@ export function DashboardCalendario({
       return;
     }
 
-    const e = slotInfo.box || slotInfo.bounds;
+    // Si hay un turno activo en este slot, no mostrar menú (se maneja con handleSelectEvent)
+    const hayTurno = eventsWithDemo.some((ev: any) => {
+      const start: Date = ev.start;
+      const end: Date = ev.end;
+      return slotInfo.start >= start && slotInfo.start < end;
+    });
+    if (hayTurno) return;
+
     const menuW = 190;
     const menuH = 160;
     const raw = lastPointerRef.current;
@@ -503,7 +510,7 @@ export function DashboardCalendario({
 
     // Slot disponible: mostrar menú para agendar o bloquear
     setSlotMenu({ x, y, fecha: slotInfo.start, hora: slotInfo.start });
-  }, [isSlotAvailable, getBloqueoEnSlot, profesionalId, toast]);
+  }, [isSlotAvailable, getBloqueoEnSlot, profesionalId, toast, eventsWithDemo]);
 
   // Manejar selección de evento
   const handleSelectEvent = useCallback((event: any, e: React.SyntheticEvent) => {
