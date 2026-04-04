@@ -106,10 +106,12 @@ export const disponibilidadService = {
   async createExcepcion(data: {
     fecha: string;
     disponible: boolean;
+    tipo?: 'reemplazo' | 'adicional';
     hora_inicio?: string;
     hora_fin?: string;
     intervalo_minutos?: number;
     notas?: string;
+    profesional_id?: string;
   }): Promise<ExcepcionDia> {
     const response = await axiosInstance.post('/api/turnos/excepciones', data);
     return response.data.data;

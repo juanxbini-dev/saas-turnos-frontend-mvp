@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, dateFnsLocalizer, View, SlotInfo } from 'react-big-calendar';
 import { format, parse, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -38,41 +39,50 @@ const TimeSlotWrapper: React.FC<any> = ({ children }) => (
   </div>
 );
 
-// Factory para el componente de evento desktop con color dinámico
-const makeEventComponent = (color: string): React.FC<any> => ({ event }) => {
+// Factory para el componente de evento con color dinámico
+const makeEventComponent = (color: string): React.FC<any> => ({ event, title }) => {
   const turno = event.resource as TurnoConDetalle;
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [showServicio, setShowServicio] = React.useState(true);
+
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      setShowServicio(el.offsetHeight >= 38);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div style={{
-      padding: '2px 3px',
-      width: '100%',
-      overflow: 'hidden',
-      backgroundColor: color,
-      color: 'white',
-      fontSize: '10px',
-      fontWeight: '600',
-      lineHeight: '1.0',
-      textAlign: 'left',
-      borderRadius: '2px',
-      border: 'none',
-      margin: '0',
-      boxSizing: 'border-box',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'flex-start',
-      alignItems: 'flex-start',
-      gap: '1px',
-      minHeight: '100%',
-      cursor: 'pointer'
-    }}>
-      <div style={{ fontWeight: '700', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+    <div
+      ref={containerRef}
+      style={{
+        padding: '3px 5px 3px 8px',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        backgroundColor: color,
+        color: 'white',
+        borderLeft: '3px solid rgba(255,255,255,0.6)',
+        borderRadius: '2px',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        gap: '1px',
+        cursor: 'pointer',
+      }}
+    >
+      <div style={{ fontWeight: '700', fontSize: '12px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {turno.cliente_nombre}
       </div>
-      <div style={{ fontSize: '8px', opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-        {turno.servicio}
-      </div>
-      <div style={{ fontSize: '7px', opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-        {turno.hora}
-      </div>
+      {showServicio && (
+        <div style={{ fontSize: '10px', opacity: 0.85, lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {turno.servicio}
+        </div>
+      )}
     </div>
   );
 };
@@ -98,10 +108,9 @@ const calendarFormats = {
     `${format(start, 'HH:mm', { locale: es })} - ${format(end, 'HH:mm', { locale: es })}`,
   selectRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
     `${format(start, 'dd MMM yyyy', { locale: es })} - ${format(end, 'dd MMM yyyy', { locale: es })}`,
-  eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${format(start, 'HH:mm', { locale: es })} - ${format(end, 'HH:mm', { locale: es })}`,
-  eventTimeRangeStartFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
-  eventTimeRangeEndFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
+  eventTimeRangeFormat: () => '',
+  eventTimeRangeStartFormat: () => '',
+  eventTimeRangeEndFormat: () => '',
   monthHeaderFormat: (date: Date) => format(date, 'MMMM yyyy', { locale: es }),
   dayHeaderFormat: (date: Date) => format(date, 'EEEE d', { locale: es }),
 };
@@ -136,10 +145,11 @@ export function DashboardCalendario({
   const [selectedTurno, setSelectedTurno] = useState<TurnoConDetalle | null>(null);
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date; bloqueoId?: string } | null>(null);
+  const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date; bloqueoId?: string; noDisponible?: boolean } | null>(null);
   const toast = useToast();
   const touchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
   const touchMovedRef = React.useRef(false);
+  const lastPointerRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Calcular rango de fechas según la vista
   const getDateRange = useCallback((date: Date, view: View) => {
@@ -245,7 +255,7 @@ export function DashboardCalendario({
   );
 
   // Cargar disponibilidad de slots para cada día en el rango visible
-  const { data: slotsDisponibles, loading: loadingSlots } = useFetch(
+  const { data: slotsDisponibles, loading: loadingSlots, revalidate: revalidateSlots } = useFetch(
     profesionalId ? buildKey(ENTITIES.SLOTS, profesionalId, rangoInicio) : null,
     async () => {
       if (!profesionalId) return [];
@@ -305,31 +315,16 @@ export function DashboardCalendario({
 
   const intervaloConfigurado = getIntervaloConfigurado();
 
-  // Función para obtener la hora más temprana disponible
-  const getPrimeraHoraDisponible = useCallback(() => {
-    if (!slotsDisponibles || loadingSlots) return 8; // Default 8 AM
-    
-    // Buscar el primer día con slots en la semana actual
-    const startDate = new Date(rangoInicio);
-    const endDate = new Date(rangoFin);
-    
-    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-      const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(date) : format(date, 'yyyy-MM-dd');
-      const slotsDelDia = (slotsDisponibles as Record<string, string[]>)[fechaStr] || [];
-      
-      if (slotsDelDia.length > 0) {
-        // Obtener la primera hora disponible y convertirla a número
-        const primeraHora = slotsDelDia[0];
-        const horaNum = parseInt(primeraHora.split(':')[0]);
-        dashboardLogger.debug('Primera hora disponible', { hora: horaNum });
-        return horaNum;
-      }
-    }
-    
-    return 8; // Default 8 AM si no hay slots
-  }, [slotsDisponibles, loadingSlots, rangoInicio, rangoFin]);
-
-  const primeraHoraDisponible = getPrimeraHoraDisponible();
+  // Hora de inicio de la jornada según el horario semanal configurado
+  // Usa configData (TTL 30min) en lugar de slots para estar disponible desde el primer render
+  const primeraHoraDisponible = useMemo(() => {
+    const disponibilidades = configData?.disponibilidades;
+    if (!disponibilidades?.length) return 8;
+    const horas = disponibilidades
+      .filter((d: any) => d.activo)
+      .map((d: any) => parseInt(d.hora_inicio.split(':')[0]));
+    return horas.length ? Math.min(...horas) : 8;
+  }, [configData]);
 
   // Transformar turnos al formato de react-big-calendar
   const events = (turnos || [])
@@ -484,8 +479,11 @@ export function DashboardCalendario({
     }
 
     const e = slotInfo.box || slotInfo.bounds;
-    const x = isMobile ? window.innerWidth / 2 - 90 : (e?.clientX ?? e?.x ?? window.innerWidth / 2);
-    const y = isMobile ? window.innerHeight / 2 - 80 : (e?.clientY ?? e?.y ?? window.innerHeight / 2);
+    const menuW = 190;
+    const menuH = 160;
+    const raw = lastPointerRef.current;
+    const x = Math.max(8, Math.min(raw.x, window.innerWidth - menuW - 8));
+    const y = Math.max(8, Math.min(raw.y, window.innerHeight - menuH - 8));
 
     // Si el slot está bloqueado, mostrar opción de desbloquear
     const bloqueo = getBloqueoEnSlot(slotInfo.start);
@@ -494,8 +492,12 @@ export function DashboardCalendario({
       return;
     }
 
-    // Si no está disponible (fuera de horario), no hacer nada
+    // Slot fuera del horario habitual: ofrecer habilitarlo
     if (!isSlotAvailable(slotInfo.start)) {
+      const isPast = slotInfo.start < new Date();
+      if (!isPast) {
+        setSlotMenu({ x, y, fecha: slotInfo.start, hora: slotInfo.start, noDisponible: true });
+      }
       return;
     }
 
@@ -536,6 +538,37 @@ export function DashboardCalendario({
     }
   }, [revalidate, toast]);
 
+  // Habilitar un slot fuera del horario habitual como excepción adicional
+  const handleHabilitarSlot = useCallback(async (fecha: Date, hora: Date) => {
+    try {
+      const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(fecha) : format(fecha, 'yyyy-MM-dd');
+      const horaStr = USE_NEW_DATE_HELPER ? DateHelper.formatTime(hora) : format(hora, 'HH:mm');
+      const intervalo = getIntervaloConfigurado();
+
+      const [h, m] = horaStr.split(':').map(Number);
+      const finMinutos = (h ?? 0) * 60 + (m ?? 0) + intervalo;
+      const horaFin = `${Math.floor(finMinutos / 60).toString().padStart(2, '0')}:${(finMinutos % 60).toString().padStart(2, '0')}`;
+
+      await disponibilidadService.createExcepcion({
+        fecha: fechaStr,
+        disponible: true,
+        tipo: 'adicional',
+        hora_inicio: horaStr,
+        hora_fin: horaFin,
+        intervalo_minutos: intervalo,
+        profesional_id: profesionalId,
+      });
+
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.CONFIGURACION));
+      revalidateSlots();
+      setSlotMenu(null);
+      toast.success(`Horario ${horaStr} habilitado`);
+    } catch {
+      toast.error('Error al habilitar el horario');
+    }
+  }, [getIntervaloConfigurado, revalidateSlots, toast]);
+
   // Cerrar popover
   const handlePopoverClose = useCallback(() => {
     setPopoverOpen(false);
@@ -557,8 +590,8 @@ export function DashboardCalendario({
           <span className="text-gray-700">Bloqueado</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-gray-300 rounded"></div>
-          <span className="text-gray-700">No disponible</span>
+          <div className="w-4 h-4 border border-gray-300 rounded bg-black/[.03]"></div>
+          <span className="text-gray-700">Habilitable</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 border-2 border-gray-300 rounded opacity-30"></div>
@@ -578,61 +611,70 @@ export function DashboardCalendario({
         </div>
       )}
 
-      {/* Menú contextual de slot */}
-      {slotMenu && (
-        <div
-          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]"
-          style={{ top: slotMenu.y, left: slotMenu.x }}
-        >
-          <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b border-gray-100">
-            {format(slotMenu.hora, 'HH:mm')} — {format(slotMenu.fecha, 'dd/MM/yyyy')}
-          </div>
-          {slotMenu.bloqueoId ? (
-            <button
-              className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
-              onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!)}
-            >
-              Desbloquear horario
-            </button>
-          ) : (
-            <>
-              <button
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                onClick={() => {
-                  setSlotMenu(null);
-                  onSlotSelect(slotMenu.fecha, slotMenu.hora);
-                }}
-              >
-                Agendar turno
-              </button>
-              <button
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                onClick={() => handleBloquearSlot(slotMenu.fecha, slotMenu.hora)}
-              >
-                Bloquear horario
-              </button>
-            </>
-          )}
-          <button
-            className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
-            onClick={() => setSlotMenu(null)}
+      {/* Menú contextual de slot — renderizado via Portal para evitar problemas con position:fixed en mobile */}
+      {slotMenu && createPortal(
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setSlotMenu(null)} />
+          <div
+            className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]"
+            style={{ top: slotMenu.y, left: slotMenu.x }}
           >
-            Cancelar
-          </button>
-        </div>
-      )}
-
-      {/* Overlay para cerrar el menú */}
-      {slotMenu && (
-        <div className="fixed inset-0 z-40" onClick={() => setSlotMenu(null)} />
+            <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b border-gray-100">
+              {format(slotMenu.hora, 'HH:mm')} — {format(slotMenu.fecha, 'dd/MM/yyyy')}
+            </div>
+            {slotMenu.bloqueoId ? (
+              <button
+                className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
+                onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!)}
+              >
+                Desbloquear horario
+              </button>
+            ) : slotMenu.noDisponible ? (
+              <button
+                className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                onClick={() => handleHabilitarSlot(slotMenu.fecha, slotMenu.hora)}
+              >
+                Habilitar este horario
+              </button>
+            ) : (
+              <>
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  onClick={() => {
+                    setSlotMenu(null);
+                    onSlotSelect(slotMenu.fecha, slotMenu.hora);
+                  }}
+                >
+                  Agendar turno
+                </button>
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  onClick={() => handleBloquearSlot(slotMenu.fecha, slotMenu.hora)}
+                >
+                  Bloquear horario
+                </button>
+              </>
+            )}
+            <button
+              className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
+              onClick={() => setSlotMenu(null)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </>,
+        document.body
       )}
 
       <div
         style={{ height: calendarHeight }}
-        onTouchStart={isMobile ? (e) => {
+        onMouseDown={(e) => { lastPointerRef.current = { x: e.clientX, y: e.clientY }; }}
+        onTouchStart={(e) => {
+          lastPointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          if (!isMobile) return;
           touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() };
           touchMovedRef.current = false;
-        } : undefined}
+        }}
         onTouchMove={isMobile ? (e) => {
           if (!touchStartRef.current) return;
           const dx = Math.abs(e.touches[0].clientX - touchStartRef.current.x);
@@ -673,7 +715,9 @@ export function DashboardCalendario({
         endAccessor="end"
         titleAccessor="title"
         resourceAccessor="resource"
-        scrollToTime={new Date(new Date().setHours(primeraHoraDisponible, 0, 0, 0))}
+        min={new Date(new Date().setHours(7, 0, 0, 0))}
+        max={new Date(new Date().setHours(23, 0, 0, 0))}
+        scrollToTime={new Date(new Date().setHours(Math.max(primeraHoraDisponible - 1, 7), 0, 0, 0))}
         timeGutterWidth={isMobile ? 45 : 70}
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
@@ -683,12 +727,15 @@ export function DashboardCalendario({
           let backgroundColor = 'transparent';
           if (isBloqueado) backgroundColor = '#EF4444';
           else if (isAvailable) backgroundColor = '#10B981';
+          else if (!isPast) backgroundColor = 'rgba(0,0,0,0.03)';
+
+          const isHabilitable = !isAvailable && !isBloqueado && !isPast;
 
           const style: React.CSSProperties = {
             backgroundColor,
             borderColor: isBloqueado ? '#EF4444' : isAvailable ? '#10B981' : '#E5E7EB',
             opacity: isPast ? 0.3 : 1,
-            cursor: isAvailable && !isPast ? 'pointer' : 'not-allowed',
+            cursor: (isAvailable || isHabilitable) && !isPast ? 'pointer' : 'not-allowed',
             height: '60px',
             position: 'relative',
             overflow: 'hidden',
@@ -709,9 +756,7 @@ export function DashboardCalendario({
         })}
         components={{
           timeSlotWrapper: TimeSlotWrapper,
-          event: isMobile ? () => (
-            <div style={{ width: '100%', height: '100%', minHeight: '100%', borderRadius: '2px', cursor: 'pointer' }} />
-          ) : makeEventComponent(color),
+          event: makeEventComponent(color),
           toolbar: (props) => (
             <div className="rbc-toolbar mb-4">
               <span className="rbc-btn-group">
