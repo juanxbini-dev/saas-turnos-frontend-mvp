@@ -27,6 +27,7 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
           <div className="flex items-center space-x-3">
             <Avatar
               name={usuario.nombre}
+              src={usuario.avatar_url ?? undefined}
               size="sm"
               className="flex-shrink-0"
             />
