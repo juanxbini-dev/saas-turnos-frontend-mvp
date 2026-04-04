@@ -40,8 +40,10 @@ const TimeSlotWrapper: React.FC<any> = ({ children }) => (
 );
 
 // Factory para el componente de evento con color dinámico
-const makeEventComponent = (color: string): React.FC<any> => ({ event, title }) => {
+const makeEventComponent = (color: string): React.FC<any> => ({ event }) => {
   const turno = event.resource as TurnoConDetalle;
+  const finalizado = turno?.estado === 'finalizado';
+  const bgColor = finalizado ? '#9CA3AF' : color;
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [showServicio, setShowServicio] = React.useState(true);
 
@@ -63,7 +65,7 @@ const makeEventComponent = (color: string): React.FC<any> => ({ event, title }) 
         width: '100%',
         height: '100%',
         overflow: 'hidden',
-        backgroundColor: color,
+        backgroundColor: bgColor,
         color: 'white',
         borderLeft: '3px solid rgba(255,255,255,0.6)',
         borderRadius: '2px',
@@ -73,6 +75,7 @@ const makeEventComponent = (color: string): React.FC<any> => ({ event, title }) 
         justifyContent: 'center',
         gap: '1px',
         cursor: 'pointer',
+        opacity: finalizado ? 0.6 : 1,
       }}
     >
       <div style={{ fontWeight: '700', fontSize: '12px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -80,7 +83,7 @@ const makeEventComponent = (color: string): React.FC<any> => ({ event, title }) 
       </div>
       {showServicio && (
         <div style={{ fontSize: '10px', opacity: 0.85, lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {turno.servicio}
+          {finalizado ? 'Finalizado' : turno.servicio}
         </div>
       )}
     </div>
@@ -478,7 +481,14 @@ export function DashboardCalendario({
       return;
     }
 
-    const e = slotInfo.box || slotInfo.bounds;
+    // Si hay un turno activo en este slot, no mostrar menú (se maneja con handleSelectEvent)
+    const hayTurno = eventsWithDemo.some((ev: any) => {
+      const start: Date = ev.start;
+      const end: Date = ev.end;
+      return slotInfo.start >= start && slotInfo.start < end;
+    });
+    if (hayTurno) return;
+
     const menuW = 190;
     const menuH = 160;
     const raw = lastPointerRef.current;
@@ -503,7 +513,7 @@ export function DashboardCalendario({
 
     // Slot disponible: mostrar menú para agendar o bloquear
     setSlotMenu({ x, y, fecha: slotInfo.start, hora: slotInfo.start });
-  }, [isSlotAvailable, getBloqueoEnSlot, profesionalId, toast]);
+  }, [isSlotAvailable, getBloqueoEnSlot, profesionalId, toast, eventsWithDemo]);
 
   // Manejar selección de evento
   const handleSelectEvent = useCallback((event: any, e: React.SyntheticEvent) => {
@@ -586,12 +596,8 @@ export function DashboardCalendario({
           <span className="text-gray-700">Disponible</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-500 rounded"></div>
-          <span className="text-gray-700">Bloqueado</span>
-        </div>
-        <div className="flex items-center gap-2">
           <div className="w-4 h-4 border border-gray-300 rounded bg-black/[.03]"></div>
-          <span className="text-gray-700">Habilitable</span>
+          <span className="text-gray-700">No disponible</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 border-2 border-gray-300 rounded opacity-30"></div>
@@ -725,17 +731,16 @@ export function DashboardCalendario({
           const isPast = date < new Date();
 
           let backgroundColor = 'transparent';
-          if (isBloqueado) backgroundColor = '#EF4444';
-          else if (isAvailable) backgroundColor = '#10B981';
+          if (isAvailable) backgroundColor = '#10B981';
           else if (!isPast) backgroundColor = 'rgba(0,0,0,0.03)';
 
           const isHabilitable = !isAvailable && !isBloqueado && !isPast;
 
           const style: React.CSSProperties = {
             backgroundColor,
-            borderColor: isBloqueado ? '#EF4444' : isAvailable ? '#10B981' : '#E5E7EB',
+            borderColor: isAvailable ? '#10B981' : '#E5E7EB',
             opacity: isPast ? 0.3 : 1,
-            cursor: (isAvailable || isHabilitable) && !isPast ? 'pointer' : 'not-allowed',
+            cursor: (isAvailable || isBloqueado || isHabilitable) && !isPast ? 'pointer' : 'not-allowed',
             height: '60px',
             position: 'relative',
             overflow: 'hidden',
@@ -744,16 +749,21 @@ export function DashboardCalendario({
 
           return { style };
         }}
-        eventPropGetter={() => ({
-          style: {
-            backgroundColor: color,
-            borderColor: color,
-            borderRadius: '2px',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer',
-          }
-        })}
+        eventPropGetter={(event: any) => {
+          const turno = event.resource as TurnoConDetalle;
+          const finalizado = turno?.estado === 'finalizado';
+          return {
+            style: {
+              backgroundColor: finalizado ? '#9CA3AF' : color,
+              borderColor: finalizado ? '#9CA3AF' : color,
+              borderRadius: '2px',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              opacity: finalizado ? 0.6 : 1,
+            }
+          };
+        }}
         components={{
           timeSlotWrapper: TimeSlotWrapper,
           event: makeEventComponent(color),
