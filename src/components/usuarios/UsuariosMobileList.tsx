@@ -63,7 +63,7 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
           {/* Cabecera: avatar + info + badges en columna */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <Avatar name={usuario.nombre} size="sm" className="flex-shrink-0" />
+              <Avatar name={usuario.nombre} src={usuario.avatar_url ?? undefined} size="sm" className="flex-shrink-0" />
               <div className="min-w-0">
                 <div className="font-medium text-gray-900 truncate">{usuario.nombre}</div>
                 <div className="text-sm text-gray-500">@{usuario.username}</div>

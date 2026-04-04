@@ -29,6 +29,7 @@ export interface CreateUsuarioData {
 export interface UpdateDatosData {
   nombre: string;
   username: string;
+  email: string;
   comision_turno?: number;
   comision_producto?: number;
 }
