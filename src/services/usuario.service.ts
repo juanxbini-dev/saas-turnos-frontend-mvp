@@ -29,5 +29,19 @@ export const usuarioService = {
   async toggleActivo(id: string, activo: boolean): Promise<Usuario> {
     const response = await axiosInstance.put(`/api/usuarios/${id}/activo`, { activo });
     return response.data.data;
+  },
+
+  async uploadAvatarAdmin(id: string, file: File): Promise<Usuario> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const response = await axiosInstance.post(`/api/usuarios/${id}/avatar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data.data;
+  },
+
+  async deleteAvatarAdmin(id: string): Promise<Usuario> {
+    const response = await axiosInstance.delete(`/api/usuarios/${id}/avatar`);
+    return response.data.data;
   }
 };
