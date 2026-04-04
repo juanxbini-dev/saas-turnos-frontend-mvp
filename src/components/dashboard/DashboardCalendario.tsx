@@ -269,7 +269,7 @@ export function DashboardCalendario({
     profesionalId ? buildKey(ENTITIES.BLOQUEOS, profesionalId, rangoInicio) : null,
     async () => {
       if (!profesionalId) return [];
-      return bloqueoSlotService.getByRango(rangoInicio, rangoFin);
+      return bloqueoSlotService.getByRango(rangoInicio, rangoFin, profesionalId);
     },
     { ttl: TTL.SHORT }
   );
@@ -460,7 +460,7 @@ export function DashboardCalendario({
     const horaFin = `${String(Math.floor(finMinutos / 60)).padStart(2, '0')}:${String(finMinutos % 60).padStart(2, '0')}`;
 
     try {
-      await bloqueoSlotService.create({ fecha: fechaStr, hora_inicio: horaStr, hora_fin: horaFin });
+      await bloqueoSlotService.create({ fecha: fechaStr, hora_inicio: horaStr, hora_fin: horaFin, profesional_id: profesionalId });
       cacheService.invalidateByPrefix(buildKey(ENTITIES.BLOQUEOS));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
       revalidateBloqueos();
