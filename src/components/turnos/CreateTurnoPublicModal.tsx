@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Spinner } from '../ui';
 import { Calendar, TimeSlots } from '../ui';
@@ -66,6 +66,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const [useExistingCliente, setUseExistingCliente] = useState(false);
   
   const toast = useToast();
+  const slotsRef = useRef<HTMLDivElement>(null);
 
   // Hook de disponibilidad
   const {
@@ -83,6 +84,15 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     reset: resetDisponibilidad,
     forceRefresh
   } = useDisponibilidad(profesionalId);
+
+  // Scroll automático a los slots cuando se selecciona una fecha
+  useEffect(() => {
+    if (selectedDate && slotsRef.current) {
+      setTimeout(() => {
+        slotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [selectedDate]);
 
   // Obtener servicios del profesional
   const {
@@ -348,7 +358,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                 />
 
                 {selectedDate && (
-                  <div>
+                  <div ref={slotsRef}>
                     <div className="flex items-center justify-between mb-3">
                       <p className={darkLabel}>Horarios disponibles</p>
                       <button onClick={forceRefresh} className={ghostBtnSm}>
