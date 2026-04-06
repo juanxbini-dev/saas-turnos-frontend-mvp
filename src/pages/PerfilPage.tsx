@@ -10,10 +10,9 @@ import { AvatarUploader } from '../components/perfil/AvatarUploader';
 import { CambiarPasswordModal } from '../components/perfil/CambiarPasswordModal';
 import { Usuario } from '../types/usuario.types';
 import { TurnoConDetalle } from '../types/turno.types';
-import { FinanzasSummary, EntradaFinanzas } from '../types/finanzas.types';
 import { useToast } from '../hooks/useToast';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getMesActual(): { desde: string; hasta: string; label: string } {
   const now = new Date();
@@ -34,13 +33,6 @@ function formatMoney(amount: number): string {
 
 function formatHora(hora: string): string {
   return hora.slice(0, 5); // HH:MM
-}
-
-function clientesUnicos(items: EntradaFinanzas[]): number {
-  const nombres = items
-    .map(item => item.cliente_nombre)
-    .filter((n): n is string => !!n);
-  return new Set(nombres).size;
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -159,8 +151,9 @@ function PerfilPage() {
   const mes = getMesActual();
 
   const [profile, setProfile] = useState<Usuario | null>(null);
-  const [summary, setSummary] = useState<FinanzasSummary | null>(null);
-  const [finanzasItems, setFinanzasItems] = useState<EntradaFinanzas[]>([]);
+  const [comisionMes, setComisionMes] = useState<number>(0);
+  const [turnosMesCount, setTurnosMesCount] = useState<number>(0);
+  const [clientesUnicosCount, setClientesUnicosCount] = useState<number>(0);
   const [turnosHoy, setTurnosHoy] = useState<TurnoConDetalle[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -188,14 +181,25 @@ function PerfilPage() {
         ordenar_por: 'fecha',
         orden: 'desc',
         pagina: 1,
-        por_pagina: 100 // máximo permitido por el backend
+        por_pagina: 100
       }),
       turnoService.getTurnos()
     ])
       .then(([finanzasRes, allTurnos]) => {
-        setSummary(finanzasRes.summary);
-        setFinanzasItems(finanzasRes.items);
+        // Comisión: de finanzas (solo turnos finalizados con comisión registrada)
+        setComisionMes(finanzasRes.summary.total_neto_profesional);
 
+        // Turnos y clientes únicos: de todos los turnos no-cancelados del mes
+        // (incluye confirmados aunque no estén finalizados todavía)
+        const turnosMes = allTurnos.filter(t =>
+          t.fecha >= mes.desde &&
+          t.fecha <= mes.hasta &&
+          t.estado !== 'cancelado'
+        );
+        setTurnosMesCount(turnosMes.length);
+        setClientesUnicosCount(new Set(turnosMes.map(t => t.cliente_id)).size);
+
+        // Turnos de hoy: pendientes/confirmados con hora >= ahora
         const proximos = allTurnos
           .filter(t =>
             t.fecha === today &&
@@ -264,15 +268,15 @@ function PerfilPage() {
             <StatCard
               icon={<CalendarDays size={22} />}
               label="Turnos"
-              value={summary?.cantidad_turnos ?? 0}
-              sublabel="completados"
+              value={turnosMesCount}
+              sublabel="realizados este mes"
               color="blue"
               loading={loadingStats}
             />
             <StatCard
               icon={<DollarSign size={22} />}
               label="Comisión generada"
-              value={summary ? formatMoney(summary.total_neto_profesional) : '$0'}
+              value={formatMoney(comisionMes)}
               sublabel="neto al profesional"
               color="green"
               loading={loadingStats}
@@ -280,7 +284,7 @@ function PerfilPage() {
             <StatCard
               icon={<Users size={22} />}
               label="Clientes únicos"
-              value={loadingStats ? 0 : clientesUnicos(finanzasItems)}
+              value={clientesUnicosCount}
               sublabel="atendidos este mes"
               color="purple"
               loading={loadingStats}
