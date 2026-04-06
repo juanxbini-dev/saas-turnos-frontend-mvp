@@ -250,7 +250,7 @@ function PerfilPage() {
               const prev = productoMap.get(p.nombre_producto) ?? { cantidad: 0, total: 0 };
               productoMap.set(p.nombre_producto, {
                 cantidad: prev.cantidad + p.cantidad,
-                total: prev.total + p.precio_total
+                total: prev.total + p.neto_vendedor
               });
             });
           });
