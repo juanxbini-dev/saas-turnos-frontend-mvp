@@ -169,7 +169,6 @@ function PerfilPage() {
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
-    const nowTime = new Date().toTimeString().slice(0, 5);
 
     Promise.all([
       finanzasService.getMyFinanzas({
@@ -191,20 +190,20 @@ function PerfilPage() {
 
         // Turnos y clientes únicos: de todos los turnos no-cancelados del mes
         // (incluye confirmados aunque no estén finalizados todavía)
-        const turnosMes = allTurnos.filter(t =>
-          t.fecha >= mes.desde &&
-          t.fecha <= mes.hasta &&
-          t.estado !== 'cancelado'
-        );
+        // t.fecha viene como "YYYY-MM-DDT..." desde PostgreSQL, se normaliza antes de comparar
+        const turnosMes = allTurnos.filter(t => {
+          const fecha = t.fecha.split('T')[0];
+          return fecha >= mes.desde && fecha <= mes.hasta && t.estado !== 'cancelado';
+        });
         setTurnosMesCount(turnosMes.length);
         setClientesUnicosCount(new Set(turnosMes.map(t => t.cliente_id)).size);
 
-        // Turnos de hoy: pendientes/confirmados con hora >= ahora
+        // Turnos de hoy: todos los pendientes/confirmados del día
+        // Nota: t.fecha viene como "YYYY-MM-DDT..." desde PostgreSQL, se toma solo la parte de fecha
         const proximos = allTurnos
           .filter(t =>
-            t.fecha === today &&
-            ['pendiente', 'confirmado'].includes(t.estado) &&
-            t.hora >= nowTime
+            t.fecha.split('T')[0] === today &&
+            ['pendiente', 'confirmado'].includes(t.estado)
           )
           .sort((a, b) => a.hora.localeCompare(b.hora))
           .slice(0, 5);
