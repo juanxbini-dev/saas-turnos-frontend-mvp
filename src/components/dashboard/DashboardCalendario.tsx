@@ -14,6 +14,7 @@ import { bloqueoSlotService, BloqueoSlot } from '../../services/bloqueoSlot.serv
 import { TurnoConDetalle } from '../../types/turno.types';
 import { TurnoPopover } from './TurnoPopover';
 import { DashboardTurnoModal } from './DashboardTurnoModal';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { useToast } from '../../hooks/useToast';
 import { cacheService } from '../../cache/cache.service';
 import { DateHelper } from '../../shared/utils/DateHelper';
@@ -150,6 +151,7 @@ export function DashboardCalendario({
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date; bloqueoId?: string; noDisponible?: boolean } | null>(null);
   const [turnoMenu, setTurnoMenu] = useState<{ x: number; y: number; turno: TurnoConDetalle } | null>(null);
+  const [cancelarConfirm, setCancelarConfirm] = useState<TurnoConDetalle | null>(null);
   const toast = useToast();
   const touchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
   const touchMovedRef = React.useRef(false);
@@ -543,9 +545,11 @@ export function DashboardCalendario({
       // Invalidar caché
       cacheService.invalidateByPrefix(buildKey(ENTITIES.CALENDARIO));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
-      
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
+
       // Refetch
       revalidate();
+      revalidateSlots();
       
       toast.success('Turno cancelado correctamente');
     } catch (error) {
@@ -701,16 +705,44 @@ export function DashboardCalendario({
                 Finalizar turno
               </button>
             )}
+            {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (
+              <button
+                className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50"
+                onClick={() => {
+                  const t = turnoMenu.turno;
+                  setTurnoMenu(null);
+                  setCancelarConfirm(t);
+                }}
+              >
+                Cancelar turno
+              </button>
+            )}
             <button
-              className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
+              className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50 border-t border-gray-100 mt-1"
               onClick={() => setTurnoMenu(null)}
             >
-              Cancelar
+              Cerrar
             </button>
           </div>
         </>,
         document.body
       )}
+
+      {/* Modal de confirmación para cancelar turno */}
+      <ConfirmModal
+        isOpen={!!cancelarConfirm}
+        onClose={() => setCancelarConfirm(null)}
+        onConfirm={async () => {
+          if (!cancelarConfirm) return;
+          await handleCancelarTurno(cancelarConfirm);
+          setCancelarConfirm(null);
+        }}
+        title="Cancelar turno"
+        message={`¿Estás seguro de que querés cancelar el turno de ${cancelarConfirm?.cliente_nombre}?`}
+        confirmText="Sí, cancelar turno"
+        cancelText="No, volver"
+        variant="danger"
+      />
 
       <div
         style={{ height: calendarHeight }}
