@@ -153,7 +153,11 @@ function InlineEditNombre({ userId, nombre, onUpdate }: InlineEditNombreProps) {
 function PerfilPage() {
   const { state } = useAuth();
   const toast = useToast();
-  const mes = getMesActual();
+  // ── Estado de mes compartido (resumen + productos) ──
+  const [mesSeleccionado, setMesSeleccionado] = useState<{ year: number; month: number }>(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  });
 
   const [profile, setProfile] = useState<Usuario | null>(null);
   const [comisionMes, setComisionMes] = useState<number>(0);
@@ -161,16 +165,11 @@ function PerfilPage() {
   const [clientesUnicosCount, setClientesUnicosCount] = useState<number>(0);
   const [turnosHoy, setTurnosHoy] = useState<TurnoConDetalle[]>([]);
   const [topProductos, setTopProductos] = useState<{ nombre: string; cantidad: number; total: number }[]>([]);
-  const [loadingProductos, setLoadingProductos] = useState(false);
-  const [mesProductos, setMesProductos] = useState<{ year: number; month: number }>(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() };
-  });
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-  // ── Carga de datos ──
+  // ── Carga de perfil (una sola vez) ──
   useEffect(() => {
     perfilService.getProfile()
       .then(setProfile)
@@ -178,14 +177,17 @@ function PerfilPage() {
       .finally(() => setLoadingProfile(false));
   }, []);
 
+  // ── Stats + productos: se re-ejecuta al cambiar el mes seleccionado ──
   useEffect(() => {
+    const rango = getMesDe(mesSeleccionado.year, mesSeleccionado.month);
     const today = new Date().toISOString().split('T')[0];
+    setLoadingStats(true);
 
     Promise.all([
       finanzasService.getMyFinanzas({
         periodo: 'mes',
-        fecha_desde: mes.desde,
-        fecha_hasta: mes.hasta,
+        fecha_desde: rango.desde,
+        fecha_hasta: rango.hasta,
         metodo_pago: 'todos',
         estado_comision: 'todos',
         ordenar_por: 'fecha',
@@ -196,22 +198,18 @@ function PerfilPage() {
       turnoService.getTurnos()
     ])
       .then(([finanzasRes, allTurnos]) => {
-        // Comisión: de finanzas (solo turnos finalizados con comisión registrada)
+        // Comisión del mes seleccionado
         setComisionMes(finanzasRes.summary.total_neto_profesional);
 
-
-        // Turnos y clientes únicos: de todos los turnos no-cancelados del mes
-        // (incluye confirmados aunque no estén finalizados todavía)
-        // t.fecha viene como "YYYY-MM-DDT..." desde PostgreSQL, se normaliza antes de comparar
+        // Turnos y clientes únicos del mes seleccionado
         const turnosMes = allTurnos.filter(t => {
           const fecha = t.fecha.split('T')[0];
-          return fecha >= mes.desde && fecha <= mes.hasta && t.estado !== 'cancelado';
+          return fecha >= rango.desde && fecha <= rango.hasta && t.estado !== 'cancelado';
         });
         setTurnosMesCount(turnosMes.length);
         setClientesUnicosCount(new Set(turnosMes.map(t => t.cliente_id)).size);
 
-        // Turnos de hoy: todos los pendientes/confirmados del día
-        // Nota: t.fecha viene como "YYYY-MM-DDT..." desde PostgreSQL, se toma solo la parte de fecha
+        // Turnos de hoy: siempre fijos al día actual sin importar el mes seleccionado
         const proximos = allTurnos
           .filter(t =>
             t.fecha.split('T')[0] === today &&
@@ -220,30 +218,10 @@ function PerfilPage() {
           .sort((a, b) => a.hora.localeCompare(b.hora))
           .slice(0, 5);
         setTurnosHoy(proximos);
-      })
-      .catch(() => toast.error('Error al cargar estadísticas'))
-      .finally(() => setLoadingStats(false));
-  }, []);
 
-  // ── Top productos: efecto independiente, se re-ejecuta al cambiar mes ──
-  useEffect(() => {
-    const rango = getMesDe(mesProductos.year, mesProductos.month);
-    setLoadingProductos(true);
-
-    finanzasService.getMyFinanzas({
-      periodo: 'mes',
-      fecha_desde: rango.desde,
-      fecha_hasta: rango.hasta,
-      metodo_pago: 'todos',
-      estado_comision: 'todos',
-      ordenar_por: 'fecha',
-      orden: 'desc',
-      pagina: 1,
-      por_pagina: 100
-    })
-      .then(res => {
+        // Top productos del mes seleccionado
         const productoMap = new Map<string, { cantidad: number; total: number }>();
-        res.items
+        finanzasRes.items
           .filter((item): item is VentaGrupadaFinanzas => item.tipo === 'venta_producto')
           .forEach(venta => {
             venta.items.forEach(p => {
@@ -254,18 +232,19 @@ function PerfilPage() {
               });
             });
           });
-        const top = Array.from(productoMap.entries())
-          .map(([nombre, data]) => ({ nombre, ...data }))
-          .sort((a, b) => b.cantidad - a.cantidad)
-          .slice(0, 3);
-        setTopProductos(top);
+        setTopProductos(
+          Array.from(productoMap.entries())
+            .map(([nombre, data]) => ({ nombre, ...data }))
+            .sort((a, b) => b.cantidad - a.cantidad)
+            .slice(0, 3)
+        );
       })
-      .catch(() => {/* silencioso — el card simplemente no muestra nada */})
-      .finally(() => setLoadingProductos(false));
-  }, [mesProductos]);
+      .catch(() => toast.error('Error al cargar estadísticas'))
+      .finally(() => setLoadingStats(false));
+  }, [mesSeleccionado]);
 
   const handleMesAnterior = () => {
-    setMesProductos(prev => {
+    setMesSeleccionado(prev => {
       const d = new Date(prev.year, prev.month - 1, 1);
       return { year: d.getFullYear(), month: d.getMonth() };
     });
@@ -273,8 +252,7 @@ function PerfilPage() {
 
   const handleMesSiguiente = () => {
     const now = new Date();
-    setMesProductos(prev => {
-      // No permitir navegar más allá del mes actual
+    setMesSeleccionado(prev => {
       if (prev.year === now.getFullYear() && prev.month === now.getMonth()) return prev;
       const d = new Date(prev.year, prev.month + 1, 1);
       return { year: d.getFullYear(), month: d.getMonth() };
@@ -283,7 +261,7 @@ function PerfilPage() {
 
   const esMesActual = (() => {
     const now = new Date();
-    return mesProductos.year === now.getFullYear() && mesProductos.month === now.getMonth();
+    return mesSeleccionado.year === now.getFullYear() && mesSeleccionado.month === now.getMonth();
   })();
 
   if (loadingProfile) {
@@ -333,9 +311,29 @@ function PerfilPage() {
 
         {/* ── Stats del mes ── */}
         <div>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Resumen de {mes.label}
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+              Resumen del mes
+            </h2>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleMesAnterior}
+                className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-sm text-gray-700 font-medium w-36 text-center capitalize">
+                {getMesDe(mesSeleccionado.year, mesSeleccionado.month).label}
+              </span>
+              <button
+                onClick={handleMesSiguiente}
+                disabled={esMesActual}
+                className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatCard
               icon={<CalendarDays size={22} />}
@@ -364,31 +362,9 @@ function PerfilPage() {
           </div>
         </div>
 
-        {/* ── Top productos con selector de mes ── */}
-        <Card
-          title="Productos más vendidos"
-          headerAction={
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleMesAnterior}
-                className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-sm text-gray-600 w-32 text-center capitalize">
-                {getMesDe(mesProductos.year, mesProductos.month).label}
-              </span>
-              <button
-                onClick={handleMesSiguiente}
-                disabled={esMesActual}
-                className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          }
-        >
-          {loadingProductos ? (
+        {/* ── Top productos ── */}
+        <Card title="Productos más vendidos">
+          {loadingStats ? (
             <div className="flex justify-center py-4">
               <Spinner size="sm" />
             </div>
