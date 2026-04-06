@@ -149,6 +149,7 @@ export function DashboardCalendario({
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date; bloqueoId?: string; noDisponible?: boolean } | null>(null);
+  const [turnoMenu, setTurnoMenu] = useState<{ x: number; y: number; turno: TurnoConDetalle } | null>(null);
   const toast = useToast();
   const touchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
   const touchMovedRef = React.useRef(false);
@@ -519,10 +520,14 @@ export function DashboardCalendario({
   const handleSelectEvent = useCallback((event: any, e: React.SyntheticEvent) => {
     const turno = event.resource as TurnoConDetalle;
     setSelectedTurno(turno);
-    
-    // En lugar de mostrar popover, llamar al callback del padre
-    onTurnoAction(turno);
-  }, [onTurnoAction]);
+
+    const menuW = 220;
+    const menuH = 130;
+    const raw = lastPointerRef.current;
+    const x = Math.max(8, Math.min(raw.x, window.innerWidth - menuW - 8));
+    const y = Math.max(8, Math.min(raw.y, window.innerHeight - menuH - 8));
+    setTurnoMenu({ x, y, turno });
+  }, []);
 
   // Manejar cambio de rango
   const handleRangeChange = useCallback((range: any) => {
@@ -664,6 +669,41 @@ export function DashboardCalendario({
             <button
               className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
               onClick={() => setSlotMenu(null)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </>,
+        document.body
+      )}
+
+      {/* Menú contextual de turno */}
+      {turnoMenu && createPortal(
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setTurnoMenu(null)} />
+          <div
+            className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]"
+            style={{ top: turnoMenu.y, left: turnoMenu.x }}
+          >
+            <div className="px-4 py-2 border-b border-gray-100">
+              <p className="text-xs font-semibold text-gray-800 truncate">{turnoMenu.turno.cliente_nombre}</p>
+              <p className="text-xs text-gray-400 truncate">{turnoMenu.turno.hora} — {turnoMenu.turno.servicio}</p>
+            </div>
+            {turnoMenu.turno.estado === 'confirmado' && (
+              <button
+                className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
+                onClick={() => {
+                  const t = turnoMenu.turno;
+                  setTurnoMenu(null);
+                  onTurnoAction(t);
+                }}
+              >
+                Finalizar turno
+              </button>
+            )}
+            <button
+              className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
+              onClick={() => setTurnoMenu(null)}
             >
               Cancelar
             </button>

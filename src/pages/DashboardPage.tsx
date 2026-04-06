@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ProfesionalFilter } from '../components/dashboard/ProfesionalFilter';
 import { DashboardCalendario } from '../components/dashboard/DashboardCalendario';
 import { DashboardTurnoModal } from '../components/dashboard/DashboardTurnoModal';
+import { FinalizarTurnoModal } from '../components/turnos/FinalizarTurnoModal';
 import { VenderModal } from '../components/productos/VenderModal';
 import { useFetch } from '../hooks/useFetch';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +24,7 @@ export function DashboardPage() {
   const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [venderModalOpen, setVenderModalOpen] = useState(false);
+  const [turnoAFinalizar, setTurnoAFinalizar] = useState<TurnoConDetalle | null>(null);
   const [modalData, setModalData] = useState<{
     type: 'disponible' | 'ocupado';
     profesionalNombre?: string;
@@ -112,13 +114,9 @@ export function DashboardPage() {
     setModalOpen(true);
   };
 
-  // Manejar clic en turno existente
+  // Manejar clic en turno existente — abre FinalizarTurnoModal directamente
   const handleTurnoAction = (turno: TurnoConDetalle) => {
-    setModalData({
-      type: 'ocupado',
-      turno
-    });
-    setModalOpen(true);
+    setTurnoAFinalizar(turno);
   };
 
   // Refrescar calendario después de acciones
@@ -217,7 +215,7 @@ export function DashboardPage() {
         </Card>
       )}
 
-      {/* Modal de turnos */}
+      {/* Modal de slot disponible (crear turno) */}
       <DashboardTurnoModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -228,6 +226,17 @@ export function DashboardPage() {
         turno={modalData?.turno}
         onRefresh={handleRefresh}
       />
+
+      {/* Modal finalizar turno (desde click en slot ocupado) */}
+      {turnoAFinalizar && (
+        <FinalizarTurnoModal
+          isOpen={!!turnoAFinalizar}
+          onClose={() => setTurnoAFinalizar(null)}
+          turno={turnoAFinalizar}
+          onSuccess={() => { setTurnoAFinalizar(null); handleRefresh(); }}
+          comisionesConfig={{ comision_turno: 20, comision_producto: 20 }}
+        />
+      )}
 
       {/* Modal venta directa */}
       {venderModalOpen && selectedProfesionalId && (
