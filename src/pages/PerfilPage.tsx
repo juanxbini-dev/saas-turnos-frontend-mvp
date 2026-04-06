@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, DollarSign, Users, Clock, KeyRound, Pencil, Check, X, ShoppingBag } from 'lucide-react';
+import { CalendarDays, DollarSign, Users, Clock, KeyRound, Pencil, Check, X, ShoppingBag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { VentaGrupadaFinanzas } from '../types/finanzas.types';
 import { useAuth } from '../context/AuthContext';
 import { perfilService } from '../services/perfil.service';
@@ -17,10 +17,14 @@ import { useToast } from '../hooks/useToast';
 
 function getMesActual(): { desde: string; hasta: string; label: string } {
   const now = new Date();
-  const desde = new Date(now.getFullYear(), now.getMonth(), 1);
-  const hasta = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return getMesDe(now.getFullYear(), now.getMonth());
+}
+
+function getMesDe(year: number, month: number): { desde: string; hasta: string; label: string } {
+  const desde = new Date(year, month, 1);
+  const hasta = new Date(year, month + 1, 0);
   const fmt = (d: Date) => d.toISOString().split('T')[0];
-  const label = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  const label = desde.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
   return { desde: fmt(desde), hasta: fmt(hasta), label };
 }
 
@@ -157,6 +161,11 @@ function PerfilPage() {
   const [clientesUnicosCount, setClientesUnicosCount] = useState<number>(0);
   const [turnosHoy, setTurnosHoy] = useState<TurnoConDetalle[]>([]);
   const [topProductos, setTopProductos] = useState<{ nombre: string; cantidad: number; total: number }[]>([]);
+  const [loadingProductos, setLoadingProductos] = useState(false);
+  const [mesProductos, setMesProductos] = useState<{ year: number; month: number }>(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  });
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -190,24 +199,6 @@ function PerfilPage() {
         // Comisión: de finanzas (solo turnos finalizados con comisión registrada)
         setComisionMes(finanzasRes.summary.total_neto_profesional);
 
-        // Top productos: agregar ventas de productos del mes por nombre
-        const productoMap = new Map<string, { cantidad: number; total: number }>();
-        finanzasRes.items
-          .filter((item): item is VentaGrupadaFinanzas => item.tipo === 'venta_producto')
-          .forEach(venta => {
-            venta.items.forEach(p => {
-              const prev = productoMap.get(p.nombre_producto) ?? { cantidad: 0, total: 0 };
-              productoMap.set(p.nombre_producto, {
-                cantidad: prev.cantidad + p.cantidad,
-                total: prev.total + p.precio_total
-              });
-            });
-          });
-        const top = Array.from(productoMap.entries())
-          .map(([nombre, data]) => ({ nombre, ...data }))
-          .sort((a, b) => b.cantidad - a.cantidad)
-          .slice(0, 3);
-        setTopProductos(top);
 
         // Turnos y clientes únicos: de todos los turnos no-cancelados del mes
         // (incluye confirmados aunque no estén finalizados todavía)
@@ -233,6 +224,67 @@ function PerfilPage() {
       .catch(() => toast.error('Error al cargar estadísticas'))
       .finally(() => setLoadingStats(false));
   }, []);
+
+  // ── Top productos: efecto independiente, se re-ejecuta al cambiar mes ──
+  useEffect(() => {
+    const rango = getMesDe(mesProductos.year, mesProductos.month);
+    setLoadingProductos(true);
+
+    finanzasService.getMyFinanzas({
+      periodo: 'mes',
+      fecha_desde: rango.desde,
+      fecha_hasta: rango.hasta,
+      metodo_pago: 'todos',
+      estado_comision: 'todos',
+      ordenar_por: 'fecha',
+      orden: 'desc',
+      pagina: 1,
+      por_pagina: 100
+    })
+      .then(res => {
+        const productoMap = new Map<string, { cantidad: number; total: number }>();
+        res.items
+          .filter((item): item is VentaGrupadaFinanzas => item.tipo === 'venta_producto')
+          .forEach(venta => {
+            venta.items.forEach(p => {
+              const prev = productoMap.get(p.nombre_producto) ?? { cantidad: 0, total: 0 };
+              productoMap.set(p.nombre_producto, {
+                cantidad: prev.cantidad + p.cantidad,
+                total: prev.total + p.precio_total
+              });
+            });
+          });
+        const top = Array.from(productoMap.entries())
+          .map(([nombre, data]) => ({ nombre, ...data }))
+          .sort((a, b) => b.cantidad - a.cantidad)
+          .slice(0, 3);
+        setTopProductos(top);
+      })
+      .catch(() => {/* silencioso — el card simplemente no muestra nada */})
+      .finally(() => setLoadingProductos(false));
+  }, [mesProductos]);
+
+  const handleMesAnterior = () => {
+    setMesProductos(prev => {
+      const d = new Date(prev.year, prev.month - 1, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  };
+
+  const handleMesSiguiente = () => {
+    const now = new Date();
+    setMesProductos(prev => {
+      // No permitir navegar más allá del mes actual
+      if (prev.year === now.getFullYear() && prev.month === now.getMonth()) return prev;
+      const d = new Date(prev.year, prev.month + 1, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  };
+
+  const esMesActual = (() => {
+    const now = new Date();
+    return mesProductos.year === now.getFullYear() && mesProductos.month === now.getMonth();
+  })();
 
   if (loadingProfile) {
     return (
@@ -312,9 +364,39 @@ function PerfilPage() {
           </div>
         </div>
 
-        {/* ── Top productos del mes (solo si hay ventas) ── */}
-        {!loadingStats && topProductos.length > 0 && (
-          <Card title="Productos más vendidos este mes">
+        {/* ── Top productos con selector de mes ── */}
+        <Card
+          title="Productos más vendidos"
+          headerAction={
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleMesAnterior}
+                className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-sm text-gray-600 w-32 text-center capitalize">
+                {getMesDe(mesProductos.year, mesProductos.month).label}
+              </span>
+              <button
+                onClick={handleMesSiguiente}
+                disabled={esMesActual}
+                className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          }
+        >
+          {loadingProductos ? (
+            <div className="flex justify-center py-4">
+              <Spinner size="sm" />
+            </div>
+          ) : topProductos.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              Sin ventas de productos este mes
+            </p>
+          ) : (
             <ul className="divide-y divide-gray-100 -mx-6 -mb-4">
               {topProductos.map((p, i) => (
                 <li key={p.nombre} className="flex items-center gap-4 px-6 py-3">
@@ -332,8 +414,8 @@ function PerfilPage() {
                 </li>
               ))}
             </ul>
-          </Card>
-        )}
+          )}
+        </Card>
 
         {/* ── Turnos de hoy ── */}
         <Card title="Turnos de hoy">
