@@ -39,9 +39,7 @@ export function FinanzasPage() {
     };
   });
 
-  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(
-  isAdmin ? 'usr_1771106679729_d1q8hu8c9' : null
-);
+  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
   const [selectedComision, setSelectedComision] = useState<ComisionProfesional | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -82,12 +80,10 @@ export function FinanzasPage() {
 
   const finanzasResponse = finanzasData as FinanzasResponse;
 
-  // Auto-seleccionar primer profesional si es admin
+  // Auto-seleccionar el primer profesional de la lista cuando carguen
   useEffect(() => {
     if (isAdmin && profesionales.length > 0 && !selectedProfesionalId) {
-      // Forzar selección del profesional que tiene comisiones (Test Admin)
-      const profesionalConComisiones = profesionales.find((p: any) => p.email === 'admin2@mail.com') || profesionales[0];
-      setSelectedProfesionalId(profesionalConComisiones.id);
+      setSelectedProfesionalId(profesionales[0].id);
     }
   }, [isAdmin, profesionales, selectedProfesionalId]);
 
