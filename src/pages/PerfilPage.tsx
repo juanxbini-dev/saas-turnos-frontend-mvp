@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, DollarSign, Users, Clock, KeyRound, Pencil, Check, X } from 'lucide-react';
+import { CalendarDays, DollarSign, Users, Clock, KeyRound, Pencil, Check, X, ShoppingBag } from 'lucide-react';
+import { VentaGrupadaFinanzas } from '../types/finanzas.types';
 import { useAuth } from '../context/AuthContext';
 import { perfilService } from '../services/perfil.service';
 import { finanzasService } from '../services/finanzas.service';
@@ -155,6 +156,7 @@ function PerfilPage() {
   const [turnosMesCount, setTurnosMesCount] = useState<number>(0);
   const [clientesUnicosCount, setClientesUnicosCount] = useState<number>(0);
   const [turnosHoy, setTurnosHoy] = useState<TurnoConDetalle[]>([]);
+  const [topProductos, setTopProductos] = useState<{ nombre: string; cantidad: number; total: number }[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -187,6 +189,25 @@ function PerfilPage() {
       .then(([finanzasRes, allTurnos]) => {
         // Comisión: de finanzas (solo turnos finalizados con comisión registrada)
         setComisionMes(finanzasRes.summary.total_neto_profesional);
+
+        // Top productos: agregar ventas de productos del mes por nombre
+        const productoMap = new Map<string, { cantidad: number; total: number }>();
+        finanzasRes.items
+          .filter((item): item is VentaGrupadaFinanzas => item.tipo === 'venta_producto')
+          .forEach(venta => {
+            venta.items.forEach(p => {
+              const prev = productoMap.get(p.nombre_producto) ?? { cantidad: 0, total: 0 };
+              productoMap.set(p.nombre_producto, {
+                cantidad: prev.cantidad + p.cantidad,
+                total: prev.total + p.precio_total
+              });
+            });
+          });
+        const top = Array.from(productoMap.entries())
+          .map(([nombre, data]) => ({ nombre, ...data }))
+          .sort((a, b) => b.cantidad - a.cantidad)
+          .slice(0, 3);
+        setTopProductos(top);
 
         // Turnos y clientes únicos: de todos los turnos no-cancelados del mes
         // (incluye confirmados aunque no estén finalizados todavía)
@@ -291,7 +312,30 @@ function PerfilPage() {
           </div>
         </div>
 
-        {/* ── Próximos turnos hoy ── */}
+        {/* ── Top productos del mes (solo si hay ventas) ── */}
+        {!loadingStats && topProductos.length > 0 && (
+          <Card title="Productos más vendidos este mes">
+            <ul className="divide-y divide-gray-100 -mx-6 -mb-4">
+              {topProductos.map((p, i) => (
+                <li key={p.nombre} className="flex items-center gap-4 px-6 py-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                    i === 0 ? 'bg-yellow-100 text-yellow-700' :
+                    i === 1 ? 'bg-gray-100 text-gray-600' :
+                              'bg-orange-50 text-orange-600'
+                  }`}>
+                    {i + 1}
+                  </div>
+                  <ShoppingBag size={15} className="text-gray-400 shrink-0" />
+                  <span className="flex-1 text-sm font-medium text-gray-800 truncate">{p.nombre}</span>
+                  <span className="text-xs text-gray-400 shrink-0">{p.cantidad} {p.cantidad === 1 ? 'unidad' : 'unidades'}</span>
+                  <span className="text-sm font-semibold text-gray-700 shrink-0">{formatMoney(p.total)}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {/* ── Turnos de hoy ── */}
         <Card title="Turnos de hoy">
           {loadingStats ? (
             <div className="flex justify-center py-4">
