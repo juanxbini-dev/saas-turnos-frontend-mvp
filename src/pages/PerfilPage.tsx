@@ -188,7 +188,7 @@ function PerfilPage() {
         ordenar_por: 'fecha',
         orden: 'desc',
         pagina: 1,
-        por_pagina: 200
+        por_pagina: 100 // máximo permitido por el backend
       }),
       turnoService.getTurnos()
     ])
