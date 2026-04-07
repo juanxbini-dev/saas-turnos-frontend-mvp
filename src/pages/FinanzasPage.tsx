@@ -3,6 +3,8 @@ import type { FinanzasFilters, FinanzasResponse, ComisionProfesional } from '../
 import { finanzasService } from '../services/finanzas.service';
 import { useFetch } from '../hooks/useFetch';
 import { useAuth } from '../context/AuthContext';
+import { buildKey, ENTITIES } from '../cache/key.builder';
+import { TTL } from '../cache/ttl';
 import { FinanzasSummaryCards } from '../components/finanzas/FinanzasSummaryCards';
 import FinanzasFiltersComponent from '../components/finanzas/FinanzasFilters';
 import { FinanzasTable } from '../components/finanzas/FinanzasTable';
@@ -67,7 +69,7 @@ export function FinanzasPage() {
     error: finanzasError,
     revalidate
   } = useFetch(
-    `finanzas-${selectedProfesionalId || 'me'}-${JSON.stringify(filters)}`,
+    buildKey(ENTITIES.FINANZAS, selectedProfesionalId || 'me', JSON.stringify(filters)),
     () => {
       if (isAdmin && selectedProfesionalId) {
         return finanzasService.getFinanzasByProfesional(selectedProfesionalId, filters);
@@ -75,7 +77,7 @@ export function FinanzasPage() {
         return finanzasService.getMyFinanzas(filters);
       }
     },
-    { ttl: 60 }
+    { ttl: TTL.SHORT }
   );
 
   const finanzasResponse = finanzasData as FinanzasResponse;

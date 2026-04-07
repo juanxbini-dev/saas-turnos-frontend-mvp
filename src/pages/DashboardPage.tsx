@@ -124,6 +124,7 @@ export function DashboardPage() {
     // Invalidar caché para forzar refetch
     cacheService.invalidateByPrefix(buildKey(ENTITIES.CALENDARIO));
     cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.FINANZAS));
     window.location.reload(); // Temporal hasta implementar refetch proper
   };
 
@@ -244,7 +245,10 @@ export function DashboardPage() {
           vendedorId={selectedProfesionalId}
           vendedorNombre={profesionalSeleccionado?.nombre || ''}
           onClose={() => setVenderModalOpen(false)}
-          onVentaCreada={() => setVenderModalOpen(false)}
+          onVentaCreada={() => {
+            cacheService.invalidateByPrefix(buildKey(ENTITIES.FINANZAS));
+            setVenderModalOpen(false);
+          }}
         />
       )}
 
