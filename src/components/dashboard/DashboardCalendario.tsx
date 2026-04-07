@@ -262,7 +262,7 @@ export function DashboardCalendario({
 
   // Cargar disponibilidad de slots para cada día en el rango visible
   const { data: slotsDisponibles, loading: loadingSlots, revalidate: revalidateSlots } = useFetch(
-    profesionalId ? buildKey(ENTITIES.SLOTS, profesionalId, rangoInicio) : null,
+    profesionalId ? buildKey(ENTITIES.SLOTS, profesionalId, rangoInicio, rangoFin) : null,
     async () => {
       if (!profesionalId) return [];
       return disponibilidadService.getSlotsRango(profesionalId, rangoInicio, rangoFin);
@@ -272,7 +272,7 @@ export function DashboardCalendario({
 
   // Cargar bloqueos de slots para el rango visible
   const { data: bloqueosSlots, revalidate: revalidateBloqueos } = useFetch(
-    profesionalId ? buildKey(ENTITIES.BLOQUEOS, profesionalId, rangoInicio) : null,
+    profesionalId ? buildKey(ENTITIES.BLOQUEOS, profesionalId, rangoInicio, rangoFin) : null,
     async () => {
       if (!profesionalId) return [];
       return bloqueoSlotService.getByRango(rangoInicio, rangoFin, profesionalId);
@@ -449,12 +449,13 @@ export function DashboardCalendario({
       cacheService.invalidateByPrefix(buildKey(ENTITIES.BLOQUEOS));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
       revalidateBloqueos();
+      revalidateSlots();
       toast.success('Horario desbloqueado');
     } catch {
       toast.error('Error al desbloquear el horario');
     }
     setSlotMenu(null);
-  }, [revalidateBloqueos, toast]);
+  }, [revalidateBloqueos, revalidateSlots, toast]);
 
   // Bloquear un slot
   const handleBloquearSlot = useCallback(async (fecha: Date, hora: Date) => {
@@ -470,12 +471,13 @@ export function DashboardCalendario({
       cacheService.invalidateByPrefix(buildKey(ENTITIES.BLOQUEOS));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
       revalidateBloqueos();
+      revalidateSlots();
       toast.success('Horario bloqueado');
     } catch {
       toast.error('Error al bloquear el horario');
     }
     setSlotMenu(null);
-  }, [intervaloConfigurado, revalidateBloqueos, toast]);
+  }, [intervaloConfigurado, revalidateBloqueos, revalidateSlots, toast]);
 
   // Manejar selección de slot con validación de disponibilidad
   const handleSelectSlot = useCallback((slotInfo: any) => {
