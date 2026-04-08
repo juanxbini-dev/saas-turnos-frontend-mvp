@@ -40,15 +40,6 @@ export function DashboardPage() {
     if (guardado) setSelectedProfesionalId(guardado);
   }, [storageKey]);
 
-  // Colores para profesionales
-  const colors = [
-    '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
-    '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'
-  ];
-
-  // Asignar colores a profesionales
-  const getProfesionalColor = (index: number) => colors[index % colors.length];
-
   // Obtener profesionales
   const { data: profesionalesData, loading: loadingProfesionales } = useFetch(
     buildKey(ENTITIES.PROFESIONALES),
@@ -62,10 +53,10 @@ export function DashboardPage() {
   console.log('🔍 [DashboardPage] profesionalesData:', profesionalesData);
   console.log('🔍 [DashboardPage] profesionales:', profesionales);
 
-  // Asignar colores a profesionales
+  // Todos los profesionales usan el mismo azul
   const colores: Record<string, string> = {};
-  profesionales.forEach((profesional: any, index: number) => {
-    colores[profesional.id] = getProfesionalColor(index);
+  profesionales.forEach((profesional: any) => {
+    colores[profesional.id] = '#3B82F6';
   });
 
   // Seleccionar profesional por defecto (usuario autenticado si es profesional)

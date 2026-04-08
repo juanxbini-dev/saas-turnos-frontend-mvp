@@ -46,10 +46,18 @@ const TimeSlotWrapper: React.FC<any> = ({ children }) => (
 );
 
 // Factory para el componente de evento con color dinámico
+const getEventColor = (turno: TurnoConDetalle, defaultColor: string): string => {
+  if (turno?.estado !== 'completado') return defaultColor;
+  // completado + cobrado → verde
+  if (turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia') return '#10B981';
+  // completado + pago pendiente (o sin metodo_pago) → naranja
+  return '#D97706';
+};
+
 const makeEventComponent = (color: string, isMobile = false): React.FC<any> => ({ event }) => {
   const turno = event.resource as TurnoConDetalle;
-  const finalizado = turno?.estado === 'finalizado';
-  const bgColor = finalizado ? '#9CA3AF' : color;
+  const completado = turno?.estado === 'completado';
+  const bgColor = getEventColor(turno, color);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [showServicio, setShowServicio] = React.useState(true);
 
@@ -67,7 +75,7 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
     <div
       ref={containerRef}
       style={{
-        padding: '3px 5px 3px 8px',
+        padding: '3px 5px 2px 8px',
         width: '100%',
         height: '100%',
         overflow: 'hidden',
@@ -78,18 +86,18 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         gap: '1px',
         cursor: 'pointer',
-        opacity: finalizado ? 0.6 : 1,
+        opacity: completado ? 0.85 : 1,
       }}
     >
-      <div style={{ fontWeight: '700', fontSize: isMobile ? '13px' : '12px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontWeight: '700', fontSize: isMobile ? '13px' : '12px', lineHeight: '1.25', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
         {turno.cliente_nombre}
       </div>
       {showServicio && (
-        <div style={{ fontSize: isMobile ? '12px' : '10px', opacity: 0.85, lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {finalizado ? 'Finalizado' : turno.servicio}
+        <div style={{ fontSize: isMobile ? '11px' : '10px', opacity: 0.85, lineHeight: '1.25', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+          {completado ? (turno.metodo_pago === 'pendiente' || !turno.metodo_pago ? 'Pago pendiente' : 'Cobrado') : turno.servicio}
         </div>
       )}
     </div>
@@ -170,7 +178,7 @@ export function DashboardCalendario({
 }: DashboardCalendarioProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
-  const [currentView, setCurrentView] = useState<View>(() => window.innerWidth < 640 ? 'day' : 'week');
+  const [currentView, setCurrentView] = useState<View>('week');
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -927,7 +935,7 @@ export function DashboardCalendario({
         culture="es"
         formats={calendarFormats}
         events={eventsWithDemo}
-        defaultView={isMobile ? 'day' : 'week'}
+        defaultView="week"
         views={isMobile
           ? { day: true, week: MobileSemanaView as any, month: true }
           : { day: true, week: true, month: true }
@@ -957,17 +965,19 @@ export function DashboardCalendario({
           const isPast = date < new Date();
 
           let backgroundColor = 'transparent';
-          if (isAvailable) backgroundColor = '#10B981';
-          else if (!isPast) backgroundColor = 'rgba(0,0,0,0.03)';
+          if (isPast) backgroundColor = '#F3F4F6';        // gray-100 — pasados
+          else if (isBloqueado) backgroundColor = '#1F2937'; // gray-800 — no disponibles
+          else if (isAvailable) backgroundColor = '#FFFFFF';  // blanco — disponibles
+          else backgroundColor = 'rgba(0,0,0,0.03)';
 
           const isHabilitable = !isAvailable && !isBloqueado && !isPast;
 
           const style: React.CSSProperties = {
             backgroundColor,
-            borderColor: isAvailable ? '#10B981' : '#E5E7EB',
-            opacity: isPast ? 0.3 : 1,
+            borderColor: '#E5E7EB',
+            opacity: 1,
             cursor: (isAvailable || isBloqueado || isHabilitable) && !isPast ? 'pointer' : 'not-allowed',
-            height: isMobile ? '80px' : '60px',
+            height: isMobile ? '100px' : '70px',
             position: 'relative',
             overflow: 'hidden',
             boxSizing: 'border-box'
@@ -977,16 +987,16 @@ export function DashboardCalendario({
         }}
         eventPropGetter={(event: any) => {
           const turno = event.resource as TurnoConDetalle;
-          const finalizado = turno?.estado === 'finalizado';
+          const bgColor = getEventColor(turno, color);
           return {
             style: {
-              backgroundColor: finalizado ? '#9CA3AF' : color,
-              borderColor: finalizado ? '#9CA3AF' : color,
+              backgroundColor: bgColor,
+              borderColor: bgColor,
               borderRadius: '2px',
               color: 'white',
               border: 'none',
               cursor: 'pointer',
-              opacity: finalizado ? 0.6 : 1,
+              opacity: turno?.estado === 'completado' ? 0.85 : 1,
               padding: 0,
               margin: 0,
             }
