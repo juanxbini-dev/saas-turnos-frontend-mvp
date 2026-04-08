@@ -1,7 +1,11 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, dateFnsLocalizer, View, SlotInfo } from 'react-big-calendar';
-import { format, parse, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay } from 'date-fns';
+import { Calendar, dateFnsLocalizer, View, SlotInfo, Navigate } from 'react-big-calendar';
+import { format, parse, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getDay, addDays } from 'date-fns';
+// @ts-ignore — módulos internos de react-big-calendar sin declaraciones de tipos
+import RBCWeek from 'react-big-calendar/lib/Week';
+// @ts-ignore
+import RBCTimeGrid from 'react-big-calendar/lib/TimeGrid';
 import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -53,7 +57,7 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
-      setShowServicio(el.offsetHeight >= 38);
+      setShowServicio(el.offsetHeight >= (isMobile ? 45 : 38));
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -90,6 +94,35 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
       )}
     </div>
   );
+};
+
+// Vista semana sin domingo para mobile (Lun–Sáb)
+function mobileSemanaRange(date: Date, options: any): Date[] {
+  return RBCWeek.range(date, options).filter((d: Date) => d.getDay() !== 0);
+}
+
+class MobileSemanaView extends React.Component<any> {
+  render() {
+    const { date, localizer, min, max, scrollToTime, enableAutoScroll, ...props } = this.props;
+    const range = mobileSemanaRange(date, this.props);
+    return React.createElement(RBCTimeGrid, {
+      ...props,
+      range,
+      eventOffset: 15,
+      localizer,
+      min: min ?? localizer.startOf(new Date(), 'day'),
+      max: max ?? localizer.endOf(new Date(), 'day'),
+      scrollToTime: scrollToTime ?? localizer.startOf(new Date(), 'day'),
+      enableAutoScroll: enableAutoScroll ?? true,
+    });
+  }
+}
+(MobileSemanaView as any).defaultProps = RBCTimeGrid.defaultProps;
+(MobileSemanaView as any).range = mobileSemanaRange;
+(MobileSemanaView as any).navigate = RBCWeek.navigate;
+(MobileSemanaView as any).title = (date: Date, { localizer: loc }: any) => {
+  const [start, ...rest] = mobileSemanaRange(date, { localizer: loc });
+  return loc.format({ start, end: rest.pop() }, 'dayRangeHeaderFormat');
 };
 
 const localizer = dateFnsLocalizer({
@@ -603,8 +636,8 @@ export function DashboardCalendario({
   const mobileLabel = useMemo(() => {
     if (currentView === 'day') return format(currentDate, "EEE d MMM", { locale: es });
     if (currentView === 'week') {
-      const start = startOfWeek(currentDate, { weekStartsOn: 1 });
-      const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+      const start = startOfWeek(currentDate, { weekStartsOn: 1 }); // lunes
+      const end = addDays(start, 5);                                 // sábado (sin domingo)
       return `${format(start, 'd')}–${format(end, 'd MMM', { locale: es })}`;
     }
     return format(currentDate, "MMMM yyyy", { locale: es });
@@ -895,7 +928,10 @@ export function DashboardCalendario({
         formats={calendarFormats}
         events={eventsWithDemo}
         defaultView={isMobile ? 'day' : 'week'}
-        views={['day', 'week', 'month']}
+        views={isMobile
+          ? { day: true, week: MobileSemanaView as any, month: true }
+          : { day: true, week: true, month: true }
+        }
         view={currentView}
         date={currentDate}
         onView={setCurrentView}
@@ -931,7 +967,7 @@ export function DashboardCalendario({
             borderColor: isAvailable ? '#10B981' : '#E5E7EB',
             opacity: isPast ? 0.3 : 1,
             cursor: (isAvailable || isBloqueado || isHabilitable) && !isPast ? 'pointer' : 'not-allowed',
-            height: '60px',
+            height: isMobile ? '80px' : '60px',
             position: 'relative',
             overflow: 'hidden',
             boxSizing: 'border-box'
