@@ -987,6 +987,8 @@ export function DashboardCalendario({
               border: 'none',
               cursor: 'pointer',
               opacity: finalizado ? 0.6 : 1,
+              padding: 0,
+              margin: 0,
             }
           };
         }}
