@@ -195,16 +195,18 @@ export function DashboardPage() {
 
       {/* Calendario */}
       {selectedProfesionalId && profesionalSeleccionado && (
-        <Card>
-          <div className="p-4">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Calendario de {profesionalSeleccionado.nombre}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Haz clic en un espacio disponible para crear un nuevo turno
-              </p>
-            </div>
+        <Card className="overflow-hidden">
+          {/* Header con padding normal */}
+          <div className="px-4 pt-4 pb-2">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Calendario de {profesionalSeleccionado.nombre}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1 hidden sm:block">
+              Hacé clic en un espacio disponible para crear un nuevo turno
+            </p>
+          </div>
+          {/* Calendario edge-to-edge en mobile, con padding en desktop */}
+          <div className="px-0 pb-0 sm:px-4 sm:pb-4">
             <DashboardCalendario
               profesionalId={selectedProfesionalId}
               profesionalNombre={profesionalSeleccionado?.nombre || ''}

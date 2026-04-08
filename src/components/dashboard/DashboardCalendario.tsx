@@ -15,6 +15,7 @@ import { TurnoConDetalle } from '../../types/turno.types';
 import { TurnoPopover } from './TurnoPopover';
 import { DashboardTurnoModal } from './DashboardTurnoModal';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { TurnoEstadoBadge } from '../ui/TurnoEstadoBadge';
 import { useToast } from '../../hooks/useToast';
 import { cacheService } from '../../cache/cache.service';
 import { DateHelper } from '../../shared/utils/DateHelper';
@@ -41,7 +42,7 @@ const TimeSlotWrapper: React.FC<any> = ({ children }) => (
 );
 
 // Factory para el componente de evento con color dinámico
-const makeEventComponent = (color: string): React.FC<any> => ({ event }) => {
+const makeEventComponent = (color: string, isMobile = false): React.FC<any> => ({ event }) => {
   const turno = event.resource as TurnoConDetalle;
   const finalizado = turno?.estado === 'finalizado';
   const bgColor = finalizado ? '#9CA3AF' : color;
@@ -79,11 +80,11 @@ const makeEventComponent = (color: string): React.FC<any> => ({ event }) => {
         opacity: finalizado ? 0.6 : 1,
       }}
     >
-      <div style={{ fontWeight: '700', fontSize: '12px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontWeight: '700', fontSize: isMobile ? '13px' : '12px', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {turno.cliente_nombre}
       </div>
       {showServicio && (
-        <div style={{ fontSize: '10px', opacity: 0.85, lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: isMobile ? '12px' : '10px', opacity: 0.85, lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {finalizado ? 'Finalizado' : turno.servicio}
         </div>
       )}
@@ -596,7 +597,18 @@ export function DashboardCalendario({
     setSelectedTurno(null);
   }, []);
 
-  const calendarHeight = isMobile ? 480 : 650;
+  const calendarHeight = isMobile ? 600 : 650;
+
+  // Label compacto para el toolbar en mobile
+  const mobileLabel = useMemo(() => {
+    if (currentView === 'day') return format(currentDate, "EEE d MMM", { locale: es });
+    if (currentView === 'week') {
+      const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+      return `${format(start, 'd')}–${format(end, 'd MMM', { locale: es })}`;
+    }
+    return format(currentDate, "MMMM yyyy", { locale: es });
+  }, [currentDate, currentView]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -628,105 +640,209 @@ export function DashboardCalendario({
         </div>
       )}
 
-      {/* Menú contextual de slot — renderizado via Portal para evitar problemas con position:fixed en mobile */}
+      {/* Menú contextual de slot */}
       {slotMenu && createPortal(
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setSlotMenu(null)} />
-          <div
-            className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]"
-            style={{ top: slotMenu.y, left: slotMenu.x }}
-          >
-            <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b border-gray-100">
-              {format(slotMenu.hora, 'HH:mm')} — {format(slotMenu.fecha, 'dd/MM/yyyy')}
+        isMobile ? (
+          /* Mobile: bottom sheet */
+          <>
+            <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setSlotMenu(null)} />
+            <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl">
+              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-1" />
+              <div className="px-5 py-3 border-b border-gray-100">
+                <p className="text-sm font-semibold text-gray-800">
+                  {format(slotMenu.hora, 'HH:mm')}
+                </p>
+                <p className="text-xs text-gray-500 capitalize">
+                  {format(slotMenu.fecha, "EEEE d 'de' MMMM", { locale: es })}
+                </p>
+              </div>
+              {slotMenu.bloqueoId ? (
+                <button
+                  className="w-full text-left px-5 py-4 text-base text-green-600 font-medium border-b border-gray-50 active:bg-green-50"
+                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!)}
+                >
+                  Desbloquear horario
+                </button>
+              ) : slotMenu.noDisponible ? (
+                <button
+                  className="w-full text-left px-5 py-4 text-base text-blue-600 font-medium border-b border-gray-50 active:bg-blue-50"
+                  onClick={() => handleHabilitarSlot(slotMenu.fecha, slotMenu.hora)}
+                >
+                  Habilitar este horario
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="w-full text-left px-5 py-4 text-base text-gray-800 font-medium border-b border-gray-50 active:bg-gray-50"
+                    onClick={() => { setSlotMenu(null); onSlotSelect(slotMenu.fecha, slotMenu.hora); }}
+                  >
+                    Agendar turno
+                  </button>
+                  <button
+                    className="w-full text-left px-5 py-4 text-base text-red-600 font-medium border-b border-gray-50 active:bg-red-50"
+                    onClick={() => handleBloquearSlot(slotMenu.fecha, slotMenu.hora)}
+                  >
+                    Bloquear horario
+                  </button>
+                </>
+              )}
+              <button
+                className="w-full text-left px-5 py-4 text-base text-gray-400 active:bg-gray-50"
+                onClick={() => setSlotMenu(null)}
+              >
+                Cancelar
+              </button>
+              <div className="pb-6" />
             </div>
-            {slotMenu.bloqueoId ? (
-              <button
-                className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
-                onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!)}
-              >
-                Desbloquear horario
-              </button>
-            ) : slotMenu.noDisponible ? (
-              <button
-                className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
-                onClick={() => handleHabilitarSlot(slotMenu.fecha, slotMenu.hora)}
-              >
-                Habilitar este horario
-              </button>
-            ) : (
-              <>
-                <button
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  onClick={() => {
-                    setSlotMenu(null);
-                    onSlotSelect(slotMenu.fecha, slotMenu.hora);
-                  }}
-                >
-                  Agendar turno
-                </button>
-                <button
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                  onClick={() => handleBloquearSlot(slotMenu.fecha, slotMenu.hora)}
-                >
-                  Bloquear horario
-                </button>
-              </>
-            )}
-            <button
-              className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
-              onClick={() => setSlotMenu(null)}
+          </>
+        ) : (
+          /* Desktop: popup flotante */
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setSlotMenu(null)} />
+            <div
+              className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]"
+              style={{ top: slotMenu.y, left: slotMenu.x }}
             >
-              Cancelar
-            </button>
-          </div>
-        </>,
+              <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b border-gray-100">
+                {format(slotMenu.hora, 'HH:mm')} — {format(slotMenu.fecha, 'dd/MM/yyyy')}
+              </div>
+              {slotMenu.bloqueoId ? (
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
+                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!)}
+                >
+                  Desbloquear horario
+                </button>
+              ) : slotMenu.noDisponible ? (
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                  onClick={() => handleHabilitarSlot(slotMenu.fecha, slotMenu.hora)}
+                >
+                  Habilitar este horario
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={() => { setSlotMenu(null); onSlotSelect(slotMenu.fecha, slotMenu.hora); }}
+                  >
+                    Agendar turno
+                  </button>
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                    onClick={() => handleBloquearSlot(slotMenu.fecha, slotMenu.hora)}
+                  >
+                    Bloquear horario
+                  </button>
+                </>
+              )}
+              <button
+                className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50"
+                onClick={() => setSlotMenu(null)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </>
+        ),
         document.body
       )}
 
       {/* Menú contextual de turno */}
       {turnoMenu && createPortal(
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setTurnoMenu(null)} />
-          <div
-            className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]"
-            style={{ top: turnoMenu.y, left: turnoMenu.x }}
-          >
-            <div className="px-4 py-2 border-b border-gray-100">
-              <p className="text-xs font-semibold text-gray-800 truncate">{turnoMenu.turno.cliente_nombre}</p>
-              <p className="text-xs text-gray-400 truncate">{turnoMenu.turno.hora} — {turnoMenu.turno.servicio}</p>
+        isMobile ? (
+          /* Mobile: bottom sheet con detalles completos */
+          <>
+            <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setTurnoMenu(null)} />
+            <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-2xl">
+              <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-1" />
+
+              {/* Detalles del turno */}
+              <div className="px-5 py-4 border-b border-gray-100 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-base font-semibold text-gray-900 leading-tight">
+                    {turnoMenu.turno.cliente_nombre}
+                  </p>
+                  <TurnoEstadoBadge estado={turnoMenu.turno.estado} />
+                </div>
+                <p className="text-sm text-gray-600">{turnoMenu.turno.servicio}</p>
+                <div className="flex items-center gap-3 text-sm text-gray-500">
+                  <span>{turnoMenu.turno.hora}</span>
+                  {turnoMenu.turno.duracion_minutos && (
+                    <span>{turnoMenu.turno.duracion_minutos} min</span>
+                  )}
+                  {turnoMenu.turno.precio != null && (
+                    <span className="font-medium text-gray-700">${turnoMenu.turno.precio}</span>
+                  )}
+                </div>
+                {turnoMenu.turno.notas && (
+                  <p className="text-xs text-gray-400 italic">{turnoMenu.turno.notas}</p>
+                )}
+              </div>
+
+              {/* Acciones */}
+              {turnoMenu.turno.estado === 'confirmado' && (
+                <button
+                  className="w-full text-left px-5 py-4 text-base text-green-600 font-medium border-b border-gray-50 active:bg-green-50"
+                  onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); onTurnoAction(t); }}
+                >
+                  Finalizar turno
+                </button>
+              )}
+              {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (
+                <button
+                  className="w-full text-left px-5 py-4 text-base text-red-500 font-medium border-b border-gray-50 active:bg-red-50"
+                  onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); setCancelarConfirm(t); }}
+                >
+                  Cancelar turno
+                </button>
+              )}
+              <button
+                className="w-full text-left px-5 py-4 text-base text-gray-400 active:bg-gray-50"
+                onClick={() => setTurnoMenu(null)}
+              >
+                Cerrar
+              </button>
+              <div className="pb-6" />
             </div>
-            {turnoMenu.turno.estado === 'confirmado' && (
-              <button
-                className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
-                onClick={() => {
-                  const t = turnoMenu.turno;
-                  setTurnoMenu(null);
-                  onTurnoAction(t);
-                }}
-              >
-                Finalizar turno
-              </button>
-            )}
-            {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (
-              <button
-                className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50"
-                onClick={() => {
-                  const t = turnoMenu.turno;
-                  setTurnoMenu(null);
-                  setCancelarConfirm(t);
-                }}
-              >
-                Cancelar turno
-              </button>
-            )}
-            <button
-              className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50 border-t border-gray-100 mt-1"
-              onClick={() => setTurnoMenu(null)}
+          </>
+        ) : (
+          /* Desktop: popup flotante */
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setTurnoMenu(null)} />
+            <div
+              className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]"
+              style={{ top: turnoMenu.y, left: turnoMenu.x }}
             >
-              Cerrar
-            </button>
-          </div>
-        </>,
+              <div className="px-4 py-2 border-b border-gray-100">
+                <p className="text-xs font-semibold text-gray-800 truncate">{turnoMenu.turno.cliente_nombre}</p>
+                <p className="text-xs text-gray-400 truncate">{turnoMenu.turno.hora} — {turnoMenu.turno.servicio}</p>
+              </div>
+              {turnoMenu.turno.estado === 'confirmado' && (
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
+                  onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); onTurnoAction(t); }}
+                >
+                  Finalizar turno
+                </button>
+              )}
+              {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50"
+                  onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); setCancelarConfirm(t); }}
+                >
+                  Cancelar turno
+                </button>
+              )}
+              <button
+                className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50 border-t border-gray-100 mt-1"
+                onClick={() => setTurnoMenu(null)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </>
+        ),
         document.body
       )}
 
@@ -798,7 +914,7 @@ export function DashboardCalendario({
         min={new Date(new Date().setHours(7, 0, 0, 0))}
         max={new Date(new Date().setHours(23, 0, 0, 0))}
         scrollToTime={new Date(new Date().setHours(Math.max(primeraHoraDisponible - 1, 7), 0, 0, 0))}
-        timeGutterWidth={isMobile ? 45 : 70}
+        timeGutterWidth={isMobile ? 36 : 70}
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
           const isBloqueado = isSlotBloqueado(date);
@@ -840,31 +956,62 @@ export function DashboardCalendario({
         }}
         components={{
           timeSlotWrapper: TimeSlotWrapper,
-          event: makeEventComponent(color),
-          toolbar: (props) => (
+          event: makeEventComponent(color, isMobile),
+          toolbar: (props) => isMobile ? (
+            /* Toolbar mobile: 2 filas */
+            <div className="flex flex-col gap-1.5 mb-3 px-2">
+              {/* Fila 1: navegación */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => props.onNavigate('PREV')}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 text-gray-700 text-lg font-bold active:bg-gray-200"
+                >
+                  ‹
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-gray-800 capitalize">{mobileLabel}</span>
+                  <button
+                    type="button"
+                    onClick={() => props.onNavigate('TODAY')}
+                    className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-600 font-medium active:bg-blue-100"
+                  >
+                    Hoy
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => props.onNavigate('NEXT')}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 text-gray-700 text-lg font-bold active:bg-gray-200"
+                >
+                  ›
+                </button>
+              </div>
+              {/* Fila 2: selector de vista */}
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                {(['day', 'week', 'month'] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => props.onView(v)}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                      props.view === v
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-600 active:bg-gray-50'
+                    }`}
+                  >
+                    {v === 'day' ? 'Día' : v === 'week' ? 'Semana' : 'Mes'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* Toolbar desktop: sin cambios */
             <div className="rbc-toolbar mb-4">
               <span className="rbc-btn-group">
-                <button
-                  type="button"
-                  onClick={() => props.onView('day')}
-                  className={props.view === 'day' ? 'rbc-active' : ''}
-                >
-                  Día
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.onView('week')}
-                  className={props.view === 'week' ? 'rbc-active' : ''}
-                >
-                  Semana
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.onView('month')}
-                  className={props.view === 'month' ? 'rbc-active' : ''}
-                >
-                  Mes
-                </button>
+                <button type="button" onClick={() => props.onView('day')}   className={props.view === 'day'   ? 'rbc-active' : ''}>Día</button>
+                <button type="button" onClick={() => props.onView('week')}  className={props.view === 'week'  ? 'rbc-active' : ''}>Semana</button>
+                <button type="button" onClick={() => props.onView('month')} className={props.view === 'month' ? 'rbc-active' : ''}>Mes</button>
               </span>
               <span className="rbc-toolbar-label">{props.label}</span>
               <span className="rbc-btn-group">
