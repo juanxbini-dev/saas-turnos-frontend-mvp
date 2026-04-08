@@ -6,19 +6,21 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   headerAction?: React.ReactNode;
   footer?: React.ReactNode;
   flat?: boolean;
+  noPadding?: boolean;
 }
 
 // Contenedor card con header opcional y variantes
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ 
-    title, 
-    subtitle, 
-    headerAction, 
-    footer, 
+  ({
+    title,
+    subtitle,
+    headerAction,
+    footer,
     flat = false,
-    children, 
+    noPadding = false,
+    children,
     className = '',
-    ...props 
+    ...props
   }, ref) => {
     const baseClasses = flat 
       ? 'bg-white rounded-lg' 
@@ -57,7 +59,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
         )}
         
         {/* Body */}
-        <div className="px-6 py-4">
+        <div className={noPadding ? '' : 'px-6 py-4'}>
           {children}
         </div>
         

@@ -193,29 +193,31 @@ export function DashboardPage() {
         </Card>
       )}
 
-      {/* Calendario */}
+      {/* Calendario — edge-to-edge en mobile */}
       {selectedProfesionalId && profesionalSeleccionado && (
-        <Card className="overflow-hidden">
-          {/* Header con padding normal */}
-          <div className="px-4 pt-4 pb-2">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Calendario de {profesionalSeleccionado.nombre}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1 hidden sm:block">
-              Hacé clic en un espacio disponible para crear un nuevo turno
-            </p>
-          </div>
-          {/* Calendario edge-to-edge en mobile, con padding en desktop */}
-          <div className="px-0 pb-0 sm:px-4 sm:pb-4">
-            <DashboardCalendario
-              profesionalId={selectedProfesionalId}
-              profesionalNombre={profesionalSeleccionado?.nombre || ''}
-              color={colorSeleccionado}
-              onSlotSelect={handleSlotSelect}
-              onTurnoAction={handleTurnoAction}
-            />
-          </div>
-        </Card>
+        <div className="-mx-4 sm:mx-0">
+          <Card noPadding className="overflow-hidden rounded-none sm:rounded-lg shadow-none sm:shadow-lg">
+            {/* Header */}
+            <div className="px-4 pt-4 pb-2 sm:px-6">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Calendario de {profesionalSeleccionado.nombre}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1 hidden sm:block">
+                Hacé clic en un espacio disponible para crear un nuevo turno
+              </p>
+            </div>
+            {/* Calendario sin padding en mobile, con padding en desktop */}
+            <div className="sm:px-4 sm:pb-4">
+              <DashboardCalendario
+                profesionalId={selectedProfesionalId}
+                profesionalNombre={profesionalSeleccionado?.nombre || ''}
+                color={colorSeleccionado}
+                onSlotSelect={handleSlotSelect}
+                onTurnoAction={handleTurnoAction}
+              />
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Modal de slot disponible (crear turno) */}
