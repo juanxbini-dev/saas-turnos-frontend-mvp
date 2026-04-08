@@ -2,14 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
-/* react-big-calendar: el wrapper .rbc-event no agrega padding ni margen propio,
-   nuestro componente interno maneja su propio espaciado.
-   width: 100% pisa el cálculo interno (~90%) que deja gap a la derecha
-   para eventos solapados — en este sistema los turnos no se solapan */
+/* react-big-calendar: el wrapper .rbc-event no agrega padding propio */
 .rbc-time-content .rbc-event {
   padding: 0 !important;
-  margin: 0 !important;
-  width: 100% !important;
+}
+
+/* El gap derecho viene de .rbc-events-container que tiene margin-right: 10px
+   reservado para eventos solapados. Los turnos no se solapan en este sistema. */
+.rbc-day-slot .rbc-events-container {
+  margin-right: 0 !important;
+}
+
+/* Ocultar el label de hora que react-big-calendar inyecta dentro del evento
+   (ej: "9:00 AM") — nuestro componente custom maneja su propio contenido */
+.rbc-day-slot .rbc-event-label {
+  display: none !important;
 }
 
 /* react-big-calendar: ajustes mobile */
