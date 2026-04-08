@@ -988,7 +988,11 @@ export function DashboardCalendario({
           touchStartRef.current = null;
         } : undefined}
       >
-      <Calendar
+      {loadingConfig ? (
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        </div>
+      ) : <Calendar
         localizer={localizer}
         culture="es"
         formats={calendarFormats}
@@ -1138,7 +1142,7 @@ export function DashboardCalendario({
           agenda: 'Agenda',
           noEventsInRange: 'Sin turnos en este período'
         }}
-      />
+      />}
       </div>
     </div>
   );
