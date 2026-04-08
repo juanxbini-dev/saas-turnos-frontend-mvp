@@ -24,6 +24,8 @@ export interface Turno {
   total_final?: number;
   finalizado_at?: string;
   finalizado_por_id?: string;
+  // Campo calculado: suma de productos vendidos en el turno (viene del calendario)
+  total_productos?: number;
 }
 
 export interface TurnoConDetalle extends Turno {

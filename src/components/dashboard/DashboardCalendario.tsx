@@ -812,12 +812,38 @@ export function DashboardCalendario({
                   {turnoMenu.turno.duracion_minutos && (
                     <span>{turnoMenu.turno.duracion_minutos} min</span>
                   )}
-                  {turnoMenu.turno.precio != null && (
-                    <span className="font-medium text-gray-700">${turnoMenu.turno.precio}</span>
-                  )}
                 </div>
                 {turnoMenu.turno.notas && (
                   <p className="text-xs text-gray-400 italic">{turnoMenu.turno.notas}</p>
+                )}
+                {/* Resumen financiero para turnos completados */}
+                {turnoMenu.turno.estado === 'completado' && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Método de pago</span>
+                      <span className="font-medium text-gray-800 capitalize">
+                        {turnoMenu.turno.metodo_pago === 'pendiente' || !turnoMenu.turno.metodo_pago ? '⚠️ Pendiente' : turnoMenu.turno.metodo_pago}
+                      </span>
+                    </div>
+                    {turnoMenu.turno.descuento_porcentaje != null && turnoMenu.turno.descuento_porcentaje > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Descuento</span>
+                        <span className="font-medium text-green-600">{turnoMenu.turno.descuento_porcentaje}%</span>
+                      </div>
+                    )}
+                    {turnoMenu.turno.total_productos != null && turnoMenu.turno.total_productos > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Productos</span>
+                        <span className="font-medium text-gray-800">${Number(turnoMenu.turno.total_productos).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm font-semibold pt-1 border-t border-gray-100">
+                      <span className="text-gray-700">Total</span>
+                      <span className="text-gray-900">
+                        ${Number(turnoMenu.turno.total_final ?? turnoMenu.turno.precio ?? 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -855,9 +881,41 @@ export function DashboardCalendario({
               className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]"
               style={{ top: turnoMenu.y, left: turnoMenu.x }}
             >
-              <div className="px-4 py-2 border-b border-gray-100">
-                <p className="text-xs font-semibold text-gray-800 truncate">{turnoMenu.turno.cliente_nombre}</p>
-                <p className="text-xs text-gray-400 truncate">{turnoMenu.turno.hora} — {turnoMenu.turno.servicio}</p>
+              <div className="px-4 py-3 border-b border-gray-100">
+                <div className="flex items-start justify-between gap-2 mb-0.5">
+                  <p className="text-sm font-semibold text-gray-800 leading-tight">{turnoMenu.turno.cliente_nombre}</p>
+                  <TurnoEstadoBadge estado={turnoMenu.turno.estado} />
+                </div>
+                <p className="text-xs text-gray-400">{turnoMenu.turno.hora} — {turnoMenu.turno.servicio}</p>
+                {/* Resumen financiero para turnos completados */}
+                {turnoMenu.turno.estado === 'completado' && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400">Pago</span>
+                      <span className="font-medium text-gray-700 capitalize">
+                        {turnoMenu.turno.metodo_pago === 'pendiente' || !turnoMenu.turno.metodo_pago ? '⚠️ Pendiente' : turnoMenu.turno.metodo_pago}
+                      </span>
+                    </div>
+                    {turnoMenu.turno.descuento_porcentaje != null && turnoMenu.turno.descuento_porcentaje > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-400">Descuento</span>
+                        <span className="font-medium text-green-600">{turnoMenu.turno.descuento_porcentaje}%</span>
+                      </div>
+                    )}
+                    {turnoMenu.turno.total_productos != null && turnoMenu.turno.total_productos > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-400">Productos</span>
+                        <span className="font-medium text-gray-700">${Number(turnoMenu.turno.total_productos).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs font-semibold pt-1 border-t border-gray-100">
+                      <span className="text-gray-600">Total</span>
+                      <span className="text-gray-900">
+                        ${Number(turnoMenu.turno.total_final ?? turnoMenu.turno.precio ?? 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
               {turnoMenu.turno.estado === 'confirmado' && (
                 <button
