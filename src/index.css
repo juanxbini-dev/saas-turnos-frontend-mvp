@@ -3,10 +3,13 @@
 @tailwind utilities;
 
 /* react-big-calendar: el wrapper .rbc-event no agrega padding ni margen propio,
-   nuestro componente interno maneja su propio espaciado */
+   nuestro componente interno maneja su propio espaciado.
+   width: 100% pisa el cálculo interno (~90%) que deja gap a la derecha
+   para eventos solapados — en este sistema los turnos no se solapan */
 .rbc-time-content .rbc-event {
   padding: 0 !important;
-  margin-right: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
 }
 
 /* react-big-calendar: ajustes mobile */
