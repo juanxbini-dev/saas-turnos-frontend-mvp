@@ -894,6 +894,15 @@ export function DashboardCalendario({
                   Finalizar turno
                 </button>
               )}
+              {turnoMenu.turno.estado === 'completado' &&
+               (turnoMenu.turno.metodo_pago === 'pendiente' || !turnoMenu.turno.metodo_pago) && (
+                <button
+                  className="w-full text-left px-5 py-4 text-base text-orange-600 font-medium border-b border-gray-50 active:bg-orange-50"
+                  onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); onTurnoAction(t); }}
+                >
+                  💰 Registrar cobro
+                </button>
+              )}
               {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (
                 <button
                   className="w-full text-left px-5 py-4 text-base text-red-500 font-medium border-b border-gray-50 active:bg-red-50"
@@ -961,6 +970,15 @@ export function DashboardCalendario({
                   onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); onTurnoAction(t); }}
                 >
                   Finalizar turno
+                </button>
+              )}
+              {turnoMenu.turno.estado === 'completado' &&
+               (turnoMenu.turno.metodo_pago === 'pendiente' || !turnoMenu.turno.metodo_pago) && (
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-orange-50"
+                  onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); onTurnoAction(t); }}
+                >
+                  💰 Registrar cobro
                 </button>
               )}
               {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (
