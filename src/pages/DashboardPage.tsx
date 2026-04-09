@@ -47,11 +47,15 @@ export function DashboardPage() {
     { ttl: 300 }
   );
 
-  const profesionales = Array.isArray((profesionalesData as any)?.data?.profesionales) ? (profesionalesData as any).data.profesionales : [];
+  const roles: string[] = authUser?.roles ?? [];
+  const isStaff = roles.includes('staff') && !roles.includes('admin') && !roles.includes('super_admin');
 
-  // Debug: log para ver qué datos estamos recibiendo
-  console.log('🔍 [DashboardPage] profesionalesData:', profesionalesData);
-  console.log('🔍 [DashboardPage] profesionales:', profesionales);
+  const rawProfesionales = Array.isArray((profesionalesData as any)?.data?.profesionales)
+    ? (profesionalesData as any).data.profesionales
+    : [];
+
+  // Filtrar super_admin del selector y, si es staff, forzar solo el propio usuario
+  const profesionales = rawProfesionales.filter((p: any) => !p.roles?.includes('super_admin'));
 
   // Todos los profesionales usan el mismo azul
   const colores: Record<string, string> = {};
@@ -59,8 +63,15 @@ export function DashboardPage() {
     colores[profesional.id] = '#3B82F6';
   });
 
-  // Seleccionar profesional por defecto (usuario autenticado si es profesional)
+  // Seleccionar profesional por defecto
   useEffect(() => {
+    // Staff: siempre forzar su propio id
+    if (isStaff) {
+      const propioId = authUser?.authUser?.id;
+      if (propioId && selectedProfesionalId !== propioId) setSelectedProfesionalId(propioId);
+      return;
+    }
+
     if (profesionales.length === 0) return;
 
     // Si hay uno guardado en localStorage y existe en la lista, mantenerlo
@@ -77,7 +88,7 @@ export function DashboardPage() {
       setSelectedProfesionalId(defaultId);
       localStorage.setItem(storageKey, defaultId);
     }
-  }, [profesionales, authUser, storageKey]);
+  }, [profesionales, authUser, storageKey, isStaff]);
 
   // Manejar selección de profesional
   const handleProfesionalSelect = (profesionalId: string) => {
@@ -120,19 +131,9 @@ export function DashboardPage() {
   };
 
 
-  const profesionalSeleccionado = profesionales.find((p: any) => p.id === selectedProfesionalId);
-  const colorSeleccionado = selectedProfesionalId ? colores[selectedProfesionalId] : '#3B82F6';
-
-  // Debug para staff
-  console.log('🔍 [DashboardPage] Estado del dashboard:', {
-    loadingProfesionales,
-    profesionalesCount: profesionales.length,
-    selectedProfesionalId,
-    profesionalSeleccionado: profesionalSeleccionado?.nombre || 'NO ENCONTRADO',
-    authUserId: authUser?.authUser?.id,
-    authUserNombre: authUser?.authUser?.nombre,
-    renderCalendario: !!(selectedProfesionalId && profesionalSeleccionado)
-  });
+  // Para staff, buscar también en rawProfesionales (puede que el propio usuario sea super_admin filtrado)
+  const profesionalSeleccionado = rawProfesionales.find((p: any) => p.id === selectedProfesionalId);
+  const colorSeleccionado = selectedProfesionalId ? (colores[selectedProfesionalId] ?? '#3B82F6') : '#3B82F6';
 
   if (loadingProfesionales) {
     return (
@@ -155,7 +156,7 @@ export function DashboardPage() {
             Gestiona tus turnos y disponibilidad
           </p>
         </div>
-        {selectedProfesionalId && (
+        {selectedProfesionalId && !isStaff && (
           <Button
             variant="secondary"
             leftIcon={ShoppingCart}
@@ -166,8 +167,8 @@ export function DashboardPage() {
         )}
       </div>
 
-      {/* Filtro de Profesionales */}
-      {profesionales.length > 0 && (
+      {/* Filtro de Profesionales — oculto para staff */}
+      {!isStaff && profesionales.length > 0 && (
         <Card>
           <div className="p-4">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">
@@ -230,7 +231,6 @@ export function DashboardPage() {
           onClose={() => setTurnoAFinalizar(null)}
           turno={turnoAFinalizar}
           onSuccess={() => { setTurnoAFinalizar(null); handleRefresh(); }}
-          comisionesConfig={{ comision_turno: 20, comision_producto: 20 }}
         />
       )}
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, User, CheckCircle, XCircle, Search, Plus } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, XCircle, Search, Plus, X } from 'lucide-react';
 import { TurnoConDetalle } from '../../types/turno.types';
 import { Cliente, CreateClienteData } from '../../types/cliente.types';
 import { UsuarioServicio } from '../../types/servicio.types';
@@ -73,11 +73,13 @@ export function DashboardTurnoModal({
     { ttl: 300 }
   );
 
-  // Filtrar clientes por búsqueda
-  const filteredClientes = clientes?.filter(cliente =>
-    cliente.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) ||
-    cliente.email.toLowerCase().includes(clienteSearch.toLowerCase())
-  ) || [];
+  // Filtrar clientes por búsqueda — solo mostrar si hay al menos 2 caracteres
+  const filteredClientes = clienteSearch.trim().length >= 2
+    ? (clientes?.filter(cliente =>
+        cliente.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) ||
+        cliente.email.toLowerCase().includes(clienteSearch.toLowerCase())
+      ) || [])
+    : [];
 
   // Manejar creación de cliente
   const handleCreateCliente = async () => {
@@ -238,70 +240,71 @@ export function DashboardTurnoModal({
 
           {/* Selección de Cliente */}
           <Card flat>
-            <h3 className="font-medium text-gray-900 mb-3">
-              Seleccionar Cliente
-              {selectedCliente && (
-                <span className="ml-2 text-sm text-blue-600 font-normal">
-                  (Seleccionado: {selectedCliente.nombre})
-                </span>
-              )}
-            </h3>
-            
-            <div className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar cliente por nombre o email..."
-                  value={clienteSearch}
-                  onChange={(e) => setClienteSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            <h3 className="font-medium text-gray-900 mb-3">Seleccionar Cliente</h3>
 
-              {loadingClientes ? (
-                <div className="flex justify-center py-4">
-                  <Spinner />
+            {/* Chip de cliente seleccionado */}
+            {selectedCliente ? (
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-3">
+                <div>
+                  <div className="font-medium text-blue-900">{selectedCliente.nombre}</div>
+                  <div className="text-sm text-blue-600">{selectedCliente.email}</div>
                 </div>
-              ) : (
-                <div className="max-h-40 overflow-y-auto space-y-2">
-                  {filteredClientes.map((cliente) => (
-                    <Card
-                      key={cliente.id}
-                      className={`cursor-pointer hover:bg-blue-50 border-2 transition-all ${
-                        selectedCliente?.id === cliente.id
-                          ? 'bg-blue-100 border-blue-500'
-                          : 'border-gray-200 hover:border-blue-300'
-                      }`}
-                      onClick={() => setSelectedCliente(cliente)}
-                    >
-                      <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedCliente(null); setClienteSearch(''); }}
+                  className="text-blue-400 hover:text-blue-600 ml-2"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar por nombre o email..."
+                    value={clienteSearch}
+                    onChange={(e) => setClienteSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {loadingClientes ? (
+                  <div className="flex justify-center py-4"><Spinner /></div>
+                ) : clienteSearch.trim().length < 2 ? (
+                  <p className="text-sm text-gray-400 text-center py-2">
+                    Escribí al menos 2 caracteres para buscar
+                  </p>
+                ) : filteredClientes.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-2">Sin resultados</p>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {filteredClientes.map((cliente) => (
+                      <Card
+                        key={cliente.id}
+                        className="cursor-pointer hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-300 transition-all"
+                        onClick={() => { setSelectedCliente(cliente); setClienteSearch(''); }}
+                      >
                         <div>
                           <div className="font-medium">{cliente.nombre}</div>
                           <div className="text-sm text-gray-500">{cliente.email}</div>
                         </div>
-                        {selectedCliente?.id === cliente.id && (
-                          <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center">
-                            ✓
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setSelectedCliente(null);
-                  setShowCreateCliente(true);
-                }}
-                leftIcon={Plus}
-                block
-              >
-                Crear Nuevo Cliente
-              </Button>
-            </div>
+            <Button
+              variant="secondary"
+              onClick={() => { setSelectedCliente(null); setClienteSearch(''); setShowCreateCliente(true); }}
+              leftIcon={Plus}
+              block
+              className="mt-3"
+            >
+              Crear Nuevo Cliente
+            </Button>
           </Card>
 
           {/* Crear Cliente */}

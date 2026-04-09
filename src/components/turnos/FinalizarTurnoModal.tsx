@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { DollarSign, Percent, CreditCard, Package, Plus, X, Calculator, Search } from 'lucide-react';
-import { TurnoConDetalle, MetodoPago, VentaProductoData, CalculoCompletoTurno } from '../../types/turno.types';
-import { calcularComisiones, formatCurrency, generarId } from '../../utils/calculos.utils';
+import { DollarSign, Percent, CreditCard, Package, Plus, X, Search } from 'lucide-react';
+import { TurnoConDetalle, MetodoPago, VentaProductoData } from '../../types/turno.types';
+import { formatCurrency, generarId } from '../../utils/calculos.utils';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
 import { productosService } from '../../services/productos.service';
 import { Producto } from '../../types/producto.types';
@@ -14,18 +14,14 @@ interface FinalizarTurnoModalProps {
   onClose: () => void;
   turno: TurnoConDetalle;
   onSuccess: () => void;
-  comisionesConfig: {
-    comision_turno: number;
-    comision_producto: number;
-  };
+  comisionesConfig?: { comision_turno: number; comision_producto: number };
 }
 
-export function FinalizarTurnoModal({ 
-  isOpen, 
-  onClose, 
-  turno, 
+export function FinalizarTurnoModal({
+  isOpen,
+  onClose,
+  turno,
   onSuccess,
-  comisionesConfig 
 }: FinalizarTurnoModalProps) {
   const [loading, setLoading] = useState(false);
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('pendiente');
@@ -57,16 +53,17 @@ export function FinalizarTurnoModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metodoPago]);
 
-  // Calcular totales derivado directo
-  const calculo = useMemo<CalculoCompletoTurno | null>(() => {
+  // Calcular totales simples (sin comisiones)
+  const calculo = useMemo(() => {
     const precioServicio = precioModificado ? parseFloat(precioModificado) || 0 : Number(turno.precio);
     const montoProductos = productos.reduce((sum, p) => sum + Number(p.precio_total), 0);
+    const subtotal = precioServicio + montoProductos;
+    if (subtotal <= 0) return null;
     const descuento = descuentoPorcentaje ? parseFloat(descuentoPorcentaje) || 0 : 0;
-    if (precioServicio > 0 || montoProductos > 0) {
-      return calcularComisiones(precioServicio, montoProductos, descuento, comisionesConfig);
-    }
-    return null;
-  }, [precioModificado, productos, descuentoPorcentaje, turno.precio, comisionesConfig]);
+    const descuentoMonto = subtotal * (descuento / 100);
+    const totalConDescuento = subtotal - descuentoMonto;
+    return { precioOriginalServicio: precioServicio, precioOriginalProductos: montoProductos, subtotal, descuentoPorcentaje: descuento, descuentoMonto, totalConDescuento };
+  }, [precioModificado, productos, descuentoPorcentaje, turno.precio]);
 
   const handleAgregarProducto = () => {
     if (!selectedCatalogProducto) return;
@@ -412,65 +409,35 @@ export function FinalizarTurnoModal({
         {/* Resumen y Cálculos */}
         {calculo && (
           <Card flat className="border-purple-200 bg-purple-50">
-            <h3 className="font-medium text-purple-900 mb-3 flex items-center gap-2">
-              <Calculator className="w-4 h-4" />
-              Resumen de Cálculos
-            </h3>
+            <h3 className="font-medium text-purple-900 mb-3">Resumen</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span>Servicio:</span>
                 <span>{formatCurrency(calculo.precioOriginalServicio)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Productos:</span>
-                <span>{formatCurrency(calculo.precioOriginalProductos)}</span>
-              </div>
-              <div className="flex justify-between font-medium">
-                <span>Subtotal:</span>
-                <span>{formatCurrency(calculo.precioOriginalServicio + calculo.precioOriginalProductos)}</span>
-              </div>
+              {calculo.precioOriginalProductos > 0 && (
+                <>
+                  <div className="flex justify-between">
+                    <span>Productos:</span>
+                    <span>{formatCurrency(calculo.precioOriginalProductos)}</span>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <span>Subtotal:</span>
+                    <span>{formatCurrency(calculo.subtotal)}</span>
+                  </div>
+                </>
+              )}
               {calculo.descuentoMonto > 0 && (
                 <>
                   <div className="flex justify-between text-green-600">
                     <span>Descuento ({calculo.descuentoPorcentaje}%):</span>
                     <span>-{formatCurrency(calculo.descuentoMonto)}</span>
                   </div>
-                  <div className="flex justify-between font-medium text-lg">
-                    <span>Total con Descuento:</span>
-                    <span>{formatCurrency(calculo.totalConDescuento)}</span>
-                  </div>
                 </>
               )}
-              
-              <div className="border-t pt-3 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Comisión Empresa (Servicios):</span>
-                  <span>{formatCurrency(calculo.comisionServicio.montoEmpresa)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Neto Profesional (Servicios):</span>
-                  <span>{formatCurrency(calculo.comisionServicio.netoProfesional)}</span>
-                </div>
-                {calculo.comisionProductos.base > 0 && (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span>Comisión Empresa (Productos):</span>
-                      <span>{formatCurrency(calculo.comisionProductos.montoEmpresa)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Neto Profesional (Productos):</span>
-                      <span>{formatCurrency(calculo.comisionProductos.netoProfesional)}</span>
-                    </div>
-                  </>
-                )}
-                <div className="border-t pt-2 flex justify-between font-medium">
-                  <span>Total Empresa:</span>
-                  <span>{formatCurrency(calculo.totales.totalEmpresa)}</span>
-                </div>
-                <div className="flex justify-between font-medium">
-                  <span>Total Profesional:</span>
-                  <span>{formatCurrency(calculo.totales.totalProfesional)}</span>
-                </div>
+              <div className="border-t pt-2 flex justify-between font-semibold text-lg">
+                <span>Total:</span>
+                <span>{formatCurrency(calculo.totalConDescuento)}</span>
               </div>
             </div>
           </Card>
