@@ -60,16 +60,19 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
   const bgColor = getEventColor(turno, color);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [showServicio, setShowServicio] = React.useState(true);
+  const [showTelefono, setShowTelefono] = React.useState(false);
 
   React.useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
-      setShowServicio(el.offsetHeight >= (isMobile ? 45 : 38));
+      const h = el.offsetHeight;
+      setShowServicio(h >= (isMobile ? 45 : 38));
+      setShowTelefono(isMobile && h >= 70 && !!turno?.cliente_telefono);
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [turno?.cliente_telefono]);
 
   return (
     <div
@@ -98,6 +101,11 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
       {showServicio && (
         <div style={{ fontSize: isMobile ? '11px' : '10px', opacity: 0.85, lineHeight: '1.25', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
           {completado ? (turno.metodo_pago === 'pendiente' || !turno.metodo_pago ? 'Pago pendiente' : 'Cobrado') : turno.servicio}
+        </div>
+      )}
+      {showTelefono && (
+        <div style={{ fontSize: '10px', opacity: 0.85, lineHeight: '1.25', marginTop: '1px' }}>
+          📞 {turno.cliente_telefono}
         </div>
       )}
     </div>
@@ -1045,7 +1053,9 @@ export function DashboardCalendario({
             boxSizing: 'border-box'
           };
 
-          return { style };
+          const className = isHabilitable ? 'slot-inactivo' : undefined;
+
+          return { style, className };
         }}
         eventPropGetter={(event: any) => {
           const turno = event.resource as TurnoConDetalle;
