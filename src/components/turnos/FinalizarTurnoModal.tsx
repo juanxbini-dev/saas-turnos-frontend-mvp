@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { DollarSign, Percent, CreditCard, Package, Plus, X, Calculator, Search } from 'lucide-react';
-import { TurnoConDetalle, MetodoPago, VentaProductoData, CalculoCompletoTurno } from '../../types/turno.types';
-import { calcularComisiones, formatCurrency, generarId } from '../../utils/calculos.utils';
+import { DollarSign, Percent, CreditCard, Package, Plus, X, Search } from 'lucide-react';
+import { TurnoConDetalle, MetodoPago, VentaProductoData } from '../../types/turno.types';
+import { formatCurrency, generarId } from '../../utils/calculos.utils';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
 import { productosService } from '../../services/productos.service';
 import { Producto } from '../../types/producto.types';
@@ -14,18 +14,14 @@ interface FinalizarTurnoModalProps {
   onClose: () => void;
   turno: TurnoConDetalle;
   onSuccess: () => void;
-  comisionesConfig: {
-    comision_turno: number;
-    comision_producto: number;
-  };
+  comisionesConfig?: { comision_turno: number; comision_producto: number };
 }
 
-export function FinalizarTurnoModal({ 
-  isOpen, 
-  onClose, 
-  turno, 
+export function FinalizarTurnoModal({
+  isOpen,
+  onClose,
+  turno,
   onSuccess,
-  comisionesConfig 
 }: FinalizarTurnoModalProps) {
   const [loading, setLoading] = useState(false);
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('pendiente');
@@ -43,30 +39,31 @@ export function FinalizarTurnoModal({
     { ttl: 60 }
   );
 
-  // Recalcular precios de productos cuando cambia el método de pago
-  React.useEffect(() => {
-    if (!catalogoProductos || productos.length === 0) return;
+  // Helper: cambiar método de pago de un producto y recalcular su precio
+  const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia') => {
+    if (!catalogoProductos) return;
     setProductos(prev => prev.map(p => {
+      if (p.id !== id) return p;
       const catalogoProd = catalogoProductos.find(c => c.id === p.producto_id);
-      if (!catalogoProd) return p;
-      const nuevoPrecio = metodoPago === 'transferencia'
+      if (!catalogoProd) return { ...p, metodo_pago: metodo };
+      const nuevoPrecio = metodo === 'transferencia'
         ? Number(catalogoProd.precio_transferencia) || 0
         : Number(catalogoProd.precio_efectivo) || 0;
-      return { ...p, precio_unitario: nuevoPrecio, precio_total: nuevoPrecio * p.cantidad };
+      return { ...p, metodo_pago: metodo, precio_unitario: nuevoPrecio, precio_total: nuevoPrecio * p.cantidad };
     }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [metodoPago]);
+  };
 
-  // Calcular totales derivado directo
-  const calculo = useMemo<CalculoCompletoTurno | null>(() => {
+  // Calcular totales simples (sin comisiones)
+  const calculo = useMemo(() => {
     const precioServicio = precioModificado ? parseFloat(precioModificado) || 0 : Number(turno.precio);
     const montoProductos = productos.reduce((sum, p) => sum + Number(p.precio_total), 0);
+    const subtotal = precioServicio + montoProductos;
+    if (subtotal <= 0) return null;
     const descuento = descuentoPorcentaje ? parseFloat(descuentoPorcentaje) || 0 : 0;
-    if (precioServicio > 0 || montoProductos > 0) {
-      return calcularComisiones(precioServicio, montoProductos, descuento, comisionesConfig);
-    }
-    return null;
-  }, [precioModificado, productos, descuentoPorcentaje, turno.precio, comisionesConfig]);
+    const descuentoMonto = subtotal * (descuento / 100);
+    const totalConDescuento = subtotal - descuentoMonto;
+    return { precioOriginalServicio: precioServicio, precioOriginalProductos: montoProductos, subtotal, descuentoPorcentaje: descuento, descuentoMonto, totalConDescuento };
+  }, [precioModificado, productos, descuentoPorcentaje, turno.precio]);
 
   const handleAgregarProducto = () => {
     if (!selectedCatalogProducto) return;
@@ -80,16 +77,18 @@ export function FinalizarTurnoModal({
           : p
       ));
     } else {
-      const precioUnitario = metodoPago === 'transferencia'
+      const metodoProd = metodoPago === 'pendiente' ? 'efectivo' : (metodoPago as 'efectivo' | 'transferencia');
+      const precioUnitario = metodoProd === 'transferencia'
         ? Number(selectedCatalogProducto.precio_transferencia) || 0
         : Number(selectedCatalogProducto.precio_efectivo) || 0;
-    const producto: VentaProductoData = {
+      const producto: VentaProductoData = {
         id: generarId(),
         producto_id: selectedCatalogProducto.id,
         nombre_producto: selectedCatalogProducto.nombre,
         cantidad: nuevaCantidad,
         precio_unitario: precioUnitario,
         precio_total: precioUnitario * nuevaCantidad,
+        metodo_pago: metodoProd,
       };
       setProductos([...productos, producto]);
     }
@@ -285,23 +284,40 @@ export function FinalizarTurnoModal({
           ) : (
             <div className="space-y-2">
               {productos.map((producto) => (
-                <div key={producto.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <div className="font-medium">{producto.nombre_producto}</div>
-                    <div className="text-sm text-gray-500">
-                      {producto.cantidad} × {formatCurrency(producto.precio_unitario)}
+                <div key={producto.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{producto.nombre_producto}</div>
+                      <div className="text-sm text-gray-500">
+                        {producto.cantidad} × {formatCurrency(producto.precio_unitario)}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="font-medium">{formatCurrency(producto.precio_total)}</div>
+                      <button
+                        onClick={() => handleEliminarProducto(producto.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="font-medium">
-                      {formatCurrency(producto.precio_total)}
-                    </div>
-                    <button
-                      onClick={() => handleEliminarProducto(producto.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                  {/* Toggle método de pago por producto */}
+                  <div className="flex gap-1">
+                    {(['efectivo', 'transferencia'] as const).map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => handleProductoMetodoPago(producto.id, m)}
+                        className={`text-xs px-2 py-0.5 rounded border transition-all ${
+                          producto.metodo_pago === m
+                            ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                            : 'border-gray-200 text-gray-500 hover:border-blue-300'
+                        }`}
+                      >
+                        {m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
+                      </button>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -412,65 +428,35 @@ export function FinalizarTurnoModal({
         {/* Resumen y Cálculos */}
         {calculo && (
           <Card flat className="border-purple-200 bg-purple-50">
-            <h3 className="font-medium text-purple-900 mb-3 flex items-center gap-2">
-              <Calculator className="w-4 h-4" />
-              Resumen de Cálculos
-            </h3>
+            <h3 className="font-medium text-purple-900 mb-3">Resumen</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span>Servicio:</span>
                 <span>{formatCurrency(calculo.precioOriginalServicio)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Productos:</span>
-                <span>{formatCurrency(calculo.precioOriginalProductos)}</span>
-              </div>
-              <div className="flex justify-between font-medium">
-                <span>Subtotal:</span>
-                <span>{formatCurrency(calculo.precioOriginalServicio + calculo.precioOriginalProductos)}</span>
-              </div>
+              {calculo.precioOriginalProductos > 0 && (
+                <>
+                  <div className="flex justify-between">
+                    <span>Productos:</span>
+                    <span>{formatCurrency(calculo.precioOriginalProductos)}</span>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <span>Subtotal:</span>
+                    <span>{formatCurrency(calculo.subtotal)}</span>
+                  </div>
+                </>
+              )}
               {calculo.descuentoMonto > 0 && (
                 <>
                   <div className="flex justify-between text-green-600">
                     <span>Descuento ({calculo.descuentoPorcentaje}%):</span>
                     <span>-{formatCurrency(calculo.descuentoMonto)}</span>
                   </div>
-                  <div className="flex justify-between font-medium text-lg">
-                    <span>Total con Descuento:</span>
-                    <span>{formatCurrency(calculo.totalConDescuento)}</span>
-                  </div>
                 </>
               )}
-              
-              <div className="border-t pt-3 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Comisión Empresa (Servicios):</span>
-                  <span>{formatCurrency(calculo.comisionServicio.montoEmpresa)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Neto Profesional (Servicios):</span>
-                  <span>{formatCurrency(calculo.comisionServicio.netoProfesional)}</span>
-                </div>
-                {calculo.comisionProductos.base > 0 && (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span>Comisión Empresa (Productos):</span>
-                      <span>{formatCurrency(calculo.comisionProductos.montoEmpresa)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Neto Profesional (Productos):</span>
-                      <span>{formatCurrency(calculo.comisionProductos.netoProfesional)}</span>
-                    </div>
-                  </>
-                )}
-                <div className="border-t pt-2 flex justify-between font-medium">
-                  <span>Total Empresa:</span>
-                  <span>{formatCurrency(calculo.totales.totalEmpresa)}</span>
-                </div>
-                <div className="flex justify-between font-medium">
-                  <span>Total Profesional:</span>
-                  <span>{formatCurrency(calculo.totales.totalProfesional)}</span>
-                </div>
+              <div className="border-t pt-2 flex justify-between font-semibold text-lg">
+                <span>Total:</span>
+                <span>{formatCurrency(calculo.totalConDescuento)}</span>
               </div>
             </div>
           </Card>
