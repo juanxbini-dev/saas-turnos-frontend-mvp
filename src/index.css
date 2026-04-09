@@ -36,12 +36,24 @@
 @media (max-width: 639px) {
   .rbc-time-gutter .rbc-label,
   .rbc-time-header-gutter {
-    font-size: 10px;
+    font-size: 9px;
     padding: 0 2px;
   }
 
   /* Forzar altura mínima de slots en mobile */
   .rbc-time-slot {
-    min-height: 100px !important;
+    min-height: 120px !important;
+  }
+
+  /* Padding mínimo en eventos mobile */
+  .rbc-event {
+    padding: 2px 3px !important;
+  }
+
+  /* Fuente condensada para eventos mobile */
+  .rbc-event,
+  .rbc-event-content {
+    letter-spacing: -0.01em !important;
+    line-height: 1.1 !important;
   }
 }

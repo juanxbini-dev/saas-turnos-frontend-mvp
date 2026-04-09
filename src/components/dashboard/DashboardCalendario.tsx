@@ -57,55 +57,77 @@ const getEventColor = (turno: TurnoConDetalle, defaultColor: string): string => 
 const makeEventComponent = (color: string, isMobile = false): React.FC<any> => ({ event }) => {
   const turno = event.resource as TurnoConDetalle;
   const completado = turno?.estado === 'completado';
+  const cobrado = turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia';
   const bgColor = getEventColor(turno, color);
+
+  // Hooks siempre al tope (reglas de hooks)
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [showServicio, setShowServicio] = React.useState(true);
-  const [showTelefono, setShowTelefono] = React.useState(false);
 
   React.useEffect(() => {
+    if (isMobile) return; // mobile no necesita ResizeObserver
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
-      const h = el.offsetHeight;
-      setShowServicio(h >= (isMobile ? 45 : 38));
-      setShowTelefono(isMobile && h >= 70 && !!turno?.cliente_telefono);
+      setShowServicio(el.offsetHeight >= 38);
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [turno?.cliente_telefono]);
+  }, []);
 
+  // ── Mobile: layout compacto con jerarquía tipográfica ──
+  if (isMobile) {
+    return (
+      <div style={{
+        width: '100%', height: '100%', overflow: 'hidden',
+        backgroundColor: bgColor, color: 'white',
+        borderLeft: '3px solid rgba(255,255,255,0.6)', borderRadius: '2px',
+        boxSizing: 'border-box', cursor: 'pointer',
+        opacity: completado ? 0.85 : 1,
+        padding: '2px 3px',
+        display: 'flex', flexDirection: 'column', gap: '1px',
+        letterSpacing: '-0.01em',
+      }}>
+        <div style={{ fontWeight: '700', fontSize: '9px', lineHeight: '1.15', wordBreak: 'break-word' }}>
+          {turno.cliente_nombre}
+        </div>
+        <div style={{ fontSize: '7px', fontWeight: '500', lineHeight: '1.15', opacity: 0.9, wordBreak: 'break-word' }}>
+          {turno.servicio}
+        </div>
+        {turno.cliente_telefono && (
+          <div style={{ fontSize: '6.5px', fontFamily: 'monospace', lineHeight: '1.15', opacity: 0.85 }}>
+            ☎ {turno.cliente_telefono}
+          </div>
+        )}
+        {completado && (
+          <div style={{ fontSize: '6.5px', fontWeight: '600', lineHeight: '1.15' }}>
+            {cobrado ? '💰 Cobrado' : '⏱ Pend.'}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Desktop: layout con ResizeObserver adaptativo ──
   return (
     <div
       ref={containerRef}
       style={{
         padding: '3px 5px 2px 8px',
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-        backgroundColor: bgColor,
-        color: 'white',
-        borderLeft: '3px solid rgba(255,255,255,0.6)',
-        borderRadius: '2px',
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'flex-start',
-        gap: '1px',
-        cursor: 'pointer',
+        width: '100%', height: '100%', overflow: 'hidden',
+        backgroundColor: bgColor, color: 'white',
+        borderLeft: '3px solid rgba(255,255,255,0.6)', borderRadius: '2px',
+        boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
+        justifyContent: 'flex-start', gap: '1px', cursor: 'pointer',
         opacity: completado ? 0.85 : 1,
       }}
     >
-      <div style={{ fontWeight: '700', fontSize: isMobile ? '13px' : '12px', lineHeight: '1.25', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+      <div style={{ fontWeight: '700', fontSize: '12px', lineHeight: '1.25', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
         {turno.cliente_nombre}
       </div>
       {showServicio && (
-        <div style={{ fontSize: isMobile ? '11px' : '10px', opacity: 0.85, lineHeight: '1.25', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-          {completado ? (turno.metodo_pago === 'pendiente' || !turno.metodo_pago ? 'Pago pendiente' : 'Cobrado') : turno.servicio}
-        </div>
-      )}
-      {showTelefono && (
-        <div style={{ fontSize: '10px', opacity: 0.85, lineHeight: '1.25', marginTop: '1px' }}>
-          📞 {turno.cliente_telefono}
+        <div style={{ fontSize: '10px', opacity: 0.85, lineHeight: '1.25', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+          {completado ? (cobrado ? 'Cobrado' : 'Pago pendiente') : turno.servicio}
         </div>
       )}
     </div>
@@ -646,7 +668,7 @@ export function DashboardCalendario({
     setSelectedTurno(null);
   }, []);
 
-  const calendarHeight = isMobile ? 600 : 650;
+  const calendarHeight = isMobile ? Math.max(window.innerHeight * 0.75, 600) : 650;
 
   // Label compacto para el toolbar en mobile
   const mobileLabel = useMemo(() => {
@@ -1028,7 +1050,7 @@ export function DashboardCalendario({
         min={new Date(new Date().setHours(7, 0, 0, 0))}
         max={new Date(new Date().setHours(23, 0, 0, 0))}
         scrollToTime={new Date(new Date().setHours(Math.max(primeraHoraDisponible - 1, 7), 0, 0, 0))}
-        timeGutterWidth={isMobile ? 36 : 70}
+        timeGutterWidth={isMobile ? 45 : 70}
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
           const isBloqueado = isSlotBloqueado(date);
