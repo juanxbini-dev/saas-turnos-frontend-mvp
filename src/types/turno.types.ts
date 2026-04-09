@@ -31,6 +31,7 @@ export interface Turno {
 export interface TurnoConDetalle extends Turno {
   cliente_nombre: string;
   cliente_email: string;
+  cliente_telefono?: string;
   usuario_nombre: string;
   usuario_username: string;
 }
