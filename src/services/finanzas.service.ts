@@ -47,7 +47,12 @@ export const finanzasService = {
     return response.data;
   },
 
-  async cobrarPago(tipo: 'turno' | 'venta', id: string, metodo_pago: 'efectivo' | 'transferencia'): Promise<void> {
-    await axiosInstance.patch('/api/finanzas/cobrar', { tipo, id, metodo_pago });
+  async cobrarPago(
+    tipo: 'turno' | 'venta',
+    id: string,
+    metodo_pago: 'efectivo' | 'transferencia',
+    metodo_pago_productos?: 'efectivo' | 'transferencia'
+  ): Promise<void> {
+    await axiosInstance.patch('/api/finanzas/cobrar', { tipo, id, metodo_pago, metodo_pago_productos });
   },
 };
