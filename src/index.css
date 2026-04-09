@@ -19,6 +19,11 @@
   display: none !important;
 }
 
+/* Borde inferior en cada slot para marcar el límite de hora */
+.rbc-time-slot {
+  border-bottom: 1px solid #E5E7EB !important;
+}
+
 /* Slots sin disponibilidad: etiqueta "Inactivo" centrada */
 .slot-inactivo::before {
   content: 'Inactivo';
