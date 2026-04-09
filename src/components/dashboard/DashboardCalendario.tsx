@@ -75,7 +75,7 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
     return () => observer.disconnect();
   }, []);
 
-  // ── Mobile: layout compacto con jerarquía tipográfica ──
+  // ── Mobile: layout con jerarquía tipográfica y distribución vertical ──
   if (isMobile) {
     return (
       <div style={{
@@ -84,24 +84,32 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
         borderLeft: '3px solid rgba(255,255,255,0.6)', borderRadius: '2px',
         boxSizing: 'border-box', cursor: 'pointer',
         opacity: completado ? 0.85 : 1,
-        padding: '2px 3px',
-        display: 'flex', flexDirection: 'column', gap: '1px',
-        letterSpacing: '-0.01em',
+        padding: '4px 5px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        letterSpacing: '-0.005em',
       }}>
-        <div style={{ fontWeight: '700', fontSize: '9px', lineHeight: '1.15', wordBreak: 'break-word' }}>
-          {turno.cliente_nombre}
-        </div>
-        <div style={{ fontSize: '7px', fontWeight: '500', lineHeight: '1.15', opacity: 0.9, wordBreak: 'break-word' }}>
-          {turno.servicio}
-        </div>
-        {turno.cliente_telefono && (
-          <div style={{ fontSize: '6.5px', fontFamily: 'monospace', lineHeight: '1.15', opacity: 0.85 }}>
-            ☎ {turno.cliente_telefono}
+        {/* Sección superior: nombre + servicio */}
+        <div>
+          <div style={{ fontWeight: '700', fontSize: '11px', lineHeight: '1.2', wordBreak: 'break-word' }}>
+            {turno.cliente_nombre}
           </div>
-        )}
-        {completado && (
-          <div style={{ fontSize: '6.5px', fontWeight: '600', lineHeight: '1.15' }}>
-            {cobrado ? '💰 Cobrado' : '⏱ Pend.'}
+          <div style={{ fontSize: '9px', fontWeight: '500', lineHeight: '1.2', opacity: 0.9, wordBreak: 'break-word', marginBottom: '2px' }}>
+            {turno.servicio}
+          </div>
+        </div>
+        {/* Sección inferior: teléfono + estado */}
+        {(turno.cliente_telefono || completado) && (
+          <div>
+            {turno.cliente_telefono && (
+              <div style={{ fontSize: '8px', fontFamily: 'monospace', lineHeight: '1.3', opacity: 0.85, marginBottom: '2px' }}>
+                ☎ {turno.cliente_telefono}
+              </div>
+            )}
+            {completado && (
+              <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3' }}>
+                {cobrado ? '💰 Cobrado' : '⏱ Pend.'}
+              </div>
+            )}
           </div>
         )}
       </div>

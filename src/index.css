@@ -45,15 +45,14 @@
     min-height: 120px !important;
   }
 
-  /* Padding mínimo en eventos mobile */
+  /* Padding en eventos mobile */
   .rbc-event {
-    padding: 2px 3px !important;
+    padding: 4px 5px !important;
   }
 
-  /* Fuente condensada para eventos mobile */
-  .rbc-event,
+  /* Tipografía de eventos mobile */
   .rbc-event-content {
-    letter-spacing: -0.01em !important;
-    line-height: 1.1 !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.005em !important;
   }
 }
