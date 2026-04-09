@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TurnoConDetalle, MetodoPago } from '../../types/turno.types';
+import { TurnoConDetalle } from '../../types/turno.types';
 import { finanzasService } from '../../services/finanzas.service';
+import axiosInstance from '../../api/axiosInstance';
 import { Modal, Button, Card } from '../ui';
 import { formatCurrency } from '../../utils/calculos.utils';
 import { useToast } from '../../hooks/useToast';
+
+interface ProductoConPrecios {
+  id: string;
+  producto_id: string | null;
+  nombre_producto: string;
+  cantidad: number;
+  precio_efectivo: number | null;
+  precio_transferencia: number | null;
+}
 
 interface CobrarTurnoModalProps {
   isOpen: boolean;
@@ -15,11 +25,6 @@ interface CobrarTurnoModalProps {
 }
 
 type MetodoPagoEfectivo = 'efectivo' | 'transferencia';
-
-const METODOS: { value: MetodoPagoEfectivo; label: string }[] = [
-  { value: 'efectivo', label: 'Efectivo' },
-  { value: 'transferencia', label: 'Transferencia' },
-];
 
 function MetodoSelector({
   label,
@@ -34,18 +39,18 @@ function MetodoSelector({
     <div>
       <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>
       <div className="flex gap-2">
-        {METODOS.map((m) => (
+        {(['efectivo', 'transferencia'] as MetodoPagoEfectivo[]).map((m) => (
           <button
-            key={m.value}
+            key={m}
             type="button"
-            onClick={() => onChange(m.value)}
+            onClick={() => onChange(m)}
             className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all ${
-              value === m.value
+              value === m
                 ? 'border-blue-500 bg-blue-50 text-blue-700'
                 : 'border-gray-200 text-gray-600 hover:border-blue-300'
             }`}
           >
-            {m.label}
+            {m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
           </button>
         ))}
       </div>
@@ -58,14 +63,48 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
   const [loading, setLoading] = useState(false);
   const [metodoPagoServicio, setMetodoPagoServicio] = useState<MetodoPagoEfectivo | null>(null);
   const [metodoPagoProductos, setMetodoPagoProductos] = useState<MetodoPagoEfectivo | null>(null);
+  const [productosDetalle, setProductosDetalle] = useState<ProductoConPrecios[]>([]);
 
   const tieneProductos = Number(turno.total_productos ?? 0) > 0;
-  const totalServicio = Number(turno.precio ?? turno.servicio_precio ?? 0);
-  const totalProductos = Number(turno.total_productos ?? 0);
-  const descuento = Number(turno.descuento_porcentaje ?? 0);
-  const subtotal = totalServicio + totalProductos;
-  const descuentoMonto = subtotal * (descuento / 100);
-  const totalFinal = turno.total_final ? Number(turno.total_final) : subtotal - descuentoMonto;
+
+  // Cargar productos con ambos precios al abrir el modal
+  useEffect(() => {
+    if (!isOpen || !tieneProductos) return;
+    axiosInstance.get(`/api/finanzas/turno/${turno.id}/productos`)
+      .then(res => setProductosDetalle(res.data.data ?? []))
+      .catch(() => setProductosDetalle([]));
+  }, [isOpen, turno.id, tieneProductos]);
+
+  // Calcular totales reactivos según método elegido
+  const { totalServicio, totalProductos, descuentoMonto, totalFinal } = useMemo(() => {
+    const svc = Number(turno.precio ?? turno.servicio_precio ?? 0);
+    const descuento = Number(turno.descuento_porcentaje ?? 0);
+
+    let prod = 0;
+    if (tieneProductos) {
+      if (productosDetalle.length > 0 && metodoPagoProductos) {
+        // Recalcular con el precio del método elegido
+        prod = productosDetalle.reduce((sum, p) => {
+          const precio = metodoPagoProductos === 'transferencia'
+            ? Number(p.precio_transferencia ?? p.precio_efectivo ?? 0)
+            : Number(p.precio_efectivo ?? 0);
+          return sum + precio * p.cantidad;
+        }, 0);
+      } else {
+        // Antes de elegir método, mostrar el total almacenado
+        prod = Number(turno.total_productos ?? 0);
+      }
+    }
+
+    const sub = svc + prod;
+    const descMonto = sub * (descuento / 100);
+    return {
+      totalServicio: svc,
+      totalProductos: prod,
+      descuentoMonto: descMonto,
+      totalFinal: sub - descMonto,
+    };
+  }, [turno, tieneProductos, productosDetalle, metodoPagoProductos]);
 
   const canSave = metodoPagoServicio !== null && (!tieneProductos || metodoPagoProductos !== null);
 
@@ -81,7 +120,7 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
       );
       toast.success('Cobro registrado correctamente');
       onSuccess();
-      onClose();
+      handleClose();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Error al registrar el cobro');
     } finally {
@@ -92,6 +131,7 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
   const handleClose = () => {
     setMetodoPagoServicio(null);
     setMetodoPagoProductos(null);
+    setProductosDetalle([]);
     onClose();
   };
 
@@ -121,7 +161,7 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
             )}
             {descuentoMonto > 0 && (
               <div className="flex justify-between text-green-600">
-                <span>Descuento ({descuento}%)</span>
+                <span>Descuento ({Number(turno.descuento_porcentaje)}%)</span>
                 <span>-{formatCurrency(descuentoMonto)}</span>
               </div>
             )}
@@ -153,12 +193,7 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
           <Button variant="secondary" onClick={handleClose} block>
             Cancelar
           </Button>
-          <Button
-            onClick={handleCobrar}
-            loading={loading}
-            disabled={!canSave}
-            block
-          >
+          <Button onClick={handleCobrar} loading={loading} disabled={!canSave} block>
             Confirmar cobro
           </Button>
         </div>
