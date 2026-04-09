@@ -3,6 +3,7 @@ import { ProfesionalFilter } from '../components/dashboard/ProfesionalFilter';
 import { DashboardCalendario } from '../components/dashboard/DashboardCalendario';
 import { DashboardTurnoModal } from '../components/dashboard/DashboardTurnoModal';
 import { FinalizarTurnoModal } from '../components/turnos/FinalizarTurnoModal';
+import { CobrarTurnoModal } from '../components/dashboard/CobrarTurnoModal';
 import { VenderModal } from '../components/productos/VenderModal';
 import { useFetch } from '../hooks/useFetch';
 import { useAuth } from '../context/AuthContext';
@@ -116,9 +117,20 @@ export function DashboardPage() {
     setModalOpen(true);
   };
 
-  // Manejar clic en turno existente — abre FinalizarTurnoModal directamente
+  const [turnoACobrar, setTurnoACobrar] = useState<TurnoConDetalle | null>(null);
+
+  // Manejar clic en turno existente
+  // · completado + pago pendiente → CobrarTurnoModal
+  // · cualquier otro estado → FinalizarTurnoModal
   const handleTurnoAction = (turno: TurnoConDetalle) => {
-    setTurnoAFinalizar(turno);
+    const pendienteDeCobro =
+      turno.estado === 'completado' &&
+      (turno.metodo_pago === 'pendiente' || !turno.metodo_pago);
+    if (pendienteDeCobro) {
+      setTurnoACobrar(turno);
+    } else {
+      setTurnoAFinalizar(turno);
+    }
   };
 
   // Refrescar calendario después de acciones
@@ -224,13 +236,23 @@ export function DashboardPage() {
         onRefresh={handleRefresh}
       />
 
-      {/* Modal finalizar turno (desde click en slot ocupado) */}
+      {/* Modal finalizar turno (pendiente / confirmado) */}
       {turnoAFinalizar && (
         <FinalizarTurnoModal
           isOpen={!!turnoAFinalizar}
           onClose={() => setTurnoAFinalizar(null)}
           turno={turnoAFinalizar}
           onSuccess={() => { setTurnoAFinalizar(null); handleRefresh(); }}
+        />
+      )}
+
+      {/* Modal cobrar turno (completado con pago pendiente) */}
+      {turnoACobrar && (
+        <CobrarTurnoModal
+          isOpen={!!turnoACobrar}
+          onClose={() => setTurnoACobrar(null)}
+          turno={turnoACobrar}
+          onSuccess={() => { setTurnoACobrar(null); handleRefresh(); }}
         />
       )}
 
