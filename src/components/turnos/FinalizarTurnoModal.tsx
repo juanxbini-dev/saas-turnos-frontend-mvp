@@ -39,19 +39,19 @@ export function FinalizarTurnoModal({
     { ttl: 60 }
   );
 
-  // Recalcular precios de productos cuando cambia el método de pago
-  React.useEffect(() => {
-    if (!catalogoProductos || productos.length === 0) return;
+  // Helper: cambiar método de pago de un producto y recalcular su precio
+  const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia') => {
+    if (!catalogoProductos) return;
     setProductos(prev => prev.map(p => {
+      if (p.id !== id) return p;
       const catalogoProd = catalogoProductos.find(c => c.id === p.producto_id);
-      if (!catalogoProd) return p;
-      const nuevoPrecio = metodoPago === 'transferencia'
+      if (!catalogoProd) return { ...p, metodo_pago: metodo };
+      const nuevoPrecio = metodo === 'transferencia'
         ? Number(catalogoProd.precio_transferencia) || 0
         : Number(catalogoProd.precio_efectivo) || 0;
-      return { ...p, precio_unitario: nuevoPrecio, precio_total: nuevoPrecio * p.cantidad };
+      return { ...p, metodo_pago: metodo, precio_unitario: nuevoPrecio, precio_total: nuevoPrecio * p.cantidad };
     }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [metodoPago]);
+  };
 
   // Calcular totales simples (sin comisiones)
   const calculo = useMemo(() => {
@@ -77,16 +77,18 @@ export function FinalizarTurnoModal({
           : p
       ));
     } else {
-      const precioUnitario = metodoPago === 'transferencia'
+      const metodoProd = metodoPago === 'pendiente' ? 'efectivo' : (metodoPago as 'efectivo' | 'transferencia');
+      const precioUnitario = metodoProd === 'transferencia'
         ? Number(selectedCatalogProducto.precio_transferencia) || 0
         : Number(selectedCatalogProducto.precio_efectivo) || 0;
-    const producto: VentaProductoData = {
+      const producto: VentaProductoData = {
         id: generarId(),
         producto_id: selectedCatalogProducto.id,
         nombre_producto: selectedCatalogProducto.nombre,
         cantidad: nuevaCantidad,
         precio_unitario: precioUnitario,
         precio_total: precioUnitario * nuevaCantidad,
+        metodo_pago: metodoProd,
       };
       setProductos([...productos, producto]);
     }
@@ -282,23 +284,40 @@ export function FinalizarTurnoModal({
           ) : (
             <div className="space-y-2">
               {productos.map((producto) => (
-                <div key={producto.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <div className="font-medium">{producto.nombre_producto}</div>
-                    <div className="text-sm text-gray-500">
-                      {producto.cantidad} × {formatCurrency(producto.precio_unitario)}
+                <div key={producto.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{producto.nombre_producto}</div>
+                      <div className="text-sm text-gray-500">
+                        {producto.cantidad} × {formatCurrency(producto.precio_unitario)}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="font-medium">{formatCurrency(producto.precio_total)}</div>
+                      <button
+                        onClick={() => handleEliminarProducto(producto.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="font-medium">
-                      {formatCurrency(producto.precio_total)}
-                    </div>
-                    <button
-                      onClick={() => handleEliminarProducto(producto.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                  {/* Toggle método de pago por producto */}
+                  <div className="flex gap-1">
+                    {(['efectivo', 'transferencia'] as const).map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => handleProductoMetodoPago(producto.id, m)}
+                        className={`text-xs px-2 py-0.5 rounded border transition-all ${
+                          producto.metodo_pago === m
+                            ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                            : 'border-gray-200 text-gray-500 hover:border-blue-300'
+                        }`}
+                      >
+                        {m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
+                      </button>
+                    ))}
                   </div>
                 </div>
               ))}

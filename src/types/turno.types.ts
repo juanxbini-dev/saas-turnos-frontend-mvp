@@ -117,6 +117,7 @@ export interface VentaProductoData {
   cantidad: number;
   precio_unitario: number;
   precio_total: number;
+  metodo_pago?: 'efectivo' | 'transferencia';
 }
 
 export interface CalculoCompletoTurno {
