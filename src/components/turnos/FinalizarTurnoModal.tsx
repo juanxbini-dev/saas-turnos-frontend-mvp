@@ -39,16 +39,14 @@ export function FinalizarTurnoModal({
     { ttl: 60 }
   );
 
-  // Helper: cambiar método de pago de un producto y recalcular su precio
+  // Cambiar método de pago de un producto y recalcular su precio
+  // Usa los precios guardados en el producto para no depender del catálogo en este momento
   const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia') => {
-    if (!catalogoProductos) return;
     setProductos(prev => prev.map(p => {
       if (p.id !== id) return p;
-      const catalogoProd = catalogoProductos.find(c => c.id === p.producto_id);
-      if (!catalogoProd) return { ...p, metodo_pago: metodo };
       const nuevoPrecio = metodo === 'transferencia'
-        ? Number(catalogoProd.precio_transferencia) || 0
-        : Number(catalogoProd.precio_efectivo) || 0;
+        ? (p._precio_transferencia ?? p.precio_unitario)
+        : (p._precio_efectivo ?? p.precio_unitario);
       return { ...p, metodo_pago: metodo, precio_unitario: nuevoPrecio, precio_total: nuevoPrecio * p.cantidad };
     }));
   };
@@ -78,9 +76,9 @@ export function FinalizarTurnoModal({
       ));
     } else {
       const metodoProd = metodoPago === 'pendiente' ? 'efectivo' : (metodoPago as 'efectivo' | 'transferencia');
-      const precioUnitario = metodoProd === 'transferencia'
-        ? Number(selectedCatalogProducto.precio_transferencia) || 0
-        : Number(selectedCatalogProducto.precio_efectivo) || 0;
+      const precioEfectivo = Number(selectedCatalogProducto.precio_efectivo) || 0;
+      const precioTransferencia = Number(selectedCatalogProducto.precio_transferencia) || 0;
+      const precioUnitario = metodoProd === 'transferencia' ? precioTransferencia : precioEfectivo;
       const producto: VentaProductoData = {
         id: generarId(),
         producto_id: selectedCatalogProducto.id,
@@ -89,6 +87,8 @@ export function FinalizarTurnoModal({
         precio_unitario: precioUnitario,
         precio_total: precioUnitario * nuevaCantidad,
         metodo_pago: metodoProd,
+        _precio_efectivo: precioEfectivo,
+        _precio_transferencia: precioTransferencia,
       };
       setProductos([...productos, producto]);
     }

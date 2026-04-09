@@ -118,6 +118,9 @@ export interface VentaProductoData {
   precio_unitario: number;
   precio_total: number;
   metodo_pago?: 'efectivo' | 'transferencia';
+  // Precios por método guardados al agregar — permiten recalcular sin depender del catálogo
+  _precio_efectivo?: number;
+  _precio_transferencia?: number;
 }
 
 export interface CalculoCompletoTurno {
