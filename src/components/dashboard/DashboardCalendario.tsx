@@ -566,6 +566,13 @@ export function DashboardCalendario({
       return;
     }
 
+    // Bloquear slots de fechas pasadas
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fechaSlot = new Date(slotInfo.start);
+    fechaSlot.setHours(0, 0, 0, 0);
+    if (fechaSlot < hoy) return;
+
     // Si hay un turno activo en este slot, no mostrar menú (se maneja con handleSelectEvent)
     const hayTurno = eventsWithDemo.some((ev: any) => {
       const start: Date = ev.start;

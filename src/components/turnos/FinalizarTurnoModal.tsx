@@ -75,7 +75,7 @@ export function FinalizarTurnoModal({
           : p
       ));
     } else {
-      const metodoProd = metodoPago === 'pendiente' ? 'efectivo' : (metodoPago as 'efectivo' | 'transferencia');
+      const metodoProd = metodoPago as 'efectivo' | 'transferencia' | 'pendiente';
       const precioEfectivo = Number(selectedCatalogProducto.precio_efectivo) || 0;
       const precioTransferencia = Number(selectedCatalogProducto.precio_transferencia) || 0;
       const precioUnitario = metodoProd === 'transferencia' ? precioTransferencia : precioEfectivo;

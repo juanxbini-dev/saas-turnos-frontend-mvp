@@ -411,7 +411,11 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
                         return <ServicioRow key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
                       }
                       const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                        onCobrarPago(e.grupo.turno_id ? 'turno' : 'venta', e.grupo.grupo_id, m);
+                        onCobrarPago(
+                          e.grupo.turno_id ? 'turno' : 'venta',
+                          e.grupo.turno_id ?? e.grupo.grupo_id,
+                          m
+                        );
                       return <VentaRow key={`v-${e.grupo.grupo_id}`} grupo={e.grupo} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onCobrar={getCobrar} />;
                     })}
                   </tbody>
@@ -429,7 +433,11 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
                 return <ServicioCard key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
               }
               const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                onCobrarPago(e.grupo.turno_id ? 'turno' : 'venta', e.grupo.grupo_id, m);
+                onCobrarPago(
+                  e.grupo.turno_id ? 'turno' : 'venta',
+                  e.grupo.turno_id ?? e.grupo.grupo_id,
+                  m
+                );
               return <VentaCard key={`v-${e.grupo.grupo_id}`} grupo={e.grupo} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onCobrar={getCobrar} />;
             })}
           </div>

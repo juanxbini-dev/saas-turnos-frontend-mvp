@@ -89,6 +89,7 @@ const TurnosPage: React.FC = () => {
   const handleFinalizarSuccess = () => {
     setTurnoAFinalizar(null);
     cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.FINANZAS));
     revalidate();
   };
 
