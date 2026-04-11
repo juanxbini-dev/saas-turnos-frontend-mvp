@@ -51,9 +51,9 @@ export function FinanzasPage() {
     loading: loadingProfesionales,
     revalidate: revalidateProfesionales
   } = useFetch(
-    'profesionales-list',
+    buildKey(ENTITIES.USUARIOS, 'finanzas-selector'),
     () => usuarioService.getUsuarios(),
-    { ttl: 300 }
+    { ttl: TTL.MEDIUM }
   );
 
   const profesionales = Array.isArray(profesionalesData) 
