@@ -99,6 +99,13 @@ export function DashboardPage() {
 
   // Manejar selección de slot en el calendario
   const handleSlotSelect = (fecha: Date, hora: Date) => {
+    // Bloquear slots de fechas pasadas
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fechaSlot = new Date(fecha);
+    fechaSlot.setHours(0, 0, 0, 0);
+    if (fechaSlot < hoy) return;
+
     // Solo abrir modal si hay un profesional seleccionado
     if (!selectedProfesionalId) {
       toast.warning('Por favor, selecciona un profesional primero');
