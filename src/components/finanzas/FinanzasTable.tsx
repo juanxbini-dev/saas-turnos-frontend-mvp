@@ -14,7 +14,7 @@ interface FinanzasTableProps {
   sortField: FinanzasFilters['ordenar_por'];
   sortOrder: FinanzasFilters['orden'];
   onRowClick: (comision: ComisionProfesional) => void;
-  onCobrarPago: (tipo: 'turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => Promise<void>;
+  onCobrarPago: (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => Promise<void>;
   // Paginación (solo se muestra en tab "todos")
   page: number;
   totalPages: number;
@@ -406,13 +406,19 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
                   <tbody className="bg-white divide-y divide-gray-100">
                     {entradas.map((e) => {
                       if (e.kind === 'servicio') {
+                        // En Pendientes: si el turno tiene también una fila de productos pendiente,
+                        // cobrar solo el servicio para no pisar el método de los productos
+                        const tieneProductoPendiente = isPendientesTab && entradas.some(
+                          o => o.kind === 'venta' && o.grupo.turno_id === e.comision.turno_id
+                        );
                         const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                          onCobrarPago('turno', e.comision.turno_id, m);
+                          onCobrarPago(tieneProductoPendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
                         return <ServicioRow key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
                       }
+                      // Productos asociados a un turno: solo actualizar venta_productos, no el turno
                       const getCobrar = (m: 'efectivo' | 'transferencia') =>
                         onCobrarPago(
-                          e.grupo.turno_id ? 'turno' : 'venta',
+                          e.grupo.turno_id ? 'venta_turno' : 'venta',
                           e.grupo.turno_id ?? e.grupo.grupo_id,
                           m
                         );
@@ -428,13 +434,16 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
           <div className="md:hidden space-y-3">
             {entradas.map((e) => {
               if (e.kind === 'servicio') {
+                const tieneProductoPendiente = isPendientesTab && entradas.some(
+                  o => o.kind === 'venta' && o.grupo.turno_id === e.comision.turno_id
+                );
                 const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                  onCobrarPago('turno', e.comision.turno_id, m);
+                  onCobrarPago(tieneProductoPendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
                 return <ServicioCard key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
               }
               const getCobrar = (m: 'efectivo' | 'transferencia') =>
                 onCobrarPago(
-                  e.grupo.turno_id ? 'turno' : 'venta',
+                  e.grupo.turno_id ? 'venta_turno' : 'venta',
                   e.grupo.turno_id ?? e.grupo.grupo_id,
                   m
                 );

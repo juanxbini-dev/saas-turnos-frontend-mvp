@@ -112,7 +112,7 @@ export function FinanzasPage() {
     handleFiltersChange({ pagina });
   };
 
-  const handleCobrarPago = async (tipo: 'turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => {
+  const handleCobrarPago = async (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => {
     await finanzasService.cobrarPago(tipo, id, metodoPago);
     revalidate();
   };

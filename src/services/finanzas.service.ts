@@ -48,7 +48,7 @@ export const finanzasService = {
   },
 
   async cobrarPago(
-    tipo: 'turno' | 'venta',
+    tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta',
     id: string,
     metodo_pago: 'efectivo' | 'transferencia',
     metodo_pago_productos?: 'efectivo' | 'transferencia'
