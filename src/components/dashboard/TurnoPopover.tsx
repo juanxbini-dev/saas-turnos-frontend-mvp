@@ -79,7 +79,14 @@ export function TurnoPopover({
       </div>
       <div>
         <p className="text-sm text-gray-500">Estado</p>
-        <TurnoEstadoBadge estado={turno.estado} />
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <TurnoEstadoBadge estado={turno.estado} />
+          {turno.origen === 'web' && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-700">
+              Web
+            </span>
+          )}
+        </div>
       </div>
       {turno.notas && (
         <div>

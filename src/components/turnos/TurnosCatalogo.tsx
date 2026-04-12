@@ -141,7 +141,14 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
       key: 'estado' as keyof TurnoConDetalle,
       header: 'Estado',
       render: (value: any, turno: TurnoConDetalle) => (
-        <TurnoEstadoBadge estado={turno.estado} />
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <TurnoEstadoBadge estado={turno.estado} />
+          {turno.origen === 'web' && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-700">
+              Web
+            </span>
+          )}
+        </div>
       )
     },
     {

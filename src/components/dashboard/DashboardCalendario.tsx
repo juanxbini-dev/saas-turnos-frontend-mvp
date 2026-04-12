@@ -97,8 +97,8 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
             {turno.servicio}
           </div>
         </div>
-        {/* Sección inferior: teléfono + estado */}
-        {(turno.cliente_telefono || completado) && (
+        {/* Sección inferior: teléfono + estado + origen */}
+        {(turno.cliente_telefono || completado || turno.origen === 'web') && (
           <div>
             {turno.cliente_telefono && (
               <div style={{ fontSize: '8px', fontFamily: 'monospace', lineHeight: '1.3', opacity: 0.85, marginBottom: '2px' }}>
@@ -108,6 +108,11 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
             {completado && (
               <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3' }}>
                 {cobrado ? '💰 Cobrado' : '⏱ Pend.'}
+              </div>
+            )}
+            {turno.origen === 'web' && (
+              <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3', opacity: 0.9 }}>
+                🌐 Web
               </div>
             )}
           </div>
@@ -136,6 +141,11 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
       {showServicio && (
         <div style={{ fontSize: '10px', opacity: 0.85, lineHeight: '1.25', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
           {completado ? (cobrado ? 'Cobrado' : 'Pago pendiente') : turno.servicio}
+        </div>
+      )}
+      {turno.origen === 'web' && (
+        <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3', opacity: 0.9 }}>
+          🌐 Web
         </div>
       )}
     </div>

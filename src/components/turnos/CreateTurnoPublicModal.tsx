@@ -67,6 +67,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   
   const toast = useToast();
   const slotsRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   // Hook de disponibilidad
   const {
@@ -84,6 +85,13 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     reset: resetDisponibilidad,
     forceRefresh
   } = useDisponibilidad(profesionalId);
+
+  // Scroll al top del modal al cambiar de step
+  useEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.scrollTop = 0;
+    }
+  }, [step]);
 
   // Scroll automático a los slots cuando se selecciona una fecha
   useEffect(() => {
@@ -121,27 +129,30 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   };
 
   const handleValidateAndCreateTurno = async () => {
-    // Validar datos del cliente
-    if (!clienteData.nombre.trim() || !clienteData.email.trim()) {
-      toast.error('Nombre y email son requeridos');
+    if (!clienteData.nombre.trim()) {
+      toast.error('El nombre es requerido');
       return;
+    }
+    if (!clienteData.telefono.trim()) {
+      toast.error('El teléfono es requerido');
+      return;
+    }
+    if (clienteData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(clienteData.email)) {
+        toast.error('El email ingresado no es válido');
+        return;
+      }
     }
 
     setLoading(true);
-    
+
     try {
-      // Validar email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(clienteData.email)) {
-        toast.error('Email inválido');
-        return;
-      }
-
-
-      // Buscar cliente existente por email o teléfono
+      // Buscar cliente existente por email, teléfono o nombre
       const response = await turnoPublicService.validateCliente({
-        email: clienteData.email,
-        telefono: clienteData.telefono || undefined,
+        email: clienteData.email.trim() || undefined,
+        telefono: clienteData.telefono.trim() || undefined,
+        nombre: clienteData.nombre.trim(),
         empresa_id: empresaId
       });
 
@@ -164,6 +175,13 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const createNewClienteAndTurno = async (useExisting = false) => {
     try {
       setLoading(true);
+
+      // Si es cliente nuevo, el email es requerido para registrarlo
+      if (!useExisting && !clienteData.email.trim()) {
+        toast.error('Para registrarte necesitamos tu email');
+        setLoading(false);
+        return;
+      }
 
       const turnoData = {
         profesional_id: profesionalId,
@@ -299,7 +317,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
           </div>
 
           {/* Body */}
-          <div className="overflow-y-auto flex-1 px-6 py-5">
+          <div ref={bodyRef} className="overflow-y-auto flex-1 px-6 py-5">
 
             {/* Step 1 - Servicio */}
             {step === 1 && (
@@ -405,19 +423,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                 </div>
 
                 <div>
-                  <label className={darkLabel}>Email *</label>
-                  <input
-                    type="email"
-                    value={clienteData.email}
-                    onChange={(e) => setClienteData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="tu@email.com"
-                    disabled={loading}
-                    className={darkInput}
-                  />
-                </div>
-
-                <div>
-                  <label className={darkLabel}>Teléfono</label>
+                  <label className={darkLabel}>Teléfono *</label>
                   <input
                     type="tel"
                     value={clienteData.telefono}
@@ -429,14 +435,14 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                 </div>
 
                 <div>
-                  <label className={darkLabel}>Notas (opcional)</label>
-                  <textarea
-                    value={notas}
-                    onChange={(e) => setNotas(e.target.value)}
-                    placeholder="Alguna indicación especial..."
-                    rows={3}
+                  <label className={darkLabel}>Email</label>
+                  <input
+                    type="email"
+                    value={clienteData.email}
+                    onChange={(e) => setClienteData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="tu@email.com"
                     disabled={loading}
-                    className={`${darkInput} resize-none`}
+                    className={darkInput}
                   />
                 </div>
 
@@ -489,7 +495,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
             ) : (
               <button
                 onClick={handleValidateAndCreateTurno}
-                disabled={loading || !clienteData.nombre || !clienteData.email}
+                disabled={loading || !clienteData.nombre || !clienteData.telefono}
                 className={ghostBtn}
               >
                 {loading ? 'Confirmando...' : 'Confirmar turno'}

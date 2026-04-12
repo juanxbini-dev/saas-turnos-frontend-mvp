@@ -1,8 +1,9 @@
 import axiosInstance from '../../api/axiosInstance';
 
 export interface ValidateClienteRequest {
-  email: string;
+  email?: string;
   telefono?: string;
+  nombre?: string;
   empresa_id: string;
 }
 
