@@ -68,6 +68,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           precio_efectivo: parseFloat(form.precio_efectivo),
           precio_transferencia: parseFloat(form.precio_transferencia),
           costo: form.costo !== '' ? parseFloat(form.costo) : null,
+          stock: parseInt(form.stock),
           marca_id: form.marca_id || null,
         });
         toast.success('Producto actualizado');
@@ -196,19 +197,19 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
                 placeholder="Opcional"
               />
             </div>
-            {!isEditing && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock inicial</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.stock}
-                  onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
-                  required
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {isEditing ? 'Stock actual' : 'Stock inicial'}
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={form.stock}
+                onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
+                required
+              />
+            </div>
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
