@@ -54,6 +54,11 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // No intentar refresh en endpoints de auth (login, refresh, logout)
+      if (originalRequest.url?.includes('/auth/')) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // Si ya está refrescando, agregar a la cola
         authLogger.debug('Refresh en progreso, encolando petición');
