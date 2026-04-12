@@ -11,30 +11,35 @@ interface FinanzasSummaryCardsProps {
 
 interface SummaryCardProps {
   title: string;
-  rows: { label: string; value: string; highlight?: boolean }[];
+  total?: string;
+  rows: { label: string; value: string }[];
   icon: React.ReactNode;
   iconColor: string;
   bgColor: string;
+  className?: string;
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ title, rows, icon, iconColor, bgColor }) => (
-  <Card className="hover:shadow-lg transition-shadow">
+const SummaryCard: React.FC<SummaryCardProps> = ({ title, total, rows, icon, iconColor, bgColor, className = '' }) => (
+  <Card className={`hover:shadow-lg transition-shadow ${className}`}>
     <div className="flex items-start gap-3">
-      <div className={`p-3 rounded-lg shrink-0 ${bgColor}`}>
+      <div className={`p-2 rounded-lg shrink-0 ${bgColor}`}>
         <div className={iconColor}>{icon}</div>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{title}</p>
-        <div className="space-y-1">
-          {rows.map((row, i) => (
-            <div key={i} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-gray-500 truncate">{row.label}</span>
-              <span className={`text-sm font-bold whitespace-nowrap ${row.highlight ? 'text-gray-900' : 'text-gray-700'}`}>
-                {row.value}
-              </span>
-            </div>
-          ))}
-        </div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{title}</p>
+        {total && (
+          <p className="text-lg font-bold text-gray-900 mt-0.5 tabular-nums">{total}</p>
+        )}
+        {rows.length > 0 && (
+          <div className={`space-y-0.5 ${total ? 'mt-1.5 border-t border-gray-100 pt-1.5' : 'mt-1'}`}>
+            {rows.map((row, i) => (
+              <div key={i} className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-500 truncate">{row.label}</span>
+                <span className="text-xs font-medium text-gray-700 whitespace-nowrap tabular-nums">{row.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   </Card>
@@ -43,15 +48,16 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, rows, icon, iconColor,
 export const FinanzasSummaryCards: React.FC<FinanzasSummaryCardsProps> = ({ summary, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        {[1, 2, 3, 4, 5].map(i => (
-          <Card key={i} className="animate-pulse">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Card key={i} className={`animate-pulse ${i === 5 ? 'sm:col-span-2 xl:col-span-1' : ''}`}>
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 bg-gray-200 rounded-lg shrink-0" />
+              <div className="w-9 h-9 bg-gray-200 rounded-lg shrink-0" />
               <div className="flex-1 space-y-2">
                 <div className="h-3 bg-gray-200 rounded w-2/3" />
-                <div className="h-4 bg-gray-200 rounded w-full" />
-                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                <div className="h-5 bg-gray-200 rounded w-full" />
+                <div className="h-3 bg-gray-200 rounded w-3/4" />
+                <div className="h-3 bg-gray-200 rounded w-1/2" />
               </div>
             </div>
           </Card>
@@ -61,50 +67,50 @@ export const FinanzasSummaryCards: React.FC<FinanzasSummaryCardsProps> = ({ summ
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
       {/* Total Vendido */}
       <SummaryCard
         title="Total Vendido"
-        icon={<TrendingUp className="w-5 h-5" />}
+        total={formatCurrency(summary.total_venta)}
+        icon={<TrendingUp className="w-4 h-4" />}
         iconColor="text-blue-600"
         bgColor="bg-blue-50"
         rows={[
           { label: 'Servicios', value: formatCurrency(summary.total_venta_servicios) },
           { label: 'Productos', value: formatCurrency(summary.total_venta_productos) },
-          { label: 'Total', value: formatCurrency(summary.total_venta), highlight: true },
         ]}
       />
 
       {/* Neto Profesional */}
       <SummaryCard
         title="Neto Profesional"
-        icon={<Scissors className="w-5 h-5" />}
+        total={formatCurrency(summary.total_neto_profesional)}
+        icon={<Scissors className="w-4 h-4" />}
         iconColor="text-green-600"
         bgColor="bg-green-50"
         rows={[
           { label: 'Servicios', value: formatCurrency(summary.total_neto_profesional_servicios) },
           { label: 'Productos', value: formatCurrency(summary.total_neto_profesional_productos) },
-          { label: 'Total', value: formatCurrency(summary.total_neto_profesional), highlight: true },
         ]}
       />
 
       {/* Comisión Empresa */}
       <SummaryCard
         title="Comisión Empresa"
-        icon={<Package className="w-5 h-5" />}
+        total={formatCurrency(summary.total_comision_empresa)}
+        icon={<Package className="w-4 h-4" />}
         iconColor="text-purple-600"
         bgColor="bg-purple-50"
         rows={[
           { label: 'Servicios', value: formatCurrency(summary.total_comision_empresa_servicios) },
           { label: 'Productos', value: formatCurrency(summary.total_comision_empresa_productos) },
-          { label: 'Total', value: formatCurrency(summary.total_comision_empresa), highlight: true },
         ]}
       />
 
-      {/* Cantidad */}
+      {/* Actividad */}
       <SummaryCard
         title="Actividad"
-        icon={<CheckSquare className="w-5 h-5" />}
+        icon={<CheckSquare className="w-4 h-4" />}
         iconColor="text-orange-600"
         bgColor="bg-orange-50"
         rows={[
@@ -113,15 +119,15 @@ export const FinanzasSummaryCards: React.FC<FinanzasSummaryCardsProps> = ({ summ
         ]}
       />
 
-      {/* Pendientes */}
+      {/* Pendientes — ocupa ambas columnas en sm, una en xl */}
       <SummaryCard
-        title="Pendientes de cobro"
-        icon={<Clock className="w-5 h-5" />}
+        title="Pendiente de cobro"
+        total={formatCurrency(summary.total_pendiente || 0)}
+        icon={<Clock className="w-4 h-4" />}
         iconColor="text-yellow-600"
         bgColor="bg-yellow-50"
-        rows={[
-          { label: 'Total pendiente', value: formatCurrency(summary.total_pendiente || 0), highlight: true },
-        ]}
+        rows={[]}
+        className="sm:col-span-2 xl:col-span-1"
       />
     </div>
   );
