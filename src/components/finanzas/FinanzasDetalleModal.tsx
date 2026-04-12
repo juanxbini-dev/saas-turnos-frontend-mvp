@@ -103,16 +103,16 @@ export const FinanzasDetalleModal: React.FC<FinanzasDetalleModalProps> = ({
               <span className="font-medium text-gray-900">{formatCurrency(comision.servicio_monto)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">% Comisión empresa:</span>
+              <span className="text-gray-600">% Comisión profesional:</span>
               <span className="font-medium text-gray-900">{comision.servicio_comision_porcentaje}%</span>
             </div>
             <div className="flex justify-between items-center border-t pt-3">
-              <span className="text-gray-600">Comisión empresa:</span>
-              <span className="font-bold text-blue-600">{formatCurrency(comision.servicio_comision_monto)}</span>
-            </div>
-            <div className="flex justify-between items-center">
               <span className="text-gray-600">Neto profesional:</span>
               <span className="font-bold text-green-600">{formatCurrency(comision.servicio_neto_profesional)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Retención empresa:</span>
+              <span className="font-bold text-blue-600">{formatCurrency(comision.servicio_comision_monto)}</span>
             </div>
           </div>
         </Card>
