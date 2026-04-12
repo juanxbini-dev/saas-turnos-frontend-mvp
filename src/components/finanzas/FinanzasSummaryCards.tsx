@@ -48,9 +48,9 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, total, rows, icon, ico
 export const FinanzasSummaryCards: React.FC<FinanzasSummaryCardsProps> = ({ summary, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4 mb-8">
         {[1, 2, 3, 4, 5].map((i) => (
-          <Card key={i} className={`animate-pulse ${i === 5 ? 'sm:col-span-2 xl:col-span-1' : ''}`}>
+          <Card key={i} className={`animate-pulse ${i === 5 ? 'sm:col-span-2 lg:col-span-2 2xl:col-span-1' : ''}`}>
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 bg-gray-200 rounded-lg shrink-0" />
               <div className="flex-1 space-y-2">
@@ -67,7 +67,7 @@ export const FinanzasSummaryCards: React.FC<FinanzasSummaryCardsProps> = ({ summ
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4 mb-8">
       {/* Total Vendido */}
       <SummaryCard
         title="Total Vendido"
@@ -127,7 +127,7 @@ export const FinanzasSummaryCards: React.FC<FinanzasSummaryCardsProps> = ({ summ
         iconColor="text-yellow-600"
         bgColor="bg-yellow-50"
         rows={[]}
-        className="sm:col-span-2 xl:col-span-1"
+        className="sm:col-span-2 lg:col-span-2 2xl:col-span-1"
       />
     </div>
   );
