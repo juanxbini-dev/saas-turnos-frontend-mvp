@@ -28,15 +28,15 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { path: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard',     adminOnly: false },
-  { path: '/finanzas',       icon: TrendingUp,      label: 'Finanzas',      adminOnly: false },
-  { path: '/perfil',         icon: UserCircle,      label: 'Perfil',        adminOnly: false },
-  { path: '/usuarios',       icon: Users,           label: 'Usuarios',      adminOnly: true  },
-  { path: '/turnos',         icon: Calendar,        label: 'Turnos',        adminOnly: false },
-  { path: '/servicios',      icon: Wrench,          label: 'Servicios',     adminOnly: false },
-  { path: '/clientes',       icon: User,            label: 'Clientes',      adminOnly: false },
-  { path: '/productos',      icon: Package,         label: 'Productos',     adminOnly: false },
-  { path: '/configuracion',  icon: Settings,        label: 'Configuracion', adminOnly: true  },
+  { path: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard',     adminOnly: false, hideSuperAdmin: false },
+  { path: '/finanzas',       icon: TrendingUp,      label: 'Finanzas',      adminOnly: false, hideSuperAdmin: false },
+  { path: '/perfil',         icon: UserCircle,      label: 'Perfil',        adminOnly: false, hideSuperAdmin: true  },
+  { path: '/usuarios',       icon: Users,           label: 'Usuarios',      adminOnly: true,  hideSuperAdmin: false },
+  { path: '/turnos',         icon: Calendar,        label: 'Turnos',        adminOnly: false, hideSuperAdmin: false },
+  { path: '/servicios',      icon: Wrench,          label: 'Servicios',     adminOnly: false, hideSuperAdmin: false },
+  { path: '/clientes',       icon: User,            label: 'Clientes',      adminOnly: false, hideSuperAdmin: false },
+  { path: '/productos',      icon: Package,         label: 'Productos',     adminOnly: false, hideSuperAdmin: false },
+  { path: '/configuracion',  icon: Settings,        label: 'Configuracion', adminOnly: true,  hideSuperAdmin: false },
 ];
 
 // Contenido reutilizable en desktop y mobile
@@ -90,8 +90,10 @@ const SidebarContent = ({
 
       {/* Links */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {menuItems.map(({ path, icon: Icon, label, adminOnly }) => {
-          if (adminOnly && !roles.includes('admin')) return null;
+        {menuItems.map(({ path, icon: Icon, label, adminOnly, hideSuperAdmin }) => {
+          const isSuperAdmin = roles.includes('super_admin');
+          if (adminOnly && !roles.includes('admin') && !isSuperAdmin) return null;
+          if (hideSuperAdmin && isSuperAdmin) return null;
 
           return (
             <NavLink

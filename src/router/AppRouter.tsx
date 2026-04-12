@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import UsuariosPage from '../pages/UsuariosPage';
@@ -14,6 +14,15 @@ import ConfiguracionPage from '../pages/ConfiguracionPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
 import Layout from '../components/layout/Layout';
+import { useAuth } from '../context/AuthContext';
+
+function PerfilRoute() {
+  const { state } = useAuth();
+  if (state.authUser?.roles.includes('super_admin')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <PerfilPage />;
+}
 
 const AppRouter = () => {
   return (
@@ -34,7 +43,7 @@ const AppRouter = () => {
           } />
           <Route path="/clientes" element={<ClientesPage />} />
           <Route path="/turnos" element={<TurnosPage />} />
-          <Route path="/perfil" element={<PerfilPage />} />
+          <Route path="/perfil" element={<PerfilRoute />} />
           <Route path="/configuracion" element={
             <AdminRoute>
               <ConfiguracionPage />
