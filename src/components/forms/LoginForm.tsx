@@ -9,8 +9,7 @@ import { ErrorMessage } from '../ui/ErrorMessage';
 const loginSchema = z.object({
   email: z
     .string()
-    .min(1, 'El email es requerido')
-    .regex(/^[a-zA-Z0-9_]+@[a-zA-Z0-9.-]+$/, 'Formato inválido. Use: usuario@empresa'),
+    .min(1, 'El usuario o email es requerido'),
   password: z
     .string()
     .min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -65,8 +64,8 @@ export function LoginForm({
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4" autoComplete="off">
       <Input
-        label="Email"
-        type="email"
+        label="Usuario o email"
+        type="text"
         value={email}
         onChange={(e) => {
           const value = e.target.value;
@@ -75,9 +74,9 @@ export function LoginForm({
           trigger('email');
         }}
         error={errors.email?.message}
-        placeholder="usuario@empresa"
+        placeholder="usuario o correo electrónico"
         disabled={loading}
-        autoComplete="off"
+        autoComplete="username"
         readOnly={loading}
       />
 
