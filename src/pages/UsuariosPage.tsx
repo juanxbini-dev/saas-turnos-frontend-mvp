@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFetch } from '../hooks/useFetch';
-import axiosInstance from '../api/axiosInstance';
+import { usuarioService } from '../services/usuario.service';
 import { CrearUsuarioForm } from '../components/usuarios/CrearUsuarioForm';
 import { UsuariosTabla } from '../components/usuarios/UsuariosTabla';
 import { UsuariosMobileList } from '../components/usuarios/UsuariosMobileList';
 import { EditarUsuarioModal } from '../components/usuarios/EditarUsuarioModal';
 import { CambiarRolModal } from '../components/usuarios/CambiarRolModal';
-import { Button, Modal } from '../components/ui';
+import { Button, Modal, ConfirmModal } from '../components/ui';
 import { Usuario } from '../types/usuario.types';
 import { cacheService } from '../cache/cache.service';
 import { buildKey } from '../cache/key.builder';
@@ -22,6 +22,10 @@ function UsuariosPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [isRolModalOpen, setIsRolModalOpen] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; usuario: Usuario | null }>({
+    isOpen: false,
+    usuario: null
+  });
 
   // Obtener usuarios con caché
   const {
@@ -31,10 +35,7 @@ function UsuariosPage() {
     revalidate
   } = useFetch<Usuario[]>(
     buildKey(ENTITIES.USUARIOS),
-    async () => {
-      const response = await axiosInstance.get('/api/usuarios');
-      return response.data.data;
-    },
+    () => usuarioService.getUsuarios(),
     {
       ttl: TTL.SHORT,
       revalidateOnFocus: true
@@ -51,19 +52,20 @@ function UsuariosPage() {
     setIsRolModalOpen(true);
   };
 
-  const handleToggleActivo = async (usuario: Usuario) => {
-    try {
-      await axiosInstance.put(`/api/usuarios/${usuario.id}/activo`, { 
-        activo: !usuario.activo 
-      });
+  const handleEliminar = (usuario: Usuario) => {
+    setDeleteModal({ isOpen: true, usuario });
+  };
 
-      // Invalidar caché y recargar
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.usuario) return;
+    try {
+      await usuarioService.deleteUsuario(deleteModal.usuario.id);
       cacheService.invalidateByPrefix(buildKey(ENTITIES.USUARIOS));
       revalidate();
+      setDeleteModal({ isOpen: false, usuario: null });
     } catch (error: any) {
-      console.error('Error al cambiar estado:', error);
-      // Aquí podrías usar un toast system
-      alert(error.response?.data?.message || error.message || 'Error al cambiar estado del usuario');
+      console.error('Error al eliminar usuario:', error);
+      alert(error.response?.data?.message || error.message || 'Error al eliminar el usuario');
     }
   };
 
@@ -125,7 +127,7 @@ function UsuariosPage() {
               loading={loading}
               onEdit={handleEdit}
               onCambiarRol={handleCambiarRol}
-              onToggleActivo={handleToggleActivo}
+              onEliminar={handleEliminar}
             />
           </div>
 
@@ -136,7 +138,7 @@ function UsuariosPage() {
               loading={loading}
               onEdit={handleEdit}
               onCambiarRol={handleCambiarRol}
-              onToggleActivo={handleToggleActivo}
+              onEliminar={handleEliminar}
             />
           </div>
 
@@ -174,6 +176,17 @@ function UsuariosPage() {
               }}
             />
           </Modal>
+
+          {/* Modal de confirmación para eliminar usuario */}
+          <ConfirmModal
+            isOpen={deleteModal.isOpen}
+            onClose={() => setDeleteModal({ isOpen: false, usuario: null })}
+            onConfirm={handleDeleteConfirm}
+            title="Eliminar usuario"
+            message={`⚠️ Advertencia: Esta acción es irreversible.\n\n¿Estás seguro de que querés eliminar al usuario "${deleteModal.usuario?.nombre}" (@${deleteModal.usuario?.username})? Se perderán todos sus datos permanentemente.`}
+            confirmText="Eliminar"
+            variant="danger"
+          />
         </div>
       </main>
     </div>

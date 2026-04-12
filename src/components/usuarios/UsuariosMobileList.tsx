@@ -7,7 +7,7 @@ interface UsuariosMobileListProps {
   loading: boolean;
   onEdit: (usuario: Usuario) => void;
   onCambiarRol: (usuario: Usuario) => void;
-  onToggleActivo: (usuario: Usuario) => void;
+  onEliminar: (usuario: Usuario) => void;
 }
 
 export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
@@ -15,7 +15,7 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
   loading,
   onEdit,
   onCambiarRol,
-  onToggleActivo
+  onEliminar
 }) => {
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
 
@@ -120,14 +120,10 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
                   ⇄ Cambiar rol
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onToggleActivo(usuario); }}
-                  className={`text-left text-sm py-1.5 font-medium ${
-                    usuario.activo
-                      ? 'text-red-500 hover:text-red-700'
-                      : 'text-green-600 hover:text-green-800'
-                  }`}
+                  onClick={(e) => { e.stopPropagation(); onEliminar(usuario); }}
+                  className="text-left text-sm py-1.5 font-medium text-red-500 hover:text-red-700"
                 >
-                  {usuario.activo ? '✕ Desactivar cuenta' : '✓ Activar cuenta'}
+                  🗑 Eliminar cuenta
                 </button>
               </div>
             )}
