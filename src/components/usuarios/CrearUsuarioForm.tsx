@@ -5,18 +5,61 @@ import { usuarioService } from '../../services/usuario.service';
 import { CreateUsuarioData, UsuarioRol } from '../../types/usuario.types';
 import { useToast } from '../../hooks/useToast';
 import { cacheService } from '../../cache/cache.service';
-import { buildKey } from '../../cache/key.builder';
-import { ENTITIES } from '../../cache/key.builder';
+import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { ComisionesForm } from './ComisionesForm';
 
 interface CrearUsuarioFormProps {
   onSuccess: () => void;
 }
 
+interface FormErrors {
+  nombre?: string;
+  email?: string;
+  username?: string;
+  password?: string;
+}
+
+const USERNAME_REGEX = /^[a-zA-Z0-9._-]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateForm(data: {
+  nombre: string;
+  email: string;
+  username: string;
+  password: string;
+}): FormErrors {
+  const errors: FormErrors = {};
+
+  if (!data.nombre.trim()) {
+    errors.nombre = 'El nombre es requerido';
+  }
+
+  if (!data.email.trim()) {
+    errors.email = 'El email es requerido';
+  } else if (!EMAIL_REGEX.test(data.email.trim())) {
+    errors.email = 'El email no es válido';
+  }
+
+  if (!data.username.trim()) {
+    errors.username = 'El username es requerido';
+  } else if (!USERNAME_REGEX.test(data.username.trim())) {
+    errors.username = 'Solo letras, números, puntos, guiones y guiones bajos (sin espacios)';
+  }
+
+  if (!data.password) {
+    errors.password = 'La contraseña es requerida';
+  } else if (data.password.length < 8) {
+    errors.password = 'La contraseña debe tener al menos 8 caracteres';
+  }
+
+  return errors;
+}
+
 export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess }) => {
   const { state } = useAuth();
   const { success: toastSuccess, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [formData, setFormData] = useState({
     nombre: '',
     username: '',
@@ -27,40 +70,27 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
     comision_producto: 0
   });
 
+  const handleChange = (field: keyof typeof formData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Limpiar el error del campo al editar
+    if (errors[field as keyof FormErrors]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleBlur = (field: keyof FormErrors) => {
+    const fieldErrors = validateForm(formData);
+    if (fieldErrors[field]) {
+      setErrors(prev => ({ ...prev, [field]: fieldErrors[field] }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Debug
-    console.log('FormData actual:', formData);
-    
-    // Validaciones
-    if (!formData.nombre.trim() || !formData.username.trim() || !formData.email.trim() || !formData.password.trim()) {
-      console.log('Validación fallida:', {
-        nombre: formData.nombre.trim(),
-        username: formData.username.trim(),
-        email: formData.email.trim(),
-        password: formData.password.trim(),
-        nombreLength: formData.nombre.length,
-        usernameLength: formData.username.length,
-        emailLength: formData.email.length,
-        passwordLength: formData.password.length
-      });
-      toastError('Todos los campos son requeridos');
-      return;
-    }
 
-    if (formData.username.includes(' ')) {
-      toastError('El username no puede contener espacios');
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9._-]+$/.test(formData.username)) {
-      toastError('El username solo puede contener letras, números, guiones, guiones bajos y puntos');
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      toastError('La contraseña debe tener al menos 8 caracteres');
+    const fieldErrors = validateForm(formData);
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
       return;
     }
 
@@ -71,17 +101,16 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
         username: formData.username.trim(),
         email: formData.email.trim(),
         password: formData.password,
-        rol: formData.rol
+        rol: formData.rol,
+        comision_turno: formData.comision_turno,
+        comision_producto: formData.comision_producto
       };
 
       await usuarioService.createUsuario(data);
-      
-      // Invalidar caché
+
       cacheService.invalidateByPrefix(buildKey(ENTITIES.USUARIOS));
-      
       toastSuccess('Usuario creado correctamente');
-      
-      // Resetear formulario
+
       setFormData({
         nombre: '',
         username: '',
@@ -91,18 +120,14 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
         comision_turno: 0,
         comision_producto: 0
       });
-      
+      setErrors({});
+
       onSuccess();
     } catch (error: any) {
       toastError(error.response?.data?.message || error.message || 'Error al crear usuario');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleChange = (field: string, value: string | React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const stringValue = typeof value === 'string' ? value : value.target.value;
-    setFormData(prev => ({ ...prev, [field]: stringValue }));
   };
 
   const handleComisionesChange = (comisiones: { comision_turno: number; comision_producto: number }) => {
@@ -112,69 +137,66 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Nuevo Usuario</h3>
-      
+
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <Input
-            label="Nombre"
-            value={formData.nombre}
-            onChange={(e) => handleChange('nombre', e)}
-            placeholder="Nombre completo"
-            disabled={loading}
-          />
-        </div>
+        <Input
+          label="Nombre"
+          value={formData.nombre}
+          onChange={(e) => handleChange('nombre', e.target.value)}
+          onBlur={() => handleBlur('nombre')}
+          placeholder="Nombre completo"
+          error={errors.nombre}
+          disabled={loading}
+        />
 
-        <div>
-          <Input
-            label="Email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => handleChange('email', e)}
-            placeholder="email@ejemplo.com"
-            disabled={loading}
-          />
-        </div>
+        <Input
+          label="Email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => handleChange('email', e.target.value)}
+          onBlur={() => handleBlur('email')}
+          placeholder="email@ejemplo.com"
+          error={errors.email}
+          disabled={loading}
+        />
 
-        <div>
-          <Input
-            label="Username"
-            value={formData.username}
-            onChange={(e) => handleChange('username', e)}
-            placeholder="username"
-            disabled={loading}
-          />
-          {formData.username && state.authUser?.tenant && (
-            <p className="text-sm text-gray-400 mt-1">
-              {formData.username}@{state.authUser.tenant}
-            </p>
-          )}
-        </div>
+        <Input
+          label="Username"
+          value={formData.username}
+          onChange={(e) => handleChange('username', e.target.value)}
+          onBlur={() => handleBlur('username')}
+          placeholder="username"
+          error={errors.username}
+          help={
+            formData.username && state.authUser?.tenant && !errors.username
+              ? `${formData.username}@${state.authUser.tenant}`
+              : undefined
+          }
+          disabled={loading}
+        />
 
-        <div>
-          <Input
-            label="Contraseña"
-            type="password"
-            value={formData.password}
-            onChange={(e) => handleChange('password', e)}
-            placeholder="Mínimo 8 caracteres"
-            disabled={loading}
-          />
-        </div>
+        <Input
+          label="Contraseña"
+          type="password"
+          value={formData.password}
+          onChange={(e) => handleChange('password', e.target.value)}
+          onBlur={() => handleBlur('password')}
+          placeholder="Mínimo 8 caracteres"
+          error={errors.password}
+          disabled={loading}
+        />
 
-        <div>
-          <Select
-            label="Rol"
-            value={formData.rol}
-            onChange={(e) => handleChange('rol', e.target.value as UsuarioRol)}
-            options={[
-              { value: 'staff', label: 'Staff' },
-              { value: 'admin', label: 'Administrador' }
-            ]}
-            disabled={loading}
-          />
-        </div>
+        <Select
+          label="Rol"
+          value={formData.rol}
+          onChange={(e) => handleChange('rol', e.target.value as UsuarioRol)}
+          options={[
+            { value: 'staff', label: 'Staff' },
+            { value: 'admin', label: 'Administrador' }
+          ]}
+          disabled={loading}
+        />
 
-        {/* Configuración de Comisiones - Para profesionales (staff y admin que atienden) */}
         {(formData.rol === 'staff' || formData.rol === 'admin') && (
           <ComisionesForm
             comisiones={{

@@ -26,9 +26,8 @@ export const usuarioService = {
     return response.data.data;
   },
 
-  async toggleActivo(id: string, activo: boolean): Promise<Usuario> {
-    const response = await axiosInstance.put(`/api/usuarios/${id}/activo`, { activo });
-    return response.data.data;
+  async deleteUsuario(id: string): Promise<void> {
+    await axiosInstance.delete(`/api/usuarios/${id}`);
   },
 
   async uploadAvatarAdmin(id: string, file: File): Promise<Usuario> {

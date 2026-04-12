@@ -20,6 +20,7 @@ export { DataControls } from './DataControls';
 export { Calendar } from './Calendar';
 export { TimeSlots } from './TimeSlots';
 export { TurnoEstadoBadge } from './TurnoEstadoBadge';
+export { Drawer } from './Drawer';
 
 // Re-exportar tipos para uso en TypeScript
 export type { ButtonProps } from './Button';

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Table, Button, Badge, Avatar } from '../ui';
+import { Trash2 } from 'lucide-react';
 import { Usuario } from '../../types/usuario.types';
 
 interface UsuariosTablaProps {
@@ -7,7 +8,7 @@ interface UsuariosTablaProps {
   loading: boolean;
   onEdit: (usuario: Usuario) => void;
   onCambiarRol: (usuario: Usuario) => void;
-  onToggleActivo: (usuario: Usuario) => void;
+  onEliminar: (usuario: Usuario) => void;
 }
 
 export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
@@ -15,7 +16,7 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
   loading,
   onEdit,
   onCambiarRol,
-  onToggleActivo
+  onEliminar
 }) => {
   const columns: Array<any> = [
     {
@@ -115,12 +116,12 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
               Rol
             </Button>
             <Button
-              variant="ghost"
+              variant="danger"
               size="sm"
-              onClick={() => onToggleActivo(usuario)}
-              className={usuario.activo ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
+              onClick={() => onEliminar(usuario)}
             >
-              {usuario.activo ? 'Desactivar' : 'Activar'}
+              <Trash2 className="w-3 h-3 mr-1" />
+              Eliminar
             </Button>
           </div>
         );
