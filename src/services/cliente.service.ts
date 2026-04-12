@@ -1,5 +1,5 @@
 import axiosInstance from '../api/axiosInstance';
-import { Cliente, CreateClienteData, UpdateClienteData } from '../types/cliente.types';
+import { Cliente, CreateClienteData, UpdateClienteData, ClientePerfil } from '../types/cliente.types';
 
 export interface ClientesPaginadosResponse {
   items: Cliente[];
@@ -36,8 +36,12 @@ export const clienteService = {
     return response.data.data;
   },
 
-  async toggleActivo(id: string, activo: boolean): Promise<Cliente> {
-    const response = await axiosInstance.put(`/api/clientes/${id}/activo`, { activo });
+  async deleteCliente(id: string): Promise<void> {
+    await axiosInstance.delete(`/api/clientes/${id}`);
+  },
+
+  async getPerfilCliente(id: string): Promise<ClientePerfil> {
+    const response = await axiosInstance.get(`/api/clientes/${id}/perfil`);
     return response.data.data;
   }
 };

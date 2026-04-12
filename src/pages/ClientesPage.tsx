@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, Button, ConfirmModal } from '../components/ui';
 import { ClientesCatalogo } from '../components/clientes/ClientesCatalogo';
 import { ClienteModal } from '../components/clientes/ClienteModal';
+import { ClientePerfilDrawer } from '../components/clientes/ClientePerfilDrawer';
 import { MisClientesList } from '../components/clientes/MisClientesList';
 import { clienteService } from '../services/cliente.service';
 import { disponibilidadService } from '../services/disponibilidad.service';
@@ -20,7 +21,11 @@ function ClientesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [activeTab, setActiveTab] = useState('clientes');
-  const [toggleModal, setToggleModal] = useState<{ isOpen: boolean; cliente: Cliente | null }>({
+  const [perfilDrawer, setPerfilDrawer] = useState<{ isOpen: boolean; cliente: Cliente | null }>({
+    isOpen: false,
+    cliente: null
+  });
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; cliente: Cliente | null }>({
     isOpen: false,
     cliente: null
   });
@@ -77,17 +82,21 @@ function ClientesPage() {
     handleOpenModal(cliente);
   };
 
-  const handleToggleActivo = (cliente: Cliente) => {
-    setToggleModal({ isOpen: true, cliente });
+  const handleVerPerfil = (cliente: Cliente) => {
+    setPerfilDrawer({ isOpen: true, cliente });
   };
 
-  const handleToggleConfirm = async () => {
-    if (toggleModal.cliente) {
+  const handleEliminar = (cliente: Cliente) => {
+    setDeleteModal({ isOpen: true, cliente });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deleteModal.cliente) {
       try {
-        await clienteService.toggleActivo(toggleModal.cliente.id, !toggleModal.cliente.activo);
-        toast.success(`Cliente ${toggleModal.cliente.activo ? 'desactivado' : 'activado'} correctamente`);
+        await clienteService.deleteCliente(deleteModal.cliente.id);
+        toast.success(`Cliente "${deleteModal.cliente.nombre}" eliminado correctamente`);
         revalidate();
-        setToggleModal({ isOpen: false, cliente: null });
+        setDeleteModal({ isOpen: false, cliente: null });
       } catch (error: any) {
         toast.error(error.response?.data?.message || error.message || 'Error inesperado');
       }
@@ -135,8 +144,9 @@ function ClientesPage() {
                 clientes={clientes}
                 loading={loading}
                 isAdmin={isAdmin}
+                onVerPerfil={handleVerPerfil}
                 onEditar={handleEditar}
-                onToggleActivo={handleToggleActivo}
+                onEliminar={handleEliminar}
                 pagina={pagina}
                 totalPaginas={totalPaginas}
                 total={totalClientes}
@@ -189,15 +199,21 @@ function ClientesPage() {
             onSuccess={handleSuccess}
           />
 
-          {/* Modal de confirmación para activar/desactivar cliente */}
+          <ClientePerfilDrawer
+            cliente={perfilDrawer.cliente}
+            isOpen={perfilDrawer.isOpen}
+            onClose={() => setPerfilDrawer({ isOpen: false, cliente: null })}
+          />
+
+          {/* Modal de confirmación para eliminar cliente */}
           <ConfirmModal
-            isOpen={toggleModal.isOpen}
-            onClose={() => setToggleModal({ isOpen: false, cliente: null })}
-            onConfirm={handleToggleConfirm}
-            title={`${toggleModal.cliente?.activo ? 'Desactivar' : 'Activar'} cliente`}
-            message={`¿Estás seguro de que deseas ${toggleModal.cliente?.activo ? 'desactivar' : 'activar'} al cliente ${toggleModal.cliente?.nombre}?`}
-            confirmText={`${toggleModal.cliente?.activo ? 'Desactivar' : 'Activar'}`}
-            variant={toggleModal.cliente?.activo ? 'danger' : 'primary'}
+            isOpen={deleteModal.isOpen}
+            onClose={() => setDeleteModal({ isOpen: false, cliente: null })}
+            onConfirm={handleDeleteConfirm}
+            title="Eliminar cliente"
+            message={`⚠️ Advertencia: Esta acción es irreversible.\n\n¿Estás seguro de que querés eliminar al cliente "${deleteModal.cliente?.nombre}"? Se perderán todos sus datos permanentemente.`}
+            confirmText="Eliminar"
+            variant="danger"
           />
         </div>
       </main>

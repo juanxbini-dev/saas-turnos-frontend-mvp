@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Table, Button, Badge, Card, EmptyState, Pagination } from '../ui';
 import { Cliente } from '../../types/cliente.types';
-import { Edit, Power, Users, Search } from 'lucide-react';
+import { Edit, Trash2, Users, Search, Eye } from 'lucide-react';
 
 interface ClientesCatalogoProps {
   clientes: Cliente[];
   loading: boolean;
   isAdmin: boolean;
+  onVerPerfil: (cliente: Cliente) => void;
   onEditar: (cliente: Cliente) => void;
-  onToggleActivo: (cliente: Cliente) => void;
+  onEliminar: (cliente: Cliente) => void;
   pagina: number;
   totalPaginas: number;
   total: number;
@@ -22,8 +23,9 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
   clientes,
   loading,
   isAdmin,
+  onVerPerfil,
   onEditar,
-  onToggleActivo,
+  onEliminar,
   pagina,
   totalPaginas,
   total,
@@ -76,25 +78,19 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
       }
     },
     {
-      key: 'activo',
-      header: 'Estado',
-      render: (activo: boolean, cliente: Cliente) => {
-        return (
-          <Badge
-            variant={activo ? 'green' : 'red'}
-            size="sm"
-          >
-            {activo ? 'Activo' : 'Inactivo'}
-          </Badge>
-        );
-      }
-    },
-    {
       key: 'acciones',
       header: 'Acciones',
       render: (acciones: any, cliente: Cliente) => {
         return (
           <div className="flex items-center space-x-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onVerPerfil(cliente)}
+            >
+              <Eye className="w-3 h-3 mr-1" />
+              Ver perfil
+            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -107,11 +103,11 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
             {isAdmin && (
               <Button
                 size="sm"
-                variant={cliente.activo ? 'danger' : 'primary'}
-                onClick={() => onToggleActivo(cliente)}
+                variant="danger"
+                onClick={() => onEliminar(cliente)}
               >
-                <Power className="w-3 h-3 mr-1" />
-                {cliente.activo ? 'Desactivar' : 'Activar'}
+                <Trash2 className="w-3 h-3 mr-1" />
+                Eliminar
               </Button>
             )}
           </div>
@@ -152,6 +148,12 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
           {expandedActions.has(cliente.id) && (
             <div className="mt-2 flex flex-col gap-0.5">
               <button
+                onClick={(e) => { e.stopPropagation(); onVerPerfil(cliente); }}
+                className="text-left text-sm text-blue-600 hover:text-blue-800 py-1.5 font-medium"
+              >
+                👁 Ver perfil
+              </button>
+              <button
                 onClick={(e) => { e.stopPropagation(); onEditar(cliente); }}
                 className="text-left text-sm text-gray-700 hover:text-gray-900 py-1.5 font-medium"
               >
@@ -159,14 +161,10 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
               </button>
               {isAdmin && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onToggleActivo(cliente); }}
-                  className={`text-left text-sm py-1.5 font-medium ${
-                    cliente.activo
-                      ? 'text-red-500 hover:text-red-700'
-                      : 'text-green-600 hover:text-green-800'
-                  }`}
+                  onClick={(e) => { e.stopPropagation(); onEliminar(cliente); }}
+                  className="text-left text-sm py-1.5 font-medium text-red-500 hover:text-red-700"
                 >
-                  {cliente.activo ? '✕ Desactivar' : '✓ Activar'}
+                  🗑 Eliminar
                 </button>
               )}
             </div>
