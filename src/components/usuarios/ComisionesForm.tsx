@@ -54,8 +54,8 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
   };
 
   const calcularEjemplo = (base: number, porcentaje: number) => {
-    const comisionEmpresa = base * (porcentaje / 100);
-    const netoProfesional = base - comisionEmpresa;
+    const netoProfesional = base * (porcentaje / 100);
+    const comisionEmpresa = base - netoProfesional;
     return {
       comisionEmpresa,
       netoProfesional
@@ -80,7 +80,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4" />
-              Comisión de Servicios (% para la empresa)
+              Comisión de Servicios (% para el profesional)
             </div>
           </label>
           <div className="relative">
@@ -89,7 +89,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
               min="0"
               max="100"
               step="0.1"
-              placeholder="20.0"
+              placeholder="0"
               value={turnoStr}
               onChange={(e) => handleComisionTurnoChange(e.target.value)}
               disabled={disabled}
@@ -101,7 +101,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
           </div>
           {!disabled && (
             <p className="text-xs text-gray-500 mt-1">
-              Porcentaje que se retiene la empresa por cada servicio realizado
+              Porcentaje que recibe el profesional por cada servicio realizado
             </p>
           )}
         </div>
@@ -111,7 +111,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <div className="flex items-center gap-2">
               <Percent className="w-4 h-4" />
-              Comisión de Productos (% para la empresa)
+              Comisión de Productos (% para el profesional)
             </div>
           </label>
           <div className="relative">
@@ -120,7 +120,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
               min="0"
               max="100"
               step="0.1"
-              placeholder="20.0"
+              placeholder="0"
               value={productoStr}
               onChange={(e) => handleComisionProductoChange(e.target.value)}
               disabled={disabled}
@@ -132,7 +132,7 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
           </div>
           {!disabled && (
             <p className="text-xs text-gray-500 mt-1">
-              Porcentaje que se retiene la empresa por cada producto vendido
+              Porcentaje que recibe el profesional por cada producto vendido
             </p>
           )}
         </div>
@@ -147,12 +147,12 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
                 <div className="text-sm">
                   <div className="font-medium mb-1">Servicio de $1.000:</div>
                   <div className="flex justify-between text-xs">
-                    <span>Empresa ({comisiones.comision_turno}%):</span>
-                    <span className="font-medium">${ejemploServicio.comisionEmpresa.toFixed(2)}</span>
+                    <span>Profesional ({comisiones.comision_turno}%):</span>
+                    <span className="font-medium">${ejemploServicio.netoProfesional.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span>Profesional:</span>
-                    <span className="font-medium">${ejemploServicio.netoProfesional.toFixed(2)}</span>
+                    <span>Empresa:</span>
+                    <span className="font-medium">${ejemploServicio.comisionEmpresa.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -163,12 +163,12 @@ export const ComisionesForm: React.FC<ComisionesFormProps> = ({
                 <div className="text-sm">
                   <div className="font-medium mb-1">Producto de $500:</div>
                   <div className="flex justify-between text-xs">
-                    <span>Empresa ({comisiones.comision_producto}%):</span>
-                    <span className="font-medium">${ejemploProducto.comisionEmpresa.toFixed(2)}</span>
+                    <span>Profesional ({comisiones.comision_producto}%):</span>
+                    <span className="font-medium">${ejemploProducto.netoProfesional.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span>Profesional:</span>
-                    <span className="font-medium">${ejemploProducto.netoProfesional.toFixed(2)}</span>
+                    <span>Empresa:</span>
+                    <span className="font-medium">${ejemploProducto.comisionEmpresa.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
