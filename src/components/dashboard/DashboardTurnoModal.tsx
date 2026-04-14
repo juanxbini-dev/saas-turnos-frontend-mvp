@@ -9,6 +9,7 @@ import { turnoService, clienteService, servicioService } from '../../services';
 import { useToast } from '../../hooks/useToast';
 import { useFetch } from '../../hooks/useFetch';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
+import { cacheService } from '../../cache/cache.service';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { FinalizarTurnoModal } from '../turnos/FinalizarTurnoModal';
@@ -169,6 +170,8 @@ export function DashboardTurnoModal({
       });
 
       toast.success('Turno creado correctamente. Está pendiente de confirmación por email.');
+      // Invalidar slots para que la página pública vea el slot ocupado de inmediato
+      cacheService.invalidate(buildKey(ENTITIES.SLOTS, profesionalId, format(fecha, 'yyyy-MM-dd')));
       setShowConfirmModal(false);
       onRefresh?.();
       handleClose();
