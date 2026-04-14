@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import { Spinner } from '../ui';
 import { Calendar, TimeSlots } from '../ui';
 import { useDisponibilidad } from '../../hooks/useDisponibilidad';
@@ -41,6 +41,12 @@ interface ServicioProfesional {
   duracion_minutos: number;
 }
 
+interface FieldErrors {
+  nombre?: string;
+  telefono?: string;
+  email?: string;
+}
+
 export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   isOpen,
   onClose,
@@ -49,7 +55,6 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   profesionalNombre,
   empresaId
 }) => {
-  // Estados del wizard (3 pasos para público)
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedServicio, setSelectedServicio] = useState<ServicioProfesional | null>(null);
   const [clienteData, setClienteData] = useState<ClienteFormData>({
@@ -59,17 +64,17 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   });
   const [notas, setNotas] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  // Estados para validación de cliente
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Estados para validación de cliente existente
   const [existingCliente, setExistingCliente] = useState<ExistingCliente | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
-  const [useExistingCliente, setUseExistingCliente] = useState(false);
-  
+
   const toast = useToast();
   const slotsRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  // Hook de disponibilidad
   const {
     mes,
     año,
@@ -86,14 +91,12 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     forceRefresh
   } = useDisponibilidad(profesionalId);
 
-  // Scroll al top del modal al cambiar de step
   useEffect(() => {
     if (bodyRef.current) {
       bodyRef.current.scrollTop = 0;
     }
   }, [step]);
 
-  // Scroll automático a los slots cuando se selecciona una fecha
   useEffect(() => {
     if (selectedDate && slotsRef.current) {
       setTimeout(() => {
@@ -102,53 +105,41 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     }
   }, [selectedDate]);
 
-  // Obtener servicios del profesional
   const {
     data: serviciosResponse,
     loading: loadingServicios
   } = useFetch(
     profesionalId ? buildKey(ENTITIES.SERVICIOS, profesionalId) : null,
-    () => {
-      return profesionalId ? servicioPublicService.getServiciosProfesional(profesionalId) : Promise.resolve([]);
-    }
+    () => profesionalId ? servicioPublicService.getServiciosProfesional(profesionalId) : Promise.resolve([])
   );
 
-  // Acceder al array de servicios desde la respuesta anidada
   const servicios = serviciosResponse ? (serviciosResponse as any).data?.data || [] : [];
 
-  const handleNextStep = () => {
-    if (step < 3) {
-      setStep(step + 1 as 1 | 2 | 3);
-    }
+  const clearFieldError = (field: keyof FieldErrors) => {
+    setFieldErrors(prev => ({ ...prev, [field]: undefined }));
+    setSubmitError(null);
   };
 
-  const handlePrevStep = () => {
-    if (step > 1) {
-      setStep(step - 1 as 1 | 2 | 3);
+  const validateForm = (): boolean => {
+    const errors: FieldErrors = {};
+    if (!clienteData.nombre.trim()) errors.nombre = 'El nombre es requerido';
+    if (!clienteData.telefono.trim()) errors.telefono = 'El teléfono es requerido';
+    if (!clienteData.email.trim()) {
+      errors.email = 'El email es requerido';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(clienteData.email)) errors.email = 'El email no es válido';
     }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleValidateAndCreateTurno = async () => {
-    if (!clienteData.nombre.trim()) {
-      toast.error('El nombre es requerido');
-      return;
-    }
-    if (!clienteData.telefono.trim()) {
-      toast.error('El teléfono es requerido');
-      return;
-    }
-    if (clienteData.email.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(clienteData.email)) {
-        toast.error('El email ingresado no es válido');
-        return;
-      }
-    }
-
+    if (!validateForm()) return;
+    setSubmitError(null);
     setLoading(true);
 
     try {
-      // Buscar cliente existente por email, teléfono o nombre
       const response = await turnoPublicService.validateCliente({
         email: clienteData.email.trim() || undefined,
         telefono: clienteData.telefono.trim() || undefined,
@@ -156,32 +147,23 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         empresa_id: empresaId
       });
 
-
       if ((response.data as any).data?.exists) {
-        // Si existe, mostrar confirmación
         setExistingCliente((response.data as any).data.cliente);
         setShowMatchModal(true);
       } else {
-        // Si no existe, crear nuevo y continuar
         await createNewClienteAndTurno();
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al validar cliente');
+      setSubmitError(error.response?.data?.message || 'Error al validar los datos. Intentá nuevamente.');
     } finally {
       setLoading(false);
     }
   };
 
   const createNewClienteAndTurno = async (useExisting = false) => {
+    setSubmitError(null);
     try {
       setLoading(true);
-
-      // Si es cliente nuevo, el email es requerido para registrarlo
-      if (!useExisting && !clienteData.email.trim()) {
-        toast.error('Para registrarte necesitamos tu email');
-        setLoading(false);
-        return;
-      }
 
       const turnoData = {
         profesional_id: profesionalId,
@@ -193,34 +175,36 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         notas
       };
 
-      const response = await turnoPublicService.createTurno(turnoData);
-      
-      toast.success('Turno creado correctamente. Revisa tu email para confirmación.');
-      
-      // Invalidar caché de disponibilidad
+      await turnoPublicService.createTurno(turnoData);
+
       if (profesionalId && selectedDate) {
-        const specificSlotKey = buildKey(ENTITIES.SLOTS, profesionalId, selectedDate);
-        cacheService.invalidate(specificSlotKey);
+        cacheService.invalidate(buildKey(ENTITIES.SLOTS, profesionalId, selectedDate));
       }
-      
+
+      toast.success('Turno creado. Revisá tu email para la confirmación.');
       onSuccess();
       onClose();
       resetModal();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al crear turno');
+      const msg = error.response?.data?.message || 'Error al crear el turno. Intentá nuevamente.';
+      // Si el slot ya no está disponible, volver al paso 2 con el mensaje
+      if (error.response?.status === 409) {
+        setSubmitError(msg);
+        setStep(2);
+      } else {
+        setSubmitError(msg);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleConfirmExistingCliente = () => {
-    setUseExistingCliente(true);
     setShowMatchModal(false);
     createNewClienteAndTurno(true);
   };
 
   const handleCreateNewCliente = () => {
-    setUseExistingCliente(false);
     setShowMatchModal(false);
     createNewClienteAndTurno(false);
   };
@@ -232,13 +216,24 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setNotas('');
     setExistingCliente(null);
     setShowMatchModal(false);
-    setUseExistingCliente(false);
+    setFieldErrors({});
+    setSubmitError(null);
     resetDisponibilidad();
   };
 
   const handleClose = () => {
     onClose();
     resetModal();
+  };
+
+  const handleNextStep = () => {
+    setSubmitError(null);
+    if (step < 3) setStep(step + 1 as 1 | 2 | 3);
+  };
+
+  const handlePrevStep = () => {
+    setSubmitError(null);
+    if (step > 1) setStep(step - 1 as 1 | 2 | 3);
   };
 
   const isStepComplete = (stepNumber: number) => {
@@ -260,9 +255,11 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   // ── helpers de estilo ──────────────────────────────────────────────────────
   const darkCard = 'bg-[#1a1a1a] border border-white/10 p-4';
   const darkLabel = 'block text-xs tracking-[0.15em] uppercase text-white/50 mb-1.5';
-  const darkInput = 'w-full bg-[#1a1a1a] border border-white/20 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-white/50 placeholder:text-white/20 disabled:opacity-40';
   const ghostBtn = 'border border-white text-white text-xs tracking-[0.2em] uppercase font-medium px-6 py-2.5 rounded-full bg-transparent hover:bg-white hover:text-black transition-colors duration-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-white';
   const ghostBtnSm = 'border border-white/30 text-white/60 text-xs tracking-[0.15em] uppercase px-4 py-1.5 rounded-full bg-transparent hover:border-white hover:text-white transition-colors duration-300';
+
+  const darkInput = (hasError: boolean) =>
+    `w-full bg-[#1a1a1a] border ${hasError ? 'border-red-500' : 'border-white/20'} text-white text-sm px-3 py-2.5 focus:outline-none focus:border-white/50 placeholder:text-white/20 disabled:opacity-40`;
 
   return (
     <>
@@ -318,6 +315,14 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
           {/* Body */}
           <div ref={bodyRef} className="overflow-y-auto flex-1 px-6 py-5">
+
+            {/* Banner de error general (slot no disponible u otros errores de API) */}
+            {submitError && (
+              <div className="flex items-start gap-3 bg-red-950/60 border border-red-500/40 px-4 py-3 mb-4">
+                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                <p className="text-sm text-red-300">{submitError}</p>
+              </div>
+            )}
 
             {/* Step 1 - Servicio */}
             {step === 1 && (
@@ -415,11 +420,14 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   <input
                     type="text"
                     value={clienteData.nombre}
-                    onChange={(e) => setClienteData(prev => ({ ...prev, nombre: e.target.value }))}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, nombre: e.target.value })); clearFieldError('nombre'); }}
                     placeholder="Tu nombre completo"
                     disabled={loading}
-                    className={darkInput}
+                    className={darkInput(!!fieldErrors.nombre)}
                   />
+                  {fieldErrors.nombre && (
+                    <p className="text-red-400 text-xs mt-1">{fieldErrors.nombre}</p>
+                  )}
                 </div>
 
                 <div>
@@ -427,23 +435,29 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   <input
                     type="tel"
                     value={clienteData.telefono}
-                    onChange={(e) => setClienteData(prev => ({ ...prev, telefono: e.target.value }))}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, telefono: e.target.value })); clearFieldError('telefono'); }}
                     placeholder="+54 9 11 1234-5678"
                     disabled={loading}
-                    className={darkInput}
+                    className={darkInput(!!fieldErrors.telefono)}
                   />
+                  {fieldErrors.telefono && (
+                    <p className="text-red-400 text-xs mt-1">{fieldErrors.telefono}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className={darkLabel}>Email</label>
+                  <label className={darkLabel}>Email *</label>
                   <input
                     type="email"
                     value={clienteData.email}
-                    onChange={(e) => setClienteData(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, email: e.target.value })); clearFieldError('email'); }}
                     placeholder="tu@email.com"
                     disabled={loading}
-                    className={darkInput}
+                    className={darkInput(!!fieldErrors.email)}
                   />
+                  {fieldErrors.email && (
+                    <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
+                  )}
                 </div>
 
                 {/* Resumen */}
@@ -495,7 +509,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
             ) : (
               <button
                 onClick={handleValidateAndCreateTurno}
-                disabled={loading || !clienteData.nombre || !clienteData.telefono}
+                disabled={loading}
                 className={ghostBtn}
               >
                 {loading ? 'Confirmando...' : 'Confirmar turno'}
