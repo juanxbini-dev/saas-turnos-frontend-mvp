@@ -1099,26 +1099,22 @@ export function DashboardCalendario({
           const isBloqueado = isSlotBloqueado(date);
           const isPast = date < new Date();
 
-          let backgroundColor = 'transparent';
-          if (isPast) backgroundColor = '#F3F4F6';        // gray-100 — pasados
-          else if (isBloqueado) backgroundColor = 'transparent'; // manejado por .slot-bloqueado
-          else if (isAvailable) backgroundColor = '#FFFFFF';  // blanco — disponibles
-          else backgroundColor = 'rgba(0,0,0,0.03)';
+          const isInactivo = isPast || isBloqueado || (!isAvailable && !isBloqueado && !isPast);
 
-          const isHabilitable = !isAvailable && !isBloqueado && !isPast;
+          const backgroundColor = isAvailable && !isPast ? '#FFFFFF' : 'rgba(0,0,0,0.03)';
 
           const style: React.CSSProperties = {
             backgroundColor,
             borderColor: '#E5E7EB',
             opacity: 1,
-            cursor: (isAvailable || isBloqueado || isHabilitable) && !isPast ? 'pointer' : 'not-allowed',
+            cursor: (isAvailable || isBloqueado) && !isPast ? 'pointer' : 'not-allowed',
             height: isMobile ? '100px' : '70px',
             position: 'relative',
             overflow: 'hidden',
             boxSizing: 'border-box'
           };
 
-          const className = isBloqueado ? 'slot-bloqueado' : isHabilitable ? 'slot-inactivo' : undefined;
+          const className = isInactivo ? 'slot-inactivo' : undefined;
 
           return { style, className };
         }}
