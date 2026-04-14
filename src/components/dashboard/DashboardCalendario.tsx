@@ -1101,7 +1101,7 @@ export function DashboardCalendario({
 
           let backgroundColor = 'transparent';
           if (isPast) backgroundColor = '#F3F4F6';        // gray-100 — pasados
-          else if (isBloqueado) backgroundColor = 'rgba(0,0,0,0.03)'; // mismo tono que horarios no disponibles
+          else if (isBloqueado) backgroundColor = 'transparent'; // manejado por .slot-bloqueado
           else if (isAvailable) backgroundColor = '#FFFFFF';  // blanco — disponibles
           else backgroundColor = 'rgba(0,0,0,0.03)';
 
@@ -1118,7 +1118,7 @@ export function DashboardCalendario({
             boxSizing: 'border-box'
           };
 
-          const className = isHabilitable ? 'slot-inactivo' : undefined;
+          const className = isBloqueado ? 'slot-bloqueado' : isHabilitable ? 'slot-inactivo' : undefined;
 
           return { style, className };
         }}
