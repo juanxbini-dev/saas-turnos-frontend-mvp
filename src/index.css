@@ -37,6 +37,22 @@
   pointer-events: none;
 }
 
+/* Slots bloqueados manualmente: fondo levemente naranja + etiqueta "Bloqueado" */
+.slot-bloqueado {
+  background-color: rgba(251, 146, 60, 0.08) !important;
+}
+.slot-bloqueado::before {
+  content: 'Bloqueado';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #F97316;
+  pointer-events: none;
+}
+
 /* react-big-calendar: ajustes mobile */
 @media (max-width: 639px) {
   .rbc-time-gutter .rbc-label,
