@@ -105,10 +105,24 @@ export interface ServicioProfesional {
   duracion_personalizada?: number;
 }
 
+export interface DescuentoAplicarA {
+  servicio: boolean;
+  productos: boolean;
+}
+
 export interface FinalizarTurnoData {
   metodoPago: MetodoPago;
   precioModificado?: number;
   descuentoPorcentaje?: number;
+  descuentoAplicarA?: DescuentoAplicarA;
+  productos?: VentaProductoData[];
+}
+
+export interface EditarPagoData {
+  metodoPago: MetodoPago;
+  precioModificado?: number;
+  descuentoPorcentaje?: number;
+  descuentoAplicarA?: DescuentoAplicarA;
   productos?: VentaProductoData[];
 }
 

@@ -1,5 +1,5 @@
 import axiosInstance from '../api/axiosInstance';
-import { Turno, TurnoConDetalle, CreateTurnoData, FinalizarTurnoData } from '../types/turno.types';
+import { Turno, TurnoConDetalle, CreateTurnoData, FinalizarTurnoData, EditarPagoData } from '../types/turno.types';
 
 export const turnoService = {
   async getTurnos(): Promise<TurnoConDetalle[]> {
@@ -74,6 +74,11 @@ export const turnoService = {
 
   async finalizarTurno(id: string, data: FinalizarTurnoData): Promise<Turno> {
     const response = await axiosInstance.put(`/api/turnos/${id}/finalizar`, data);
+    return response.data.data;
+  },
+
+  async editarPago(id: string, data: EditarPagoData): Promise<Turno> {
+    const response = await axiosInstance.put(`/api/turnos/${id}/editar-pago`, data);
     return response.data.data;
   }
 };

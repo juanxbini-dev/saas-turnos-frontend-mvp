@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DollarSign, Percent, CreditCard, Package, Plus, X, Search } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Modal, Button, Card, Input, Spinner } from '../ui';
 import { productosService } from '../../services/productos.service';
 import { Producto } from '../../types/producto.types';
 import { useFetch } from '../../hooks/useFetch';
+import axiosInstance from '../../api/axiosInstance';
 
 interface FinalizarTurnoModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface FinalizarTurnoModalProps {
   turno: TurnoConDetalle;
   onSuccess: () => void;
   comisionesConfig?: { comision_turno: number; comision_producto: number };
+  mode?: 'finalizar' | 'editar';
 }
 
 export function FinalizarTurnoModal({
@@ -22,25 +24,64 @@ export function FinalizarTurnoModal({
   onClose,
   turno,
   onSuccess,
+  mode = 'finalizar',
 }: FinalizarTurnoModalProps) {
   const [loading, setLoading] = useState(false);
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('pendiente');
   const [precioModificado, setPrecioModificado] = useState<string>('');
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState<string>('');
+  const [descuentoAplicarA, setDescuentoAplicarA] = useState({ servicio: true, productos: true });
   const [productos, setProductos] = useState<VentaProductoData[]>([]);
   const [showAgregarProductos, setShowAgregarProductos] = useState(false);
   const [catalogoSearch, setCatalogoSearch] = useState('');
   const [selectedCatalogProducto, setSelectedCatalogProducto] = useState<Producto | null>(null);
   const [nuevaCantidad, setNuevaCantidad] = useState(1);
   const [cantidadError, setCantidadError] = useState<string | null>(null);
+  const [loadingProductosExistentes, setLoadingProductosExistentes] = useState(false);
+
   const { data: catalogoProductos, loading: loadingCatalogo } = useFetch(
     'productos:lista',
     () => productosService.getProductos(),
     { ttl: 60 }
   );
 
+  // En modo editar, pre-poblar campos con los datos actuales del turno
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (mode === 'editar') {
+      setMetodoPago((turno.metodo_pago as MetodoPago) || 'pendiente');
+      // Si el precio original es distinto al precio del servicio, mostrarlo como modificado
+      if (turno.precio_original && Number(turno.precio_original) !== Number(turno.precio)) {
+        setPrecioModificado(String(turno.precio_original));
+      }
+      if (turno.descuento_porcentaje && Number(turno.descuento_porcentaje) > 0) {
+        setDescuentoPorcentaje(String(turno.descuento_porcentaje));
+      }
+
+      // Cargar productos existentes del turno
+      setLoadingProductosExistentes(true);
+      axiosInstance.get(`/api/finanzas/turno/${turno.id}/productos`)
+        .then(res => {
+          const prods: VentaProductoData[] = (res.data.data || []).map((p: any) => ({
+            id: generarId(),
+            producto_id: p.producto_id,
+            nombre_producto: p.nombre_producto,
+            cantidad: p.cantidad,
+            precio_unitario: p.precio_unitario,
+            precio_total: p.precio_total,
+            metodo_pago: p.metodo_pago,
+            _precio_efectivo: p.precio_efectivo,
+            _precio_transferencia: p.precio_transferencia,
+          }));
+          setProductos(prods);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingProductosExistentes(false));
+    }
+  }, [isOpen, mode, turno]);
+
   // Cambiar método de pago de un producto y recalcular su precio
-  // Usa los precios guardados en el producto para no depender del catálogo en este momento
   const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia') => {
     setProductos(prev => prev.map(p => {
       if (p.id !== id) return p;
@@ -51,17 +92,29 @@ export function FinalizarTurnoModal({
     }));
   };
 
-  // Calcular totales simples (sin comisiones)
+  // Calcular totales respetando a qué ítems aplica el descuento
   const calculo = useMemo(() => {
     const precioServicio = precioModificado ? parseFloat(precioModificado) || 0 : Number(turno.precio);
     const montoProductos = productos.reduce((sum, p) => sum + Number(p.precio_total), 0);
     const subtotal = precioServicio + montoProductos;
     if (subtotal <= 0) return null;
+
     const descuento = descuentoPorcentaje ? parseFloat(descuentoPorcentaje) || 0 : 0;
-    const descuentoMonto = subtotal * (descuento / 100);
+    const baseDescuento =
+      (descuentoAplicarA.servicio ? precioServicio : 0) +
+      (descuentoAplicarA.productos ? montoProductos : 0);
+    const descuentoMonto = baseDescuento * (descuento / 100);
     const totalConDescuento = subtotal - descuentoMonto;
-    return { precioOriginalServicio: precioServicio, precioOriginalProductos: montoProductos, subtotal, descuentoPorcentaje: descuento, descuentoMonto, totalConDescuento };
-  }, [precioModificado, productos, descuentoPorcentaje, turno.precio]);
+
+    return {
+      precioOriginalServicio: precioServicio,
+      precioOriginalProductos: montoProductos,
+      subtotal,
+      descuentoPorcentaje: descuento,
+      descuentoMonto,
+      totalConDescuento,
+    };
+  }, [precioModificado, productos, descuentoPorcentaje, descuentoAplicarA, turno.precio]);
 
   const handleAgregarProducto = () => {
     if (!selectedCatalogProducto) return;
@@ -104,7 +157,7 @@ export function FinalizarTurnoModal({
     setProductos(productos.filter(p => p.id !== id));
   };
 
-  const handleFinalizar = async () => {
+  const handleSubmit = async () => {
     if (!metodoPago) {
       alert('Por favor seleccioná un método de pago');
       return;
@@ -113,19 +166,25 @@ export function FinalizarTurnoModal({
     setLoading(true);
     try {
       const { turnoService } = await import('../../services/turno.service');
-      
-      await turnoService.finalizarTurno(turno.id, {
+      const payload = {
         metodoPago,
         precioModificado: precioModificado ? parseFloat(precioModificado) : undefined,
         descuentoPorcentaje: descuentoPorcentaje ? parseFloat(descuentoPorcentaje) : undefined,
-        productos: productos.length > 0 ? productos : undefined
-      });
+        descuentoAplicarA,
+        productos: productos.length > 0 ? productos : undefined,
+      };
+
+      if (mode === 'editar') {
+        await turnoService.editarPago(turno.id, payload);
+      } else {
+        await turnoService.finalizarTurno(turno.id, payload);
+      }
 
       onSuccess();
       handleClose();
     } catch (error: any) {
-      console.error('Error al finalizar turno:', error);
-      alert(error.response?.data?.message || error.message || 'Error al finalizar turno');
+      console.error('Error al guardar pago del turno:', error);
+      alert(error.response?.data?.message || error.message || 'Error al guardar');
     } finally {
       setLoading(false);
     }
@@ -135,6 +194,7 @@ export function FinalizarTurnoModal({
     setMetodoPago('pendiente');
     setPrecioModificado('');
     setDescuentoPorcentaje('');
+    setDescuentoAplicarA({ servicio: true, productos: true });
     setProductos([]);
     setShowAgregarProductos(false);
     setSelectedCatalogProducto(null);
@@ -148,12 +208,18 @@ export function FinalizarTurnoModal({
 
   const precioServicio = precioModificado ? parseFloat(precioModificado) || 0 : turno.precio;
   const montoProductos = productos.reduce((sum, p) => sum + p.precio_total, 0);
+  const tieneProductos = montoProductos > 0 || productos.length > 0;
+
+  const titulo = mode === 'editar' ? 'Editar Pago del Turno' : 'Finalizar Turno';
+  const labelBoton = mode === 'editar'
+    ? 'Guardar cambios'
+    : metodoPago === 'pendiente' ? 'Guardar como pendiente' : 'Finalizar Turno';
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Finalizar Turno"
+      title={titulo}
       size="lg"
     >
       <div className="space-y-6">
@@ -238,28 +304,6 @@ export function FinalizarTurnoModal({
           </div>
         </Card>
 
-        {/* Descuento */}
-        <Card flat>
-          <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-            <Percent className="w-4 h-4" />
-            Descuento
-          </h3>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Porcentaje de Descuento
-            </label>
-            <Input
-              placeholder="0%"
-              value={descuentoPorcentaje}
-              onChange={(e) => setDescuentoPorcentaje(e.target.value)}
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-            />
-          </div>
-        </Card>
-
         {/* Productos */}
         <Card flat>
           <div className="flex items-center justify-between mb-3">
@@ -276,11 +320,11 @@ export function FinalizarTurnoModal({
               Agregar Producto
             </Button>
           </div>
-          
-          {productos.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
-              No hay productos agregados
-            </p>
+
+          {loadingProductosExistentes ? (
+            <div className="flex justify-center py-4"><Spinner size="sm" /></div>
+          ) : productos.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No hay productos agregados</p>
           ) : (
             <div className="space-y-2">
               {productos.map((producto) => (
@@ -302,7 +346,6 @@ export function FinalizarTurnoModal({
                       </button>
                     </div>
                   </div>
-                  {/* Toggle método de pago por producto */}
                   <div className="flex gap-1">
                     {(['efectivo', 'transferencia'] as const).map(m => (
                       <button
@@ -425,6 +468,67 @@ export function FinalizarTurnoModal({
           </Card>
         )}
 
+        {/* Descuento */}
+        <Card flat>
+          <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+            <Percent className="w-4 h-4" />
+            Descuento
+          </h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Porcentaje de Descuento
+              </label>
+              <Input
+                placeholder="0%"
+                value={descuentoPorcentaje}
+                onChange={(e) => setDescuentoPorcentaje(e.target.value)}
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+              />
+            </div>
+            {descuentoPorcentaje && parseFloat(descuentoPorcentaje) > 0 && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Aplicar descuento a:</p>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={descuentoAplicarA.servicio}
+                      onChange={e => setDescuentoAplicarA(prev => ({ ...prev, servicio: e.target.checked }))}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-700">Servicio</span>
+                    {descuentoAplicarA.servicio && (
+                      <span className="text-xs text-green-600">
+                        -{formatCurrency((precioServicio) * (parseFloat(descuentoPorcentaje) / 100))}
+                      </span>
+                    )}
+                  </label>
+                  {tieneProductos && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={descuentoAplicarA.productos}
+                        onChange={e => setDescuentoAplicarA(prev => ({ ...prev, productos: e.target.checked }))}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-700">Productos</span>
+                      {descuentoAplicarA.productos && (
+                        <span className="text-xs text-green-600">
+                          -{formatCurrency(montoProductos * (parseFloat(descuentoPorcentaje) / 100))}
+                        </span>
+                      )}
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
         {/* Resumen y Cálculos */}
         {calculo && (
           <Card flat className="border-purple-200 bg-purple-50">
@@ -447,12 +551,10 @@ export function FinalizarTurnoModal({
                 </>
               )}
               {calculo.descuentoMonto > 0 && (
-                <>
-                  <div className="flex justify-between text-green-600">
-                    <span>Descuento ({calculo.descuentoPorcentaje}%):</span>
-                    <span>-{formatCurrency(calculo.descuentoMonto)}</span>
-                  </div>
-                </>
+                <div className="flex justify-between text-green-600">
+                  <span>Descuento ({calculo.descuentoPorcentaje}%):</span>
+                  <span>-{formatCurrency(calculo.descuentoMonto)}</span>
+                </div>
               )}
               <div className="border-t pt-2 flex justify-between font-semibold text-lg">
                 <span>Total:</span>
@@ -464,21 +566,17 @@ export function FinalizarTurnoModal({
 
         {/* Botones de Acción */}
         <div className="flex gap-3 pt-4">
-          <Button
-            variant="secondary"
-            onClick={handleClose}
-            block
-          >
+          <Button variant="secondary" onClick={handleClose} block>
             Cancelar
           </Button>
           <Button
-            onClick={handleFinalizar}
+            onClick={handleSubmit}
             loading={loading}
             disabled={!metodoPago}
             block
-            variant={metodoPago === 'pendiente' ? 'secondary' : 'primary'}
+            variant={mode === 'editar' ? 'primary' : metodoPago === 'pendiente' ? 'secondary' : 'primary'}
           >
-            {loading ? 'Guardando...' : metodoPago === 'pendiente' ? 'Guardar como pendiente' : 'Finalizar Turno'}
+            {loading ? 'Guardando...' : labelBoton}
           </Button>
         </div>
       </div>

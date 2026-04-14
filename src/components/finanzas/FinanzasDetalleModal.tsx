@@ -1,12 +1,13 @@
 import React from 'react';
 import type { ComisionProfesional } from '../../types/finanzas.types';
 import { formatCurrency, formatDate } from '../../utils/calculos.utils';
-import { Modal, Badge, Card } from '../ui';
+import { Modal, Badge, Card, Button } from '../ui';
 
 interface FinanzasDetalleModalProps {
   comision: ComisionProfesional | null;
   isOpen: boolean;
   onClose: () => void;
+  onEditarPago?: () => void;
 }
 
 const getMetodoPagoBadge = (metodo: string) => {
@@ -22,7 +23,8 @@ const getMetodoPagoBadge = (metodo: string) => {
 export const FinanzasDetalleModal: React.FC<FinanzasDetalleModalProps> = ({
   comision,
   isOpen,
-  onClose
+  onClose,
+  onEditarPago
 }) => {
   if (!comision) return null;
 
@@ -123,6 +125,15 @@ export const FinanzasDetalleModal: React.FC<FinanzasDetalleModalProps> = ({
             <h4 className="text-lg font-semibold text-gray-800 mb-4">Notas</h4>
             <p className="font-medium text-gray-900">{comision.notas}</p>
           </Card>
+        )}
+
+        {/* Acciones */}
+        {onEditarPago && comision.turno_estado === 'completado' && (
+          <div className="flex justify-end pt-2">
+            <Button variant="secondary" onClick={onEditarPago}>
+              Editar pago
+            </Button>
+          </div>
         )}
       </div>
     </Modal>
