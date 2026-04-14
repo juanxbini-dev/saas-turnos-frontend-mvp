@@ -55,7 +55,7 @@ export const useDisponibilidad = (profesionalId: string | null) => {
   } = useFetch(
     selectedDate && profesionalId ? buildKey(ENTITIES.SLOTS, profesionalId, selectedDate) : null,
     () => selectedDate && profesionalId ? disponibilidadService.getSlotsDisponibles(profesionalId, selectedDate) : Promise.resolve([]),
-    { ttl: 30 }
+    { ttl: 5 }
   );
 
   // Logging para depurar caché
