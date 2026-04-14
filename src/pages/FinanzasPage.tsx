@@ -9,8 +9,10 @@ import { FinanzasSummaryCards } from '../components/finanzas/FinanzasSummaryCard
 import FinanzasFiltersComponent from '../components/finanzas/FinanzasFilters';
 import { FinanzasTable } from '../components/finanzas/FinanzasTable';
 import { FinanzasDetalleModal } from '../components/finanzas/FinanzasDetalleModal';
+import { FinalizarTurnoModal } from '../components/turnos/FinalizarTurnoModal';
 import { ProfesionalSelector } from '../components/finanzas/ProfesionalSelector';
 import { usuarioService } from '../services/usuario.service';
+import type { TurnoConDetalle } from '../types/turno.types';
 
 export function FinanzasPage() {
   const { state: authState } = useAuth();
@@ -44,6 +46,7 @@ export function FinanzasPage() {
   const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
   const [selectedComision, setSelectedComision] = useState<ComisionProfesional | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editarPagoTurno, setEditarPagoTurno] = useState<TurnoConDetalle | null>(null);
 
   // Obtener lista de profesionales (solo para admin)
   const {
@@ -197,7 +200,42 @@ export function FinanzasPage() {
         comision={selectedComision}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onEditarPago={selectedComision?.turno_estado === 'completado' ? () => {
+          // Construir TurnoConDetalle mínimo desde ComisionProfesional para abrir el modal de edición
+          if (!selectedComision) return;
+          setEditarPagoTurno({
+            id: selectedComision.turno_id,
+            precio: selectedComision.precio_original,
+            precio_original: selectedComision.precio_original,
+            metodo_pago: selectedComision.metodo_pago,
+            descuento_porcentaje: selectedComision.descuento_porcentaje,
+            descuento_monto: selectedComision.descuento_monto,
+            total_final: selectedComision.total_final,
+            estado: 'completado',
+            cliente_nombre: selectedComision.cliente_nombre,
+            servicio: selectedComision.servicio_nombre,
+            fecha: selectedComision.turno_fecha,
+            hora: selectedComision.turno_hora,
+            usuario_id: selectedComision.profesional_id,
+            empresa_id: selectedComision.empresa_id,
+          } as TurnoConDetalle);
+          setIsModalOpen(false);
+        } : undefined}
       />
+
+      {/* Modal de editar pago desde finanzas */}
+      {editarPagoTurno && (
+        <FinalizarTurnoModal
+          isOpen={!!editarPagoTurno}
+          onClose={() => setEditarPagoTurno(null)}
+          turno={editarPagoTurno}
+          mode="editar"
+          onSuccess={() => {
+            setEditarPagoTurno(null);
+            revalidate();
+          }}
+        />
+      )}
     </div>
   );
 }

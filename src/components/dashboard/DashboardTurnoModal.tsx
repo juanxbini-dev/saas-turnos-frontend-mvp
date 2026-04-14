@@ -49,6 +49,7 @@ export function DashboardTurnoModal({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
+  const [showEditarPagoModal, setShowEditarPagoModal] = useState(false);
   
   const toast = useToast();
 
@@ -195,6 +196,12 @@ export function DashboardTurnoModal({
 
   const handleFinalizarSuccess = () => {
     setShowFinalizarModal(false);
+    onRefresh?.();
+    handleClose();
+  };
+
+  const handleEditarPagoSuccess = () => {
+    setShowEditarPagoModal(false);
     onRefresh?.();
     handleClose();
   };
@@ -511,6 +518,16 @@ export function DashboardTurnoModal({
                 {loading ? 'Cancelando...' : 'Cancelar'}
               </Button>
             )}
+
+            {turno?.estado === 'completado' && (
+              <Button
+                variant="secondary"
+                onClick={() => setShowEditarPagoModal(true)}
+                block
+              >
+                Editar pago
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -546,9 +563,20 @@ export function DashboardTurnoModal({
           turno={turno}
           onSuccess={handleFinalizarSuccess}
           comisionesConfig={{
-            comision_turno: 20, // TODO: Obtener del profesional
-            comision_producto: 20 // TODO: Obtener del profesional
+            comision_turno: 20,
+            comision_producto: 20
           }}
+        />
+      )}
+
+      {/* Modal de Editar Pago */}
+      {turno && (
+        <FinalizarTurnoModal
+          isOpen={showEditarPagoModal}
+          onClose={() => setShowEditarPagoModal(false)}
+          turno={turno}
+          onSuccess={handleEditarPagoSuccess}
+          mode="editar"
         />
       )}
     </Modal>
