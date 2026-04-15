@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { FinanzasFilters, FinanzasResponse, ComisionProfesional } from '../types/finanzas.types';
 import { finanzasService } from '../services/finanzas.service';
 import { useFetch } from '../hooks/useFetch';
@@ -12,6 +12,7 @@ import { FinanzasDetalleModal } from '../components/finanzas/FinanzasDetalleModa
 import { FinalizarTurnoModal } from '../components/turnos/FinalizarTurnoModal';
 import { ProfesionalSelector } from '../components/finanzas/ProfesionalSelector';
 import { usuarioService } from '../services/usuario.service';
+import { perfilService } from '../services/perfil.service';
 import type { TurnoConDetalle } from '../types/turno.types';
 
 export function FinanzasPage() {
@@ -84,6 +85,25 @@ export function FinanzasPage() {
   );
 
   const finanzasResponse = finanzasData as FinanzasResponse;
+
+  // Perfil propio (para staff que ve sus propias finanzas)
+  const { data: perfilPropio } = useFetch(
+    !isAdmin ? 'perfil:me' : null,
+    () => perfilService.getProfile(),
+    { ttl: TTL.MEDIUM }
+  );
+
+  // Comisiones del profesional visualizado
+  const comisionProfesional = useMemo(() => {
+    if (isAdmin && selectedProfesionalId) {
+      const prof = profesionales.find((p: any) => p.id === selectedProfesionalId);
+      if (prof) return { comision_turno: prof.comision_turno ?? 0, comision_producto: prof.comision_producto ?? 0 };
+    }
+    if (!isAdmin && perfilPropio) {
+      return { comision_turno: perfilPropio.comision_turno ?? 0, comision_producto: perfilPropio.comision_producto ?? 0 };
+    }
+    return null;
+  }, [isAdmin, selectedProfesionalId, profesionales, perfilPropio]);
 
   // Auto-seleccionar el primer profesional de la lista cuando carguen
   useEffect(() => {
@@ -176,6 +196,7 @@ export function FinanzasPage() {
           total_descuentos: 0, cantidad_turnos: 0, cantidad_productos_vendidos: 0, promedio_por_turno: 0, total_pendiente: 0,
         }}
         isLoading={loadingFinanzas}
+        comisionProfesional={comisionProfesional}
       />
 
       {/* Tabla */}

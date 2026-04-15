@@ -7,6 +7,7 @@ import { Scissors, Package, TrendingUp, CheckSquare, Clock } from 'lucide-react'
 interface FinanzasSummaryCardsProps {
   summary: FinanzasSummary;
   isLoading: boolean;
+  comisionProfesional?: { comision_turno: number; comision_producto: number } | null;
 }
 
 interface SummaryCardProps {
@@ -45,7 +46,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, total, rows, icon, ico
   </Card>
 );
 
-export const FinanzasSummaryCards: React.FC<FinanzasSummaryCardsProps> = ({ summary, isLoading }) => {
+export const FinanzasSummaryCards: React.FC<FinanzasSummaryCardsProps> = ({ summary, isLoading, comisionProfesional }) => {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4 mb-8">
@@ -89,8 +90,12 @@ export const FinanzasSummaryCards: React.FC<FinanzasSummaryCardsProps> = ({ summ
         iconColor="text-green-600"
         bgColor="bg-green-50"
         rows={[
-          { label: 'Servicios', value: formatCurrency(summary.total_neto_profesional_servicios) },
-          { label: 'Productos', value: formatCurrency(summary.total_neto_profesional_productos) },
+          ...(comisionProfesional != null ? [
+            { label: 'Comisión servicios', value: `${comisionProfesional.comision_turno}%` },
+            { label: 'Comisión productos', value: `${comisionProfesional.comision_producto}%` },
+          ] : []),
+          { label: `Servicios (${summary.cantidad_turnos})`, value: formatCurrency(summary.total_neto_profesional_servicios) },
+          { label: `Productos (${summary.cantidad_productos_vendidos})`, value: formatCurrency(summary.total_neto_profesional_productos) },
         ]}
       />
 
