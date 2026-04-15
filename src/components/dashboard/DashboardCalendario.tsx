@@ -215,6 +215,7 @@ interface DashboardCalendarioProps {
   profesionalNombre: string
   onSlotSelect: (fecha: Date, hora: Date) => void
   onTurnoAction: (turno: TurnoConDetalle) => void
+  onTurnoEditarPago?: (turno: TurnoConDetalle) => void
 }
 
 export function DashboardCalendario({
@@ -222,7 +223,8 @@ export function DashboardCalendario({
   color,
   profesionalNombre,
   onSlotSelect,
-  onTurnoAction
+  onTurnoAction,
+  onTurnoEditarPago
 }: DashboardCalendarioProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
@@ -920,6 +922,14 @@ export function DashboardCalendario({
                   💰 Registrar cobro
                 </button>
               )}
+              {turnoMenu.turno.estado === 'completado' && (
+                <button
+                  className="w-full text-left px-5 py-4 text-base text-blue-600 font-medium border-b border-gray-50 active:bg-blue-50"
+                  onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); onTurnoEditarPago?.(t); }}
+                >
+                  Editar pago
+                </button>
+              )}
               {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (
                 <button
                   className="w-full text-left px-5 py-4 text-base text-red-500 font-medium border-b border-gray-50 active:bg-red-50"
@@ -996,6 +1006,14 @@ export function DashboardCalendario({
                   onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); onTurnoAction(t); }}
                 >
                   💰 Registrar cobro
+                </button>
+              )}
+              {turnoMenu.turno.estado === 'completado' && (
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                  onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); onTurnoEditarPago?.(t); }}
+                >
+                  Editar pago
                 </button>
               )}
               {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (

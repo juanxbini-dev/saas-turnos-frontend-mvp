@@ -125,6 +125,7 @@ export function DashboardPage() {
   };
 
   const [turnoACobrar, setTurnoACobrar] = useState<TurnoConDetalle | null>(null);
+  const [turnoAEditar, setTurnoAEditar] = useState<TurnoConDetalle | null>(null);
 
   // Manejar clic en turno existente
   // · completado + pago pendiente → CobrarTurnoModal
@@ -225,6 +226,7 @@ export function DashboardPage() {
                 color={colorSeleccionado}
                 onSlotSelect={handleSlotSelect}
                 onTurnoAction={handleTurnoAction}
+                onTurnoEditarPago={(turno) => setTurnoAEditar(turno)}
               />
             </div>
           </Card>
@@ -260,6 +262,17 @@ export function DashboardPage() {
           onClose={() => setTurnoACobrar(null)}
           turno={turnoACobrar}
           onSuccess={() => { setTurnoACobrar(null); handleRefresh(); }}
+        />
+      )}
+
+      {/* Modal editar pago de turno completado */}
+      {turnoAEditar && (
+        <FinalizarTurnoModal
+          isOpen={!!turnoAEditar}
+          onClose={() => setTurnoAEditar(null)}
+          turno={turnoAEditar}
+          mode="editar"
+          onSuccess={() => { setTurnoAEditar(null); handleRefresh(); }}
         />
       )}
 
