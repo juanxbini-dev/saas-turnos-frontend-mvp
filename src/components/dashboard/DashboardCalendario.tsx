@@ -930,7 +930,7 @@ export function DashboardCalendario({
                   Editar pago
                 </button>
               )}
-              {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (
+              {turnoMenu.turno.estado === 'confirmado' && (
                 <button
                   className="w-full text-left px-5 py-4 text-base text-red-500 font-medium border-b border-gray-50 active:bg-red-50"
                   onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); setCancelarConfirm(t); }}
@@ -1016,7 +1016,7 @@ export function DashboardCalendario({
                   Editar pago
                 </button>
               )}
-              {(turnoMenu.turno.estado === 'pendiente' || turnoMenu.turno.estado === 'confirmado') && (
+              {turnoMenu.turno.estado === 'confirmado' && (
                 <button
                   className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50"
                   onClick={() => { const t = turnoMenu.turno; setTurnoMenu(null); setCancelarConfirm(t); }}
