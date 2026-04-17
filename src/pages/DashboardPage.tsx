@@ -227,6 +227,7 @@ export function DashboardPage() {
                 onSlotSelect={handleSlotSelect}
                 onTurnoAction={handleTurnoAction}
                 onTurnoEditarPago={(turno) => setTurnoAEditar(turno)}
+                onCancelarSuccess={handleRefresh}
               />
             </div>
           </Card>

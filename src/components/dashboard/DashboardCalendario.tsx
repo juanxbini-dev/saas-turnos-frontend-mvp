@@ -216,6 +216,7 @@ interface DashboardCalendarioProps {
   onSlotSelect: (fecha: Date, hora: Date) => void
   onTurnoAction: (turno: TurnoConDetalle) => void
   onTurnoEditarPago?: (turno: TurnoConDetalle) => void
+  onCancelarSuccess?: () => void
 }
 
 export function DashboardCalendario({
@@ -224,7 +225,8 @@ export function DashboardCalendario({
   profesionalNombre,
   onSlotSelect,
   onTurnoAction,
-  onTurnoEditarPago
+  onTurnoEditarPago,
+  onCancelarSuccess
 }: DashboardCalendarioProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
@@ -244,6 +246,7 @@ export function DashboardCalendario({
   const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date; bloqueoId?: string; noDisponible?: boolean } | null>(null);
   const [turnoMenu, setTurnoMenu] = useState<{ x: number; y: number; turno: TurnoConDetalle } | null>(null);
   const [cancelarConfirm, setCancelarConfirm] = useState<TurnoConDetalle | null>(null);
+  const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
   const toast = useToast();
   const touchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
   const touchMovedRef = React.useRef(false);
@@ -427,6 +430,8 @@ export function DashboardCalendario({
   // Transformar turnos al formato de react-big-calendar
   const events = (turnos || [])
     .filter(turno => {
+      // Excluir turnos cancelados (optimistic + safety net)
+      if (turno.estado === 'cancelado' || cancelledIds.has(turno.id)) return false;
       // Validar que el turno tenga datos necesarios
       if (!turno.fecha || !turno.hora) {
         dashboardLogger.warn('Turno sin fecha u hora', { turnoId: turno.id });
@@ -642,21 +647,27 @@ export function DashboardCalendario({
   const handleCancelarTurno = useCallback(async (turno: TurnoConDetalle) => {
     try {
       await turnoService.cancelarTurno(turno.id);
-      
+
+      // Actualización optimista: ocultar el evento inmediatamente sin esperar el refetch
+      setCancelledIds(prev => new Set(prev).add(turno.id));
+
       // Invalidar caché
       cacheService.invalidateByPrefix(buildKey(ENTITIES.CALENDARIO));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
 
-      // Refetch
+      // Refetch para consistencia eventual
       revalidate();
       revalidateSlots();
-      
+
       toast.success('Turno cancelado correctamente');
+
+      // Callback al padre para refrescar otras partes de la UI si es necesario
+      onCancelarSuccess?.();
     } catch (error) {
       toast.error('Error al cancelar turno');
     }
-  }, [revalidate, toast]);
+  }, [revalidate, revalidateSlots, toast, onCancelarSuccess]);
 
   // Habilitar un slot fuera del horario habitual como excepción adicional
   const handleHabilitarSlot = useCallback(async (fecha: Date, hora: Date) => {
