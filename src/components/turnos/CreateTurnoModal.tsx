@@ -85,7 +85,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   const isAdmin = authUser?.roles.includes('admin');
   const user = authUser?.authUser;
 
-  // Hook de disponibilidad
+  // Hook de disponibilidad — sin servicioId (dashboard usa flujo inverso: slot primero, servicio después)
   const {
     mes,
     año,
@@ -124,6 +124,49 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       return selectedProfesional ? disponibilidadService.getServiciosProfesional(selectedProfesional.id) : Promise.resolve([]);
     }
   );
+
+  // Configuración del profesional (para calcular intervalo y hora_fin al validar slot preseleccionado)
+  const { data: configData } = useFetch(
+    selectedProfesional ? buildKey(ENTITIES.CONFIGURACION, selectedProfesional.id) : null,
+    () => selectedProfesional ? disponibilidadService.getConfiguracion(selectedProfesional.id) : Promise.resolve(null)
+  );
+
+  // Máxima duración disponible desde el slot preseleccionado (para deshabilitar servicios que no entran)
+  const maxDuracionDesdeSlot = React.useMemo(() => {
+    if (!selectedSlot || !preselectedFecha || !configData?.disponibilidades) return Infinity;
+
+    const toMin = (s: string) => {
+      const [h, m] = s.slice(0, 5).split(':').map(Number);
+      return (h ?? 0) * 60 + (m ?? 0);
+    };
+
+    const dayOfWeek = preselectedFecha.getDay();
+    const disp = (configData.disponibilidades as any[]).find((d) =>
+      d.activo && dayOfWeek >= d.dia_inicio && dayOfWeek <= d.dia_fin
+    );
+
+    if (!disp) return 0;
+
+    const interval: number = disp.intervalo_minutos;
+    const horaFin = toMin(disp.hora_fin);
+    const fromMin = toMin(selectedSlot);
+
+    // Slots teóricos después del slot seleccionado hasta hora_fin
+    const theoreticalNext: string[] = [];
+    let cur = fromMin + interval;
+    while (cur < horaFin) {
+      theoreticalNext.push(
+        `${String(Math.floor(cur / 60)).padStart(2, '0')}:${String(cur % 60).padStart(2, '0')}`
+      );
+      cur += interval;
+    }
+
+    // Primer slot teórico que NO está en los disponibles → hay un turno ahí
+    const availableSet = new Set(slots || []);
+    const firstOccupied = theoreticalNext.find((s) => !availableSet.has(s));
+
+    return firstOccupied ? toMin(firstOccupied) - fromMin : horaFin - fromMin;
+  }, [selectedSlot, preselectedFecha, configData, slots]);
 
   // Debug: log cuando los servicios cambian
   React.useEffect(() => {
@@ -496,28 +539,36 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           ) : (
             <div className="grid gap-3">
-              {servicios?.map((servicio: ServicioProfesional) => (
-                <Card
-                  key={servicio.id}
-                  className={`cursor-pointer hover:bg-blue-50 border-2 ${
-                    selectedServicio?.id === servicio.id
-                      ? 'border-blue-600 bg-blue-50'
-                      : 'hover:border-blue-300'
-                  }`}
-                  onClick={() => setSelectedServicio(servicio)}
-                >
-                  <div className="font-medium">{servicio.nombre}</div>
-                  <div className="text-sm text-gray-500">{servicio.descripcion}</div>
-                  <div className="mt-2 flex justify-between">
-                    <span className="text-sm font-medium">
-                      ${servicio.precio || 0}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {servicio.duracion_minutos || 0} min
-                    </span>
-                  </div>
-                </Card>
-              ))}
+              {servicios?.map((servicio: ServicioProfesional) => {
+                const duracion = servicio.duracion_minutos || 0;
+                const noEntra = preselectedFecha && selectedSlot && duracion > maxDuracionDesdeSlot;
+
+                return (
+                  <Card
+                    key={servicio.id}
+                    className={`border-2 transition-all ${
+                      noEntra
+                        ? 'opacity-60 cursor-not-allowed border-gray-100 bg-gray-50'
+                        : selectedServicio?.id === servicio.id
+                        ? 'border-blue-600 bg-blue-50 cursor-pointer'
+                        : 'cursor-pointer hover:bg-blue-50 hover:border-blue-300'
+                    }`}
+                    onClick={() => !noEntra && setSelectedServicio(servicio)}
+                  >
+                    <div className="font-medium">{servicio.nombre}</div>
+                    <div className="text-sm text-gray-500">{servicio.descripcion}</div>
+                    <div className="mt-2 flex justify-between">
+                      <span className="text-sm font-medium">${servicio.precio || 0}</span>
+                      <span className="text-sm text-gray-500">{duracion} min</span>
+                    </div>
+                    {noEntra && (
+                      <p className="mt-1.5 text-xs text-red-500">
+                        Requiere {duracion} min — solo hay {maxDuracionDesdeSlot} min disponibles en este horario
+                      </p>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
