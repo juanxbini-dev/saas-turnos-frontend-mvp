@@ -8,26 +8,26 @@ import {
 } from '../types/turno.types';
 
 export const disponibilidadService = {
-  async getDisponibilidadMes(profesionalId: string, mes: number, año: number): Promise<string[]> {
-    console.log('🔍 [disponibilidadService] getDisponibilidadMes - Llamando a API:', { profesionalId, mes, año });
+  async getDisponibilidadMes(profesionalId: string, mes: number, año: number, servicioId?: string): Promise<string[]> {
+    console.log('🔍 [disponibilidadService] getDisponibilidadMes - Llamando a API:', { profesionalId, mes, año, servicioId });
     const response = await axiosInstance.get(`/api/turnos/disponibilidad/${profesionalId}/mes`, {
-      params: { mes, año }
+      params: { mes, año, ...(servicioId ? { servicioId } : {}) }
     });
     console.log('🔍 [disponibilidadService] getDisponibilidadMes - Respuesta completa:', response.data);
     console.log('🔍 [disponibilidadService] getDisponibilidadMes - Datos:', response.data.data);
     return response.data.data;
   },
 
-  async getSlotsDisponibles(profesionalId: string, fecha: string): Promise<string[]> {
+  async getSlotsDisponibles(profesionalId: string, fecha: string, servicioId?: string): Promise<string[]> {
     const response = await axiosInstance.get(`/api/turnos/disponibilidad/${profesionalId}/slots`, {
-      params: { fecha }
+      params: { fecha, ...(servicioId ? { servicioId } : {}) }
     });
     return response.data.data;
   },
 
-  async getSlotsRango(profesionalId: string, fechaInicio: string, fechaFin: string): Promise<Record<string, string[]>> {
+  async getSlotsRango(profesionalId: string, fechaInicio: string, fechaFin: string, servicioId?: string): Promise<Record<string, string[]>> {
     const response = await axiosInstance.get(`/api/turnos/disponibilidad/${profesionalId}/slots-rango`, {
-      params: { fechaInicio, fechaFin }
+      params: { fechaInicio, fechaFin, ...(servicioId ? { servicioId } : {}) }
     });
     const data: { fecha: string; slots: string[] }[] = response.data.data;
     return Object.fromEntries(data.map(({ fecha, slots }) => [fecha, slots]));

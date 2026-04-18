@@ -75,6 +75,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const slotsRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
+  // servicioId=null hasta que el usuario elija un servicio (paso previo obligatorio)
   const {
     mes,
     año,
@@ -89,7 +90,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     handleSlotSelect,
     reset: resetDisponibilidad,
     forceRefresh
-  } = useDisponibilidad(profesionalId);
+  } = useDisponibilidad(profesionalId, selectedServicio?.id ?? null);
 
   useEffect(() => {
     if (bodyRef.current) {
