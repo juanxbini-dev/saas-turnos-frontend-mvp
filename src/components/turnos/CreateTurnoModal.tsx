@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { Modal, Button, Input, Textarea, Card, Spinner } from '../ui';
 import { Calendar, TimeSlots } from '../ui';
 import { useDisponibilidad } from '../../hooks/useDisponibilidad';
@@ -70,7 +71,8 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [notas, setNotas] = useState('');
   const [loading, setLoading] = useState(false);
-  
+  const [errorModal, setErrorModal] = useState<string | null>(null);
+
   // Estados para creación de cliente
   const [showCreateCliente, setShowCreateCliente] = useState(false);
   const [newCliente, setNewCliente] = useState({
@@ -275,7 +277,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       onClose();
       resetModal();
     } catch (error: any) {
-      toast.error(error.message || 'Error al crear turno');
+      setErrorModal(error.response?.data?.message || error.message || 'Error al crear turno');
     } finally {
       setLoading(false);
     }
@@ -290,10 +292,10 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     resetDisponibilidad();
     setClienteSearch('');
     setShowClienteDropdown(false);
-    // Resetear estados de creación de cliente
     setShowCreateCliente(false);
     setNewCliente({ nombre: '', email: '', telefono: '' });
     setCreatingCliente(false);
+    setErrorModal(null);
   };
 
   const handleCreateCliente = async () => {
@@ -428,6 +430,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
@@ -539,21 +542,20 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           ) : (
             <div className="grid gap-3">
-              {servicios?.map((servicio: ServicioProfesional) => {
+              {servicios?.filter((servicio: ServicioProfesional) => {
                 const duracion = servicio.duracion_minutos || 0;
-                const noEntra = preselectedFecha && selectedSlot && duracion > maxDuracionDesdeSlot;
-
+                return !(preselectedFecha && selectedSlot && duracion > maxDuracionDesdeSlot);
+              }).map((servicio: ServicioProfesional) => {
+                const duracion = servicio.duracion_minutos || 0;
                 return (
                   <Card
                     key={servicio.id}
-                    className={`border-2 transition-all ${
-                      noEntra
-                        ? 'opacity-60 cursor-not-allowed border-gray-100 bg-gray-50'
-                        : selectedServicio?.id === servicio.id
-                        ? 'border-blue-600 bg-blue-50 cursor-pointer'
-                        : 'cursor-pointer hover:bg-blue-50 hover:border-blue-300'
+                    className={`border-2 transition-all cursor-pointer ${
+                      selectedServicio?.id === servicio.id
+                        ? 'border-blue-600 bg-blue-50'
+                        : 'hover:bg-blue-50 hover:border-blue-300'
                     }`}
-                    onClick={() => !noEntra && setSelectedServicio(servicio)}
+                    onClick={() => setSelectedServicio(servicio)}
                   >
                     <div className="font-medium">{servicio.nombre}</div>
                     <div className="text-sm text-gray-500">{servicio.descripcion}</div>
@@ -561,11 +563,6 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                       <span className="text-sm font-medium">${servicio.precio || 0}</span>
                       <span className="text-sm text-gray-500">{duracion} min</span>
                     </div>
-                    {noEntra && (
-                      <p className="mt-1.5 text-xs text-red-500">
-                        Requiere {duracion} min — solo hay {maxDuracionDesdeSlot} min disponibles en este horario
-                      </p>
-                    )}
                   </Card>
                 );
               })}
@@ -858,5 +855,23 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
         )}
       </div>
     </Modal>
+
+    {/* Modal de error */}
+    {errorModal && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setErrorModal(null)} />
+        <div className="relative w-full max-w-sm bg-white rounded-lg shadow-xl p-6 text-center">
+          <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+          </div>
+          <h3 className="text-base font-semibold text-gray-900 mb-2">Error al crear turno</h3>
+          <p className="text-sm text-gray-600 mb-4">{errorModal}</p>
+          <Button onClick={() => setErrorModal(null)} variant="primary" className="w-full">
+            Entendido
+          </Button>
+        </div>
+      </div>
+    )}
+    </>
   );
 };

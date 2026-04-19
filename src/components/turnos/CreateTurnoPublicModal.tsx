@@ -66,6 +66,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   // Estados para validación de cliente existente
   const [existingCliente, setExistingCliente] = useState<ExistingCliente | null>(null);
@@ -156,6 +157,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       }
     } catch (error: any) {
       setSubmitError(error.response?.data?.message || 'Error al validar los datos. Intentá nuevamente.');
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -188,12 +190,10 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       resetModal();
     } catch (error: any) {
       const msg = error.response?.data?.message || 'Error al crear el turno. Intentá nuevamente.';
-      // Si el slot ya no está disponible, volver al paso 2 con el mensaje
+      setSubmitError(msg);
+      setShowErrorModal(true);
       if (error.response?.status === 409) {
-        setSubmitError(msg);
         setStep(2);
-      } else {
-        setSubmitError(msg);
       }
     } finally {
       setLoading(false);
@@ -219,6 +219,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setShowMatchModal(false);
     setFieldErrors({});
     setSubmitError(null);
+    setShowErrorModal(false);
     resetDisponibilidad();
   };
 
@@ -317,15 +318,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
           {/* Body */}
           <div ref={bodyRef} className="overflow-y-auto flex-1 px-6 py-5">
 
-            {/* Banner de error general (slot no disponible u otros errores de API) */}
-            {submitError && (
-              <div className="flex items-start gap-3 bg-red-950/60 border border-red-500/40 px-4 py-3 mb-4">
-                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                <p className="text-sm text-red-300">{submitError}</p>
-              </div>
-            )}
-
-            {/* Step 1 - Servicio */}
+              {/* Step 1 - Servicio */}
             {step === 1 && (
               <div className="space-y-3">
                 {loadingServicios ? (
@@ -519,6 +512,34 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ── Modal cliente existente ── */}
+      {/* ── Modal de error ── */}
+      {showErrorModal && submitError && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowErrorModal(false)} />
+          <div className="relative w-full max-w-sm bg-[#111] border border-white/15 p-6">
+            <div className="text-center mb-5">
+              <div className="w-10 h-10 border border-red-500/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <AlertCircle className="w-5 h-5 text-red-400" />
+              </div>
+              <p
+                className="text-lg font-bold uppercase text-white tracking-wide mb-2"
+                style={{ fontFamily: 'Oswald, sans-serif' }}
+              >
+                Error
+              </p>
+              <p className="text-sm text-white/60">{submitError}</p>
+            </div>
+            <button
+              onClick={() => setShowErrorModal(false)}
+              className={ghostBtn + ' w-full'}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal cliente existente ── */}
       {showMatchModal && existingCliente && (
