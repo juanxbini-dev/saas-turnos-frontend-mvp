@@ -156,6 +156,14 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
               WA ✓
             </span>
           )}
+          {turno.recordatorio_enviado && (
+            <span
+              title="Recordatorio enviado por WhatsApp"
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700"
+            >
+              Rec ✓
+            </span>
+          )}
         </div>
       )
     },
@@ -310,9 +318,16 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
                           </div>
                         )}
                         <div>
-                          <span className="font-medium">WhatsApp:</span>{' '}
+                          <span className="font-medium">Confirmación WA:</span>{' '}
                           {turno.confirmacion_whatsapp_enviada
-                            ? <span className="text-green-600">Enviado ✓</span>
+                            ? <span className="text-green-600">Enviada ✓</span>
+                            : <span className="text-gray-400">No enviada</span>
+                          }
+                        </div>
+                        <div>
+                          <span className="font-medium">Recordatorio WA:</span>{' '}
+                          {turno.recordatorio_enviado
+                            ? <span className="text-blue-600">Enviado ✓</span>
                             : <span className="text-gray-400">No enviado</span>
                           }
                         </div>
