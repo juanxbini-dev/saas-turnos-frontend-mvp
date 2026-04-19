@@ -143,6 +143,11 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
           {completado ? (cobrado ? 'Cobrado' : 'Pago pendiente') : turno.servicio}
         </div>
       )}
+      {turno.cliente_telefono && (
+        <div style={{ fontSize: '8px', fontFamily: 'monospace', lineHeight: '1.3', opacity: 0.85 }}>
+          ☎ {turno.cliente_telefono}
+        </div>
+      )}
       {turno.origen === 'web' && (
         <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3', opacity: 0.9 }}>
           🌐 Web
@@ -881,8 +886,25 @@ export function DashboardCalendario({
                     <span>{turnoMenu.turno.duracion_minutos} min</span>
                   )}
                 </div>
+                {turnoMenu.turno.cliente_telefono && (
+                  <p className="text-sm text-gray-500 font-mono">☎ {turnoMenu.turno.cliente_telefono}</p>
+                )}
                 {turnoMenu.turno.notas && (
                   <p className="text-xs text-gray-400 italic">{turnoMenu.turno.notas}</p>
+                )}
+                {(turnoMenu.turno.confirmacion_whatsapp_enviada || turnoMenu.turno.recordatorio_enviado) && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    {turnoMenu.turno.confirmacion_whatsapp_enviada && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                        WA confirmación ✓
+                      </span>
+                    )}
+                    {turnoMenu.turno.recordatorio_enviado && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                        WA recordatorio ✓
+                      </span>
+                    )}
+                  </div>
                 )}
                 {/* Resumen financiero para turnos completados */}
                 {turnoMenu.turno.estado === 'completado' && (
@@ -972,6 +994,23 @@ export function DashboardCalendario({
                   <TurnoEstadoBadge estado={turnoMenu.turno.estado} />
                 </div>
                 <p className="text-xs text-gray-400">{turnoMenu.turno.hora} — {turnoMenu.turno.servicio}</p>
+                {turnoMenu.turno.cliente_telefono && (
+                  <p className="text-xs text-gray-400 font-mono mt-0.5">☎ {turnoMenu.turno.cliente_telefono}</p>
+                )}
+                {(turnoMenu.turno.confirmacion_whatsapp_enviada || turnoMenu.turno.recordatorio_enviado) && (
+                  <div className="flex items-center gap-1 flex-wrap mt-1">
+                    {turnoMenu.turno.confirmacion_whatsapp_enviada && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                        WA ✓
+                      </span>
+                    )}
+                    {turnoMenu.turno.recordatorio_enviado && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                        Rec ✓
+                      </span>
+                    )}
+                  </div>
+                )}
                 {/* Resumen financiero para turnos completados */}
                 {turnoMenu.turno.estado === 'completado' && (
                   <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
