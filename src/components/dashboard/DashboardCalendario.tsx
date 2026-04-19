@@ -892,7 +892,6 @@ export function DashboardCalendario({
                 {turnoMenu.turno.notas && (
                   <p className="text-xs text-gray-400 italic">{turnoMenu.turno.notas}</p>
                 )}
-                {/* Badges de notificaciones WA */}
                 {(turnoMenu.turno.confirmacion_whatsapp_enviada || turnoMenu.turno.recordatorio_enviado) && (
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
                     {turnoMenu.turno.confirmacion_whatsapp_enviada && (
@@ -998,7 +997,6 @@ export function DashboardCalendario({
                 {turnoMenu.turno.cliente_telefono && (
                   <p className="text-xs text-gray-400 font-mono mt-0.5">☎ {turnoMenu.turno.cliente_telefono}</p>
                 )}
-                {/* Badges de notificaciones WA */}
                 {(turnoMenu.turno.confirmacion_whatsapp_enviada || turnoMenu.turno.recordatorio_enviado) && (
                   <div className="flex items-center gap-1 flex-wrap mt-1">
                     {turnoMenu.turno.confirmacion_whatsapp_enviada && (
