@@ -148,6 +148,14 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
               Web
             </span>
           )}
+          {turno.whatsapp_enviado && (
+            <span
+              title="Confirmación enviada por WhatsApp"
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700"
+            >
+              WA ✓
+            </span>
+          )}
         </div>
       )
     },
@@ -301,6 +309,13 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
                             <span className="font-medium">Notas:</span> {turno.notas}
                           </div>
                         )}
+                        <div>
+                          <span className="font-medium">WhatsApp:</span>{' '}
+                          {turno.whatsapp_enviado
+                            ? <span className="text-green-600">Enviado ✓</span>
+                            : <span className="text-gray-400">No enviado</span>
+                          }
+                        </div>
                       </div>
                     )}
 

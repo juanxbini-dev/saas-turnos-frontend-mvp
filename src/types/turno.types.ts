@@ -28,6 +28,8 @@ export interface Turno {
   total_productos?: number;
   // Origen del turno
   origen?: 'web' | 'interno';
+  // Notificación WhatsApp
+  whatsapp_enviado?: boolean;
 }
 
 export interface TurnoConDetalle extends Turno {
