@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Instagram, Facebook, X, MapPin, Clock } from 'lucide-react';
 import { Spinner } from '../../components/ui';
 import { CreateTurnoPublicModal } from '../../components/turnos/CreateTurnoPublicModal';
+import { TurnosPublicModal } from '../../components/turnos/TurnosPublicModal';
 import { configuracionService } from '../../services/configuracion.service';
 import { empresaPublicService, ProfesionalPublic, ServicioProfesional } from '../../services/public';
 import { servicioPublicService } from '../../services/public/servicioPublic.service';
 import { LandingConfig, LandingProfesional } from '../../types/landing.types';
-import { useToast } from '../../hooks/useToast';
+
 
 const EMPRESA_SLUG = 'debsalon';
 const EMPRESA_ID = 'emp_1774207299464_69450de1';
@@ -147,7 +148,7 @@ function ServiciosModal({ profesional, isOpen, onClose, onReservar }: ServiciosM
         {/* Footer */}
         <div className="px-6 py-4 border-t border-white/10">
           <button
-            onClick={() => { onClose(); onReservar(profesional); }}
+            onClick={() => { onClose(); onReservar(profesional!); }}
             className="w-full border border-white text-white text-xs tracking-[0.2em] uppercase font-medium py-3 rounded-full bg-transparent hover:bg-white hover:text-black transition-colors duration-300"
           >
             Reservar turno
@@ -184,11 +185,11 @@ function GhostButton({ onClick, children, className = '' }: GhostButtonProps) {
 // ── Card de staff ────────────────────────────────────────────────────────────
 interface StaffCardProps {
   profesional: ProfesionalPublic;
-  onReservar: (p: ProfesionalPublic) => void;
+  onTurnos: (p: ProfesionalPublic) => void;
   onVerServicios: (p: ProfesionalPublic) => void;
 }
 
-function StaffCard({ profesional, onReservar, onVerServicios }: StaffCardProps) {
+function StaffCard({ profesional, onTurnos, onVerServicios }: StaffCardProps) {
   return (
     <div className="flex flex-col items-center text-center px-6 py-8 bg-[#111] border border-white/10 rounded-none h-full overflow-hidden">
       {/* Foto circular */}
@@ -238,10 +239,10 @@ function StaffCard({ profesional, onReservar, onVerServicios }: StaffCardProps) 
 
       <div className="flex flex-col gap-2 mt-auto pt-4 w-full">
         <button
-          onClick={() => onReservar(profesional)}
+          onClick={() => onTurnos(profesional)}
           className="w-full border border-white text-white text-xs tracking-[0.15em] uppercase font-medium py-2.5 bg-transparent hover:bg-white hover:text-black transition-colors duration-300"
         >
-          Reservar
+          Turnos
         </button>
         <button
           onClick={() => onVerServicios(profesional)}
@@ -261,10 +262,9 @@ export const DebSalonLandingPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const [showTurnoModal, setShowTurnoModal] = useState(false);
+  const [showTurnosModal, setShowTurnosModal] = useState(false);
   const [showServiciosModal, setShowServiciosModal] = useState(false);
   const [selectedProfesional, setSelectedProfesional] = useState<ProfesionalPublic | null>(null);
-
-  const toast = useToast();
 
   useEffect(() => {
     loadData();
@@ -308,9 +308,16 @@ export const DebSalonLandingPage: React.FC = () => {
     }
   };
 
+  const handleTurnos = (profesional: ProfesionalPublic) => {
+    setSelectedProfesional(profesional);
+    setShowServiciosModal(false);
+    setShowTurnosModal(true);
+  };
+
   const handleReservar = (profesional: ProfesionalPublic) => {
     setSelectedProfesional(profesional);
     setShowServiciosModal(false);
+    setShowTurnosModal(false);
     setShowTurnoModal(true);
   };
 
@@ -320,7 +327,6 @@ export const DebSalonLandingPage: React.FC = () => {
   };
 
   const handleTurnoSuccess = () => {
-    toast.success('Turno solicitado exitosamente');
     setShowTurnoModal(false);
     setSelectedProfesional(null);
   };
@@ -508,7 +514,7 @@ export const DebSalonLandingPage: React.FC = () => {
               <Reveal key={profesional.id} delay={i * 100}>
                 <StaffCard
                   profesional={profesional}
-                  onReservar={handleReservar}
+                  onTurnos={handleTurnos}
                   onVerServicios={handleVerServicios}
                 />
               </Reveal>
@@ -598,6 +604,17 @@ export const DebSalonLandingPage: React.FC = () => {
         onClose={() => setShowServiciosModal(false)}
         onReservar={handleReservar}
       />
+
+      {selectedProfesional && (
+        <TurnosPublicModal
+          isOpen={showTurnosModal}
+          onClose={() => { setShowTurnosModal(false); setSelectedProfesional(null); }}
+          profesionalId={selectedProfesional.id}
+          profesionalNombre={selectedProfesional.nombre}
+          empresaId={EMPRESA_ID}
+          onReservar={() => handleReservar(selectedProfesional)}
+        />
+      )}
 
       {selectedProfesional && (
         <CreateTurnoPublicModal

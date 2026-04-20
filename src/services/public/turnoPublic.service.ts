@@ -48,5 +48,22 @@ export const turnoPublicService = {
 
   createTurno: (data: CreateTurnoPublicRequest): Promise<{ data: CreateTurnoPublicResponse }> => {
     return axiosInstance.post('/public/turnos', data);
+  },
+
+  getTurnosCliente: (params: {
+    profesional_id: string;
+    empresa_id: string;
+    email?: string;
+    telefono?: string;
+  }) => {
+    return axiosInstance.get('/public/clientes/turnos', { params });
+  },
+
+  cancelarTurno: (turnoId: string, data: {
+    empresa_id: string;
+    email?: string;
+    telefono?: string;
+  }) => {
+    return axiosInstance.post(`/public/turnos/${turnoId}/cancelar`, data);
   }
 };
