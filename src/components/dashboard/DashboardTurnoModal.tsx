@@ -433,36 +433,43 @@ export function DashboardTurnoModal({
               </div>
             ) : (
               <div className="space-y-2">
-                {servicios?.filter(s => {
-                  if (!s.habilitado) return false;
-                  const duracion = s.duracion_personalizada || s.duracion_minutos || 0;
-                  return duracion <= maxDuracionDesdeSlot;
-                }).map((servicio) => (
+                {servicios?.filter(s => s.habilitado).map((servicio) => {
+                  const duracion = servicio.duracion_personalizada || servicio.duracion_minutos || 0;
+                  const noFit = duracion > maxDuracionDesdeSlot;
+                  return (
                   <Card
                     key={servicio.id}
-                    className={`cursor-pointer hover:bg-blue-50 border-2 transition-all ${
-                      selectedServicio?.id === servicio.id
-                        ? 'bg-blue-100 border-blue-500'
-                        : 'border-gray-200 hover:border-blue-300'
+                    className={`border-2 transition-all ${
+                      noFit
+                        ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50'
+                        : selectedServicio?.id === servicio.id
+                        ? 'cursor-pointer bg-blue-100 border-blue-500'
+                        : 'cursor-pointer hover:bg-blue-50 hover:border-blue-300 border-gray-200'
                     }`}
-                    onClick={() => setSelectedServicio(servicio)}
+                    onClick={() => { if (!noFit) setSelectedServicio(servicio); }}
                   >
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="font-medium">{servicio.nombre}</div>
                         <div className="text-sm text-gray-500">
-                          {servicio.duracion_personalizada || servicio.duracion_minutos} min • 
+                          {servicio.duracion_personalizada || servicio.duracion_minutos} min •
                           ${servicio.precio_personalizado || servicio.precio || 'N/A'}
                         </div>
+                        {noFit && (
+                          <div className="text-xs text-amber-600 mt-1">
+                            No disponible: el servicio requiere {duracion} min pero solo hay {maxDuracionDesdeSlot} min libres en este horario
+                          </div>
+                        )}
                       </div>
-                      {selectedServicio?.id === servicio.id && (
+                      {selectedServicio?.id === servicio.id && !noFit && (
                         <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center">
                           ✓
                         </div>
                       )}
                     </div>
                   </Card>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>

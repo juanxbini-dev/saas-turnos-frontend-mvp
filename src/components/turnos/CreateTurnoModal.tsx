@@ -551,20 +551,20 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           ) : (
             <div className="grid gap-3">
-              {servicios?.filter((servicio: ServicioProfesional) => {
+              {servicios?.map((servicio: ServicioProfesional) => {
                 const duracion = servicio.duracion_minutos || 0;
-                return !(preselectedFecha && selectedSlot && duracion > maxDuracionDesdeSlot);
-              }).map((servicio: ServicioProfesional) => {
-                const duracion = servicio.duracion_minutos || 0;
+                const noFit = !!(preselectedFecha && selectedSlot && duracion > maxDuracionDesdeSlot);
                 return (
                   <Card
                     key={servicio.id}
-                    className={`border-2 transition-all cursor-pointer ${
-                      selectedServicio?.id === servicio.id
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'hover:bg-blue-50 hover:border-blue-300'
+                    className={`border-2 transition-all ${
+                      noFit
+                        ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50'
+                        : selectedServicio?.id === servicio.id
+                        ? 'cursor-pointer border-blue-600 bg-blue-50'
+                        : 'cursor-pointer hover:bg-blue-50 hover:border-blue-300'
                     }`}
-                    onClick={() => setSelectedServicio(servicio)}
+                    onClick={() => { if (!noFit) setSelectedServicio(servicio); }}
                   >
                     <div className="font-medium">{servicio.nombre}</div>
                     <div className="text-sm text-gray-500">{servicio.descripcion}</div>
@@ -572,6 +572,11 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                       <span className="text-sm font-medium">${servicio.precio || 0}</span>
                       <span className="text-sm text-gray-500">{duracion} min</span>
                     </div>
+                    {noFit && (
+                      <div className="text-xs text-amber-600 mt-2">
+                        No disponible: el servicio requiere {duracion} min pero solo hay {maxDuracionDesdeSlot} min libres en este horario
+                      </div>
+                    )}
                   </Card>
                 );
               })}
