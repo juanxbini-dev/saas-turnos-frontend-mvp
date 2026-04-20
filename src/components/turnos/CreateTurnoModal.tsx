@@ -127,15 +127,18 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     }
   );
 
-  // Configuración del profesional (para calcular intervalo y hora_fin al validar slot preseleccionado)
-  const { data: configData } = useFetch(
+  // Configuración del profesional (para calcular hora_fin al validar slot preseleccionado)
+  const { data: configData, loading: loadingConfig } = useFetch(
     selectedProfesional ? buildKey(ENTITIES.CONFIGURACION, selectedProfesional.id) : null,
     () => selectedProfesional ? disponibilidadService.getConfiguracion(selectedProfesional.id) : Promise.resolve(null)
   );
 
-  // Máxima duración disponible desde el slot preseleccionado (para deshabilitar servicios que no entran)
+  // Máxima duración disponible desde el slot preseleccionado.
+  // Usa hora_fin del segmento directamente — sin depender de slots cargados.
+  // Usa selectedSlot del hook, o preselectedHora como fallback antes de que el useEffect lo setee.
   const maxDuracionDesdeSlot = React.useMemo(() => {
-    if (!selectedSlot || !preselectedFecha || !configData?.disponibilidades) return Infinity;
+    const slotRef = selectedSlot ?? (preselectedHora ? format(preselectedHora, 'HH:mm') : null);
+    if (!slotRef || !preselectedFecha || !configData?.disponibilidades) return Infinity;
 
     const toMin = (s: string) => {
       const [h, m] = s.slice(0, 5).split(':').map(Number);
@@ -143,32 +146,14 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     };
 
     const dayOfWeek = preselectedFecha.getDay();
-    const disp = (configData.disponibilidades as any[]).find((d) =>
+    const disp = (configData.disponibilidades as any[]).find((d: any) =>
       d.activo && dayOfWeek >= d.dia_inicio && dayOfWeek <= d.dia_fin
     );
 
     if (!disp) return 0;
 
-    const interval: number = disp.intervalo_minutos;
-    const horaFin = toMin(disp.hora_fin);
-    const fromMin = toMin(selectedSlot);
-
-    // Slots teóricos después del slot seleccionado hasta hora_fin
-    const theoreticalNext: string[] = [];
-    let cur = fromMin + interval;
-    while (cur < horaFin) {
-      theoreticalNext.push(
-        `${String(Math.floor(cur / 60)).padStart(2, '0')}:${String(cur % 60).padStart(2, '0')}`
-      );
-      cur += interval;
-    }
-
-    // Primer slot teórico que NO está en los disponibles → hay un turno ahí
-    const availableSet = new Set(slots || []);
-    const firstOccupied = theoreticalNext.find((s) => !availableSet.has(s));
-
-    return firstOccupied ? toMin(firstOccupied) - fromMin : horaFin - fromMin;
-  }, [selectedSlot, preselectedFecha, configData, slots]);
+    return toMin(disp.hora_fin) - toMin(slotRef);
+  }, [selectedSlot, preselectedFecha, preselectedHora, configData]);
 
   // Debug: log cuando los servicios cambian
   React.useEffect(() => {
@@ -532,7 +517,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           </Card>
           
-          {loadingServicios ? (
+          {(loadingServicios || (preselectedHora && loadingConfig)) ? (
             <div className="flex justify-center py-4">
               <Spinner />
             </div>
