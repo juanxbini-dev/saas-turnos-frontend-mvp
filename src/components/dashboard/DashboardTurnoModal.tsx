@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Calendar, Clock, User, CheckCircle, XCircle, Search, Plus, X } from 'lucide-react';
 import { TurnoConDetalle } from '../../types/turno.types';
 import { Cliente, CreateClienteData } from '../../types/cliente.types';
 import { UsuarioServicio } from '../../types/servicio.types';
-import { turnoService, clienteService, servicioService } from '../../services';
+import { turnoService, clienteService, servicioService, disponibilidadService } from '../../services';
 import { useToast } from '../../hooks/useToast';
 import { useFetch } from '../../hooks/useFetch';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
@@ -74,6 +74,64 @@ export function DashboardTurnoModal({
     () => servicioService.getMisServicios(profesionalId),
     { ttl: 300 }
   );
+
+  const fechaFormatted = fecha ? format(fecha, 'yyyy-MM-dd') : null;
+  const horaFormatted = hora ? format(hora, 'HH:mm') : null;
+
+  // Slots del día para detectar huecos entre turnos
+  const { data: slotsData, loading: loadingSlots } = useFetch(
+    profesionalId && fechaFormatted ? buildKey(ENTITIES.SLOTS, profesionalId, fechaFormatted, 'todos') : null,
+    () => {
+      if (!profesionalId || !fechaFormatted) return Promise.resolve([]);
+      return disponibilidadService.getSlotsDisponibles(profesionalId, fechaFormatted, undefined);
+    },
+    { ttl: 5 }
+  );
+  const slots = (slotsData as string[]) || [];
+
+  // Configuración del profesional (hora_fin, intervalo)
+  const { data: configData, loading: loadingConfig } = useFetch(
+    profesionalId ? buildKey(ENTITIES.CONFIGURACION, profesionalId) : null,
+    () => profesionalId ? disponibilidadService.getConfiguracion(profesionalId) : Promise.resolve(null)
+  );
+
+  // Máxima duración que cabe desde el slot seleccionado:
+  //   hardLimit = horaFin - horaSlot
+  //   softLimit = primer slot posterior NO disponible - horaSlot (turno intermedio)
+  //   resultado = min(hardLimit, softLimit)
+  const maxDuracionDesdeSlot = useMemo(() => {
+    if (!horaFormatted || !fecha || !(configData as any)?.disponibilidades) return Infinity;
+
+    const toMin = (s: string) => {
+      const [h, m] = s.slice(0, 5).split(':').map(Number);
+      return (h ?? 0) * 60 + (m ?? 0);
+    };
+
+    const dayOfWeek = fecha.getDay();
+    const disp = ((configData as any).disponibilidades as any[]).find((d: any) =>
+      d.activo && dayOfWeek >= d.dia_inicio && dayOfWeek <= d.dia_fin
+    );
+    if (!disp) return 0;
+
+    const fromMin = toMin(horaFormatted);
+    const horaFinMin = toMin(disp.hora_fin);
+    const hardLimit = horaFinMin - fromMin;
+
+    if (slots.length > 0) {
+      const interval: number = disp.intervalo_minutos;
+      const availableSet = new Set(slots);
+      let cur = fromMin + interval;
+      while (cur < horaFinMin) {
+        const slotStr = `${String(Math.floor(cur / 60)).padStart(2, '0')}:${String(cur % 60).padStart(2, '0')}`;
+        if (!availableSet.has(slotStr)) {
+          return Math.min(hardLimit, cur - fromMin);
+        }
+        cur += interval;
+      }
+    }
+
+    return hardLimit;
+  }, [horaFormatted, fecha, configData, slots]);
 
   // Filtrar clientes por búsqueda — solo mostrar si hay al menos 2 caracteres
   const filteredClientes = clienteSearch.trim().length >= 2
@@ -364,8 +422,8 @@ export function DashboardTurnoModal({
           {/* Selección de Servicio */}
           <Card flat>
             <h3 className="font-medium text-gray-900 mb-3">Seleccionar Servicio</h3>
-            
-            {loadingServicios ? (
+
+            {loadingServicios || loadingConfig || loadingSlots ? (
               <div className="flex justify-center py-4">
                 <Spinner />
               </div>
@@ -375,7 +433,11 @@ export function DashboardTurnoModal({
               </div>
             ) : (
               <div className="space-y-2">
-                {servicios?.filter(s => s.habilitado).map((servicio) => (
+                {servicios?.filter(s => {
+                  if (!s.habilitado) return false;
+                  const duracion = s.duracion_personalizada || s.duracion_minutos || 0;
+                  return duracion <= maxDuracionDesdeSlot;
+                }).map((servicio) => (
                   <Card
                     key={servicio.id}
                     className={`cursor-pointer hover:bg-blue-50 border-2 transition-all ${
