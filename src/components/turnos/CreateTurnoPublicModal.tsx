@@ -610,7 +610,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
               Turno confirmado
             </p>
             <p className="text-sm text-white/50 mb-6">
-              Tu turno fue reservado exitosamente. Revisá tu email para ver los detalles de la confirmación.
+              Tu turno fue reservado exitosamente. Vas a recibir la confirmación por WhatsApp.
             </p>
             <div className="bg-[#1a1a1a] border border-white/10 p-4 mb-6 space-y-1.5 text-sm text-left">
               {[
