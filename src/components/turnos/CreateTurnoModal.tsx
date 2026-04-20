@@ -134,8 +134,10 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   );
 
   // Máxima duración disponible desde el slot preseleccionado.
-  // Usa hora_fin del segmento directamente — sin depender de slots cargados.
-  // Usa selectedSlot del hook, o preselectedHora como fallback antes de que el useEffect lo setee.
+  // Combina dos límites:
+  //   1. horaFin - slot (límite duro del horario de trabajo)
+  //   2. Primer slot posterior no disponible - slot (límite por turno intermedio)
+  // Se usa el mínimo de ambos. El soft-limit solo aplica cuando slots ya cargó.
   const maxDuracionDesdeSlot = React.useMemo(() => {
     const slotRef = selectedSlot ?? (preselectedHora ? format(preselectedHora, 'HH:mm') : null);
     if (!slotRef || !preselectedFecha || !configData?.disponibilidades) return Infinity;
@@ -152,8 +154,30 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
     if (!disp) return 0;
 
-    return toMin(disp.hora_fin) - toMin(slotRef);
-  }, [selectedSlot, preselectedFecha, preselectedHora, configData]);
+    const fromMin = toMin(slotRef);
+    const horaFinMin = toMin(disp.hora_fin);
+
+    // Límite duro: cuánto tiempo queda hasta el fin del horario
+    const hardLimit = horaFinMin - fromMin;
+
+    // Límite suave: primer slot posterior que NO está disponible (turno intermedio)
+    // Solo aplica si los slots ya cargaron (length > 0 implica día con al menos un slot disponible)
+    const slotsArr = slots as string[];
+    if (slotsArr && slotsArr.length > 0) {
+      const interval: number = disp.intervalo_minutos;
+      const availableSet = new Set(slotsArr);
+      let cur = fromMin + interval;
+      while (cur < horaFinMin) {
+        const slotStr = `${String(Math.floor(cur / 60)).padStart(2, '0')}:${String(cur % 60).padStart(2, '0')}`;
+        if (!availableSet.has(slotStr)) {
+          return Math.min(hardLimit, cur - fromMin);
+        }
+        cur += interval;
+      }
+    }
+
+    return hardLimit;
+  }, [selectedSlot, preselectedFecha, preselectedHora, configData, slots]);
 
   // Debug: log cuando los servicios cambian
   React.useEffect(() => {
@@ -517,7 +541,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           </Card>
           
-          {(loadingServicios || (preselectedHora && loadingConfig)) ? (
+          {(loadingServicios || (preselectedHora && (loadingConfig || loadingSlots))) ? (
             <div className="flex justify-center py-4">
               <Spinner />
             </div>
