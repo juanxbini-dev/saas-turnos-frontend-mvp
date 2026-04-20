@@ -7,7 +7,6 @@ import { useFetch } from '../../hooks/useFetch';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { cacheService } from '../../cache/cache.service';
 import { turnoPublicService, servicioPublicService } from '../../services/public';
-import { useToast } from '../../hooks/useToast';
 import { DateHelper } from '../../shared/utils/DateHelper';
 
 interface CreateTurnoPublicModalProps {
@@ -71,8 +70,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   // Estados para validación de cliente existente
   const [existingCliente, setExistingCliente] = useState<ExistingCliente | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const toast = useToast();
   const slotsRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -184,10 +183,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         cacheService.invalidate(buildKey(ENTITIES.SLOTS, profesionalId, selectedDate));
       }
 
-      toast.success('Turno creado. Revisá tu email para la confirmación.');
-      onSuccess();
-      onClose();
-      resetModal();
+      setShowSuccessModal(true);
     } catch (error: any) {
       const msg = error.response?.data?.message || 'Error al crear el turno. Intentá nuevamente.';
       setSubmitError(msg);
@@ -217,6 +213,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setNotas('');
     setExistingCliente(null);
     setShowMatchModal(false);
+    setShowSuccessModal(false);
     setFieldErrors({});
     setSubmitError(null);
     setShowErrorModal(false);
@@ -546,6 +543,14 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowMatchModal(false)} />
           <div className="relative w-full max-w-sm bg-[#111] border border-white/15 p-6">
+            {/* X cierre */}
+            <button
+              onClick={() => setShowMatchModal(false)}
+              className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
             <div className="text-center mb-5">
               <div className="w-10 h-10 border border-white/30 rounded-full flex items-center justify-center mx-auto mb-3">
                 <span className="text-white text-lg">✓</span>
@@ -579,13 +584,58 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
             </div>
 
             <div className="flex gap-3">
-              <button onClick={handleConfirmExistingCliente} className={`${ghostBtn} flex-1`}>
-                Confirmar
+              <button onClick={handleConfirmExistingCliente} disabled={loading} className={`${ghostBtn} flex-1`}>
+                {loading ? 'Confirmando...' : 'Confirmar'}
               </button>
-              <button onClick={handleCreateNewCliente} className={`${ghostBtn} flex-1`}>
+              <button onClick={handleCreateNewCliente} disabled={loading} className={`${ghostBtn} flex-1`}>
                 Otros datos
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de turno confirmado ── */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm bg-[#111] border border-white/15 p-6 text-center">
+            <div className="w-12 h-12 border border-white/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-2xl">✓</span>
+            </div>
+            <p
+              className="text-xl font-bold uppercase text-white tracking-wide mb-2"
+              style={{ fontFamily: 'Oswald, sans-serif' }}
+            >
+              Turno confirmado
+            </p>
+            <p className="text-sm text-white/50 mb-6">
+              Tu turno fue reservado exitosamente. Revisá tu email para ver los detalles de la confirmación.
+            </p>
+            <div className="bg-[#1a1a1a] border border-white/10 p-4 mb-6 space-y-1.5 text-sm text-left">
+              {[
+                ['Profesional', profesionalNombre],
+                ['Servicio', selectedServicio?.nombre],
+                ['Fecha', selectedDate ? formatFecha(selectedDate) : ''],
+                ['Hora', selectedSlot],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between">
+                  <span className="text-white/40">{label}</span>
+                  <span className="text-white font-medium">{value}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                setShowSuccessModal(false);
+                onSuccess();
+                onClose();
+                resetModal();
+              }}
+              className={`${ghostBtn} w-full`}
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}
