@@ -111,7 +111,9 @@ export function DashboardTurnoModal({
     const disp = ((configData as any).disponibilidades as any[]).find((d: any) =>
       d.activo && dayOfWeek >= d.dia_inicio && dayOfWeek <= d.dia_fin
     );
-    if (!disp) return 0;
+    // Sin disponibilidad semanal para este día (ej: slot por excepción o día sin configurar):
+    // no filtrar en el frontend — el backend valida al crear el turno.
+    if (!disp) return Infinity;
 
     const fromMin = toMin(horaFormatted);
     const horaFinMin = toMin(disp.hora_fin);
