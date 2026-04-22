@@ -16,6 +16,7 @@ interface FormErrors {
   nombre?: string;
   email?: string;
   username?: string;
+  telefono?: string;
   password?: string;
 }
 
@@ -26,6 +27,7 @@ function validateForm(data: {
   nombre: string;
   email: string;
   username: string;
+  telefono: string;
   password: string;
 }): FormErrors {
   const errors: FormErrors = {};
@@ -44,6 +46,10 @@ function validateForm(data: {
     errors.username = 'El username es requerido';
   } else if (!USERNAME_REGEX.test(data.username.trim())) {
     errors.username = 'Solo letras, números, puntos, guiones y guiones bajos (sin espacios)';
+  }
+
+  if (!data.telefono.trim()) {
+    errors.telefono = 'El teléfono es requerido';
   }
 
   if (!data.password) {
@@ -168,7 +174,9 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
           type="tel"
           value={formData.telefono}
           onChange={(e) => handleChange('telefono', e.target.value)}
+          onBlur={() => handleBlur('telefono')}
           placeholder="+54 11 2345-6789"
+          error={errors.telefono}
           disabled={loading}
         />
 
