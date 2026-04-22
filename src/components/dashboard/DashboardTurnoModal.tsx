@@ -237,7 +237,7 @@ export function DashboardTurnoModal({
       onRefresh?.();
       handleClose();
     } catch (error: any) {
-      toast.error(error.message || 'Error al crear turno');
+      toast.error(error.response?.data?.message || error.message || 'Error al crear turno');
     } finally {
       setConfirmLoading(false);
     }
