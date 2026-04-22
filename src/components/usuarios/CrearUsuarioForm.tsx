@@ -175,7 +175,7 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
           value={formData.telefono}
           onChange={(e) => handleChange('telefono', e.target.value)}
           onBlur={() => handleBlur('telefono')}
-          placeholder="+54 11 2345-6789"
+          placeholder="2915123123"
           error={errors.telefono}
           disabled={loading}
         />

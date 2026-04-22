@@ -314,7 +314,7 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
               value={editMode ? (datosForm.telefono ?? '') : (usuario.telefono ?? '')}
               onChange={(e) => setDatosForm(prev => ({ ...prev, telefono: e.target.value }))}
               disabled={!editMode || loading}
-              placeholder="+54 11 2345-6789"
+              placeholder="2915123123"
             />
           </div>
 
