@@ -64,6 +64,7 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
     nombre: '',
     username: '',
     email: '',
+    telefono: '',
     password: '',
     rol: 'staff' as UsuarioRol,
     comision_turno: 0,
@@ -100,6 +101,7 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
         nombre: formData.nombre.trim(),
         username: formData.username.trim(),
         email: formData.email.trim(),
+        telefono: formData.telefono.trim() || null,
         password: formData.password,
         rol: formData.rol,
         comision_turno: formData.comision_turno,
@@ -115,6 +117,7 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
         nombre: '',
         username: '',
         email: '',
+        telefono: '',
         password: '',
         rol: 'staff',
         comision_turno: 0,
@@ -157,6 +160,15 @@ export const CrearUsuarioForm: React.FC<CrearUsuarioFormProps> = ({ onSuccess })
           onBlur={() => handleBlur('email')}
           placeholder="email@ejemplo.com"
           error={errors.email}
+          disabled={loading}
+        />
+
+        <Input
+          label="Teléfono"
+          type="tel"
+          value={formData.telefono}
+          onChange={(e) => handleChange('telefono', e.target.value)}
+          placeholder="+54 11 2345-6789"
           disabled={loading}
         />
 

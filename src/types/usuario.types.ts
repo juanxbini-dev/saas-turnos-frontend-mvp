@@ -14,6 +14,7 @@ export interface Usuario {
   comision_turno?: number;
   comision_producto?: number;
   avatar_url?: string | null;
+  telefono?: string | null;
 }
 
 export interface CreateUsuarioData {
@@ -24,6 +25,7 @@ export interface CreateUsuarioData {
   rol: UsuarioRol;
   comision_turno?: number;
   comision_producto?: number;
+  telefono?: string | null;
 }
 
 export interface UpdateDatosData {
@@ -32,6 +34,7 @@ export interface UpdateDatosData {
   email: string;
   comision_turno?: number;
   comision_producto?: number;
+  telefono?: string | null;
 }
 
 export interface UpdatePasswordData {

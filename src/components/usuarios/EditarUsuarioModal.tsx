@@ -34,7 +34,8 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
     username: '',
     email: '',
     comision_turno: 0,
-    comision_producto: 0
+    comision_producto: 0,
+    telefono: null
   });
 
   const [passwordForm, setPasswordForm] = useState<UpdatePasswordData>({
@@ -58,7 +59,8 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
         username: usuario.username,
         email: usuario.email,
         comision_turno: usuario.comision_turno ?? 0,
-        comision_producto: usuario.comision_producto ?? 0
+        comision_producto: usuario.comision_producto ?? 0,
+        telefono: usuario.telefono ?? null
       });
       setPasswordForm({
         passwordActual: '',
@@ -126,7 +128,8 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
         username: datosForm.username.trim(),
         email: datosForm.email.trim(),
         comision_turno: datosForm.comision_turno,
-        comision_producto: datosForm.comision_producto
+        comision_producto: datosForm.comision_producto,
+        telefono: datosForm.telefono?.trim() || null
       });
 
       cacheService.invalidateByPrefix(buildKey(ENTITIES.USUARIOS));
@@ -176,7 +179,8 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
         username: usuario.username,
         email: usuario.email,
         comision_turno: usuario.comision_turno ?? 0,
-        comision_producto: usuario.comision_producto ?? 0
+        comision_producto: usuario.comision_producto ?? 0,
+        telefono: usuario.telefono ?? null
       });
       setEditMode(false);
     }
@@ -300,6 +304,17 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
               onChange={(e) => setDatosForm(prev => ({ ...prev, email: e.target.value }))}
               disabled={!editMode || loading}
               placeholder="correo@ejemplo.com"
+            />
+          </div>
+
+          <div>
+            <Input
+              label="Teléfono"
+              type="tel"
+              value={editMode ? (datosForm.telefono ?? '') : (usuario.telefono ?? '')}
+              onChange={(e) => setDatosForm(prev => ({ ...prev, telefono: e.target.value }))}
+              disabled={!editMode || loading}
+              placeholder="+54 11 2345-6789"
             />
           </div>
 
