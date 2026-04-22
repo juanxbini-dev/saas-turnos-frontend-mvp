@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, User, CheckCircle, XCircle, Search, Plus, X } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, XCircle, Search, Plus, X, AlertCircle } from 'lucide-react';
 import { TurnoConDetalle } from '../../types/turno.types';
 import { Cliente, CreateClienteData } from '../../types/cliente.types';
 import { UsuarioServicio } from '../../types/servicio.types';
@@ -50,7 +50,8 @@ export function DashboardTurnoModal({
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [showEditarPagoModal, setShowEditarPagoModal] = useState(false);
-  
+  const [errorModal, setErrorModal] = useState<string | null>(null);
+
   const toast = useToast();
 
   // Determinar tipo de modal
@@ -146,7 +147,7 @@ export function DashboardTurnoModal({
   // Manejar creación de cliente
   const handleCreateCliente = async () => {
     if (!newCliente.nombre.trim() || !newCliente.email.trim()) {
-      toast.error('Nombre y email son requeridos');
+      setErrorModal('El nombre y el email del cliente son requeridos.');
       return;
     }
 
@@ -165,7 +166,7 @@ export function DashboardTurnoModal({
 
       toast.success('Cliente creado y seleccionado');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || error.message || 'Error al crear cliente');
+      setErrorModal(error.response?.data?.message || error.message || 'Error al crear cliente');
     } finally {
       setCreatingCliente(false);
     }
@@ -189,7 +190,7 @@ export function DashboardTurnoModal({
       onRefresh?.();
       onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Error al confirmar turno');
+      setErrorModal(error.response?.data?.message || error.message || 'Error al confirmar turno');
     } finally {
       setLoading(false);
     }
@@ -206,7 +207,7 @@ export function DashboardTurnoModal({
       onRefresh?.();
       onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Error al cancelar turno');
+      setErrorModal(error.response?.data?.message || error.message || 'Error al cancelar turno');
     } finally {
       setLoading(false);
     }
@@ -215,7 +216,7 @@ export function DashboardTurnoModal({
   // Manejar creación de turno
   const handleCreateTurno = async () => {
     if (!selectedCliente || !selectedServicio || !profesionalId || !fecha || !hora) {
-      toast.error('Por favor completa todos los campos');
+      setErrorModal('Por favor completá todos los campos antes de continuar.');
       return;
     }
 
@@ -237,7 +238,8 @@ export function DashboardTurnoModal({
       onRefresh?.();
       handleClose();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || error.message || 'Error al crear turno');
+      setShowConfirmModal(false);
+      setErrorModal(error.response?.data?.message || error.message || 'Error al crear turno');
     } finally {
       setConfirmLoading(false);
     }
@@ -649,6 +651,23 @@ export function DashboardTurnoModal({
           onSuccess={handleEditarPagoSuccess}
           mode="editar"
         />
+      )}
+
+      {/* Modal de Error */}
+      {errorModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setErrorModal(null)} />
+          <div className="relative w-full max-w-sm bg-white rounded-lg shadow-xl p-6 text-center">
+            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Error</h3>
+            <p className="text-sm text-gray-600 mb-4">{errorModal}</p>
+            <Button onClick={() => setErrorModal(null)} variant="primary" className="w-full">
+              Entendido
+            </Button>
+          </div>
+        </div>
       )}
     </Modal>
   );
