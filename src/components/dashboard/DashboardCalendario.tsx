@@ -588,13 +588,6 @@ export function DashboardCalendario({
       return;
     }
 
-    // Bloquear slots de fechas pasadas
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const fechaSlot = new Date(slotInfo.start);
-    fechaSlot.setHours(0, 0, 0, 0);
-    if (fechaSlot < hoy) return;
-
     // Si hay un turno activo en este slot, no mostrar menú (se maneja con handleSelectEvent)
     const hayTurno = eventsWithDemo.some((ev: any) => {
       const start: Date = ev.start;
@@ -616,10 +609,13 @@ export function DashboardCalendario({
       return;
     }
 
-    // Slot fuera del horario habitual: ofrecer habilitarlo
+    // Slot fuera del horario habitual
     if (!isSlotAvailable(slotInfo.start)) {
       const isPast = slotInfo.start < new Date();
-      if (!isPast) {
+      if (isPast) {
+        // Día pasado: permitir agendar directamente sin requerir habilitar el slot
+        setSlotMenu({ x, y, fecha: slotInfo.start, hora: slotInfo.start });
+      } else {
         setSlotMenu({ x, y, fecha: slotInfo.start, hora: slotInfo.start, noDisponible: true });
       }
       return;
@@ -735,10 +731,6 @@ export function DashboardCalendario({
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 border border-gray-300 rounded bg-black/[.03]"></div>
           <span className="text-gray-700">No disponible</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-gray-300 rounded opacity-30"></div>
-          <span className="text-gray-700">Fecha pasada</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded" style={{ backgroundColor: color }}></div>
@@ -1165,17 +1157,15 @@ export function DashboardCalendario({
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
           const isBloqueado = isSlotBloqueado(date);
-          const isPast = date < new Date();
 
-          const isInactivo = isPast || isBloqueado || (!isAvailable && !isBloqueado && !isPast);
-
-          const backgroundColor = isAvailable && !isPast ? '#FFFFFF' : 'rgba(0,0,0,0.03)';
+          const isInactivo = isBloqueado || !isAvailable;
+          const backgroundColor = isAvailable ? '#FFFFFF' : 'rgba(0,0,0,0.03)';
 
           const style: React.CSSProperties = {
             backgroundColor,
             borderColor: '#E5E7EB',
             opacity: 1,
-            cursor: (isAvailable || isBloqueado) && !isPast ? 'pointer' : 'not-allowed',
+            cursor: isAvailable || isBloqueado ? 'pointer' : 'default',
             height: isMobile ? '100px' : '70px',
             position: 'relative',
             overflow: 'hidden',
