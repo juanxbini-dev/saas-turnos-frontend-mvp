@@ -23,6 +23,7 @@ export function DashboardPage() {
   const storageKey = `dashboard_profesional_${authUser?.authUser?.id ?? 'default'}`;
 
   const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [venderModalOpen, setVenderModalOpen] = useState(false);
   const [turnoAFinalizar, setTurnoAFinalizar] = useState<TurnoConDetalle | null>(null);
@@ -136,11 +137,10 @@ export function DashboardPage() {
 
   // Refrescar calendario después de acciones
   const handleRefresh = () => {
-    // Invalidar caché para forzar refetch
     cacheService.invalidateByPrefix(buildKey(ENTITIES.CALENDARIO));
     cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
     cacheService.invalidateByPrefix(buildKey(ENTITIES.FINANZAS));
-    window.location.reload(); // Temporal hasta implementar refetch proper
+    setCalendarRefreshKey(k => k + 1);
   };
 
 
@@ -221,6 +221,7 @@ export function DashboardPage() {
                 onTurnoAction={handleTurnoAction}
                 onTurnoEditarPago={(turno) => setTurnoAEditar(turno)}
                 onCancelarSuccess={handleRefresh}
+                refreshKey={calendarRefreshKey}
               />
             </div>
           </Card>

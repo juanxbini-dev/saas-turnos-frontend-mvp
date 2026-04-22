@@ -222,6 +222,7 @@ interface DashboardCalendarioProps {
   onTurnoAction: (turno: TurnoConDetalle) => void
   onTurnoEditarPago?: (turno: TurnoConDetalle) => void
   onCancelarSuccess?: () => void
+  refreshKey?: number
 }
 
 export function DashboardCalendario({
@@ -231,7 +232,8 @@ export function DashboardCalendario({
   onSlotSelect,
   onTurnoAction,
   onTurnoEditarPago,
-  onCancelarSuccess
+  onCancelarSuccess,
+  refreshKey
 }: DashboardCalendarioProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
@@ -379,6 +381,14 @@ export function DashboardCalendario({
     },
     { ttl: TTL.SHORT }
   );
+
+  // Revalidar datos cuando el padre indica que hubo un cambio (ej: turno creado)
+  React.useEffect(() => {
+    if (!refreshKey) return;
+    revalidate();
+    revalidateSlots();
+    revalidateBloqueos();
+  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Función para obtener el intervalo configurado para un profesional
   const getIntervaloConfigurado = useCallback(() => {

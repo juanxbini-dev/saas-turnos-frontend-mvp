@@ -24,8 +24,8 @@
   border-bottom: 1px solid #E5E7EB !important;
 }
 
-/* Slots sin disponibilidad: etiqueta "Inactivo" centrada */
-.slot-inactivo::before {
+/* Slots sin disponibilidad: etiqueta "Inactivo" solo en columnas de días (no en el gutter de horas) */
+.rbc-day-slot .slot-inactivo::before {
   content: 'Inactivo';
   position: absolute;
   inset: 0;
