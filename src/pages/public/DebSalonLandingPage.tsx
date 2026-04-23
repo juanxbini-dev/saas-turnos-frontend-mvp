@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Instagram, Facebook, X, MapPin, Clock } from 'lucide-react';
+import { Instagram, Facebook, X, MapPin, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Spinner } from '../../components/ui';
 import { CreateTurnoPublicModal } from '../../components/turnos/CreateTurnoPublicModal';
 import { TurnosPublicModal } from '../../components/turnos/TurnosPublicModal';
@@ -251,6 +251,248 @@ function StaffCard({ profesional, onTurnos, onVerServicios }: StaffCardProps) {
           Servicios
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── Google Reviews ───────────────────────────────────────────────────────────
+
+const GoogleG = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+  </svg>
+);
+
+const GoogleStars = () => (
+  <div className="flex gap-0.5">
+    {[...Array(5)].map((_, i) => (
+      <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill="#FBBC04">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+    ))}
+  </div>
+);
+
+interface Resena {
+  nombre: string;
+  localGuide: boolean;
+  tiempo: string;
+  texto: string;
+  inicial: string;
+  color: string;
+}
+
+const RESENAS: Resena[] = [
+  {
+    nombre: 'Eme Esandi',
+    localGuide: false,
+    tiempo: 'Hace un año',
+    texto: 'Todos los chicos re buena onda. Soy trans y siempre me hicieron sentir cómodo. Cortan súper prolijo, con onda, y lo más importante es que te escuchan y te hacen lo que pedis. Súper recomendable.',
+    inicial: 'E',
+    color: '#009688',
+  },
+  {
+    nombre: 'Fran Saldias',
+    localGuide: true,
+    tiempo: 'Hace 4 años',
+    texto: 'Excelente servicio, una Barbería de 10. Los profesionales todos los chicos y Dani un crack, asesoramiento, buena atención todo muy bien. LA MEJOR BARBERÍA DE BAHÍA LEJOS.',
+    inicial: 'F',
+    color: '#1A73E8',
+  },
+  {
+    nombre: 'Vasco Aristizabal',
+    localGuide: true,
+    tiempo: 'Hace 6 meses',
+    texto: 'Hermoso salón barbería/peluquería. La atención es maravillosa de la mano de Dani y Cia. Super recomendable 😊',
+    inicial: 'V',
+    color: '#E37400',
+  },
+  {
+    nombre: 'María Alejandra Sott',
+    localGuide: true,
+    tiempo: 'Hace 6 meses',
+    texto: 'Ayer tuve la oportunidad de conocer este lugar y lo recomiendo al 100%. El personal super agradable, el lugar muy muy lindo y limpio, se sentía una armonía linda.',
+    inicial: 'M',
+    color: '#8430CE',
+  },
+  {
+    nombre: 'Joaquin Undicola',
+    localGuide: true,
+    tiempo: 'Hace 3 años',
+    texto: 'Una peluquería para ir, sentarte y relajar, excelentes peluqueros y una atención de lujo, donde te ofrecen agua fresca o un café calentito a la hora del corte.',
+    inicial: 'J',
+    color: '#C5221F',
+  },
+  {
+    nombre: 'LUIS basaric',
+    localGuide: true,
+    tiempo: 'Hace un año',
+    texto: 'De diez mas IVA, la atención de primera especial, saqué turno por acá y me estaban esperando sin demoras, excelente atención de los chicos, súper recomendable.',
+    inicial: 'L',
+    color: '#188038',
+  },
+  {
+    nombre: 'Joaquin Etchemendi',
+    localGuide: false,
+    tiempo: 'Hace 2 años',
+    texto: 'El mejor salón de Bahía, 10/10. Excelente atención, productos de calidad premium y grandes profesionales.',
+    inicial: 'J',
+    color: '#F4511E',
+  },
+  {
+    nombre: 'diego scarfi',
+    localGuide: true,
+    tiempo: 'Hace 3 años',
+    texto: 'Profesionalismo y calidez, llevo varios años contándome aquí. No hay duda de que llevan lo profesional a otro nivel.',
+    inicial: 'D',
+    color: '#1565C0',
+  },
+];
+
+const GOOGLE_MAPS_URL = 'https://www.google.com/maps/place/DEB+Hair+Artist,+Brandsen+103,+B8000+Bah%C3%ADa+Blanca,+Provincia+de+Buenos+Aires';
+
+function GoogleReviewsCarousel() {
+  const [current, setCurrent] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartX = useRef<number | null>(null);
+
+  const goTo = (index: number) => {
+    setVisible(false);
+    setTimeout(() => {
+      setCurrent(index);
+      setVisible(true);
+    }, 220);
+  };
+
+  const prev = () => goTo((current - 1 + RESENAS.length) % RESENAS.length);
+  const next = () => goTo((current + 1) % RESENAS.length);
+
+  useEffect(() => {
+    if (paused) return;
+    timerRef.current = setTimeout(next, 5000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [current, paused]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 40) diff > 0 ? next() : prev();
+    touchStartX.current = null;
+  };
+
+  const r = RESENAS[current];
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* Card */}
+      <div
+        className="relative w-full max-w-lg"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Prev arrow */}
+        <button
+          onClick={prev}
+          aria-label="Anterior"
+          className="absolute -left-4 sm:-left-6 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4 text-white" />
+        </button>
+
+        {/* Next arrow */}
+        <button
+          onClick={next}
+          aria-label="Siguiente"
+          className="absolute -right-4 sm:-right-6 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-colors"
+        >
+          <ChevronRight className="w-4 h-4 text-white" />
+        </button>
+
+        {/* Review card */}
+        <div
+          className="bg-white rounded-2xl p-6 shadow-xl mx-6"
+          style={{
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0) scale(1)' : 'translateY(8px) scale(0.98)',
+            transition: 'opacity 0.22s ease, transform 0.22s ease',
+          }}
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              {/* Avatar */}
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: r.color }}
+              >
+                <span className="text-white font-semibold text-sm">{r.inicial}</span>
+              </div>
+              {/* Name + badge */}
+              <div>
+                <p className="text-sm font-semibold text-gray-900 leading-tight">{r.nombre}</p>
+                {r.localGuide && (
+                  <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5F6368" strokeWidth="2.5">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                    Local Guide
+                  </p>
+                )}
+              </div>
+            </div>
+            {/* Google G */}
+            <GoogleG />
+          </div>
+
+          {/* Stars + time */}
+          <div className="flex items-center gap-2 mb-3">
+            <GoogleStars />
+            <span className="text-xs text-gray-400">{r.tiempo}</span>
+          </div>
+
+          {/* Text */}
+          <p className="text-sm text-gray-700 leading-relaxed">{r.texto}</p>
+        </div>
+      </div>
+
+      {/* Dots */}
+      <div className="flex items-center gap-2 mt-6">
+        {RESENAS.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => goTo(i)}
+            aria-label={`Ir a reseña ${i + 1}`}
+            className="transition-all duration-300"
+            style={{
+              width: i === current ? 20 : 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: i === current ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)',
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Ver reseñas completas */}
+      <a
+        href={GOOGLE_MAPS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-8 flex items-center gap-2 border border-white/30 text-white/70 hover:text-white hover:border-white text-xs tracking-[0.2em] uppercase font-medium px-6 py-2.5 rounded-full transition-colors duration-300"
+      >
+        <GoogleG />
+        Ver reseñas completas
+      </a>
     </div>
   );
 }
@@ -558,6 +800,24 @@ export const DebSalonLandingPage: React.FC = () => {
           </Reveal>
         </section>
       )}
+
+      {/* ── RESEÑAS ──────────────────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-6 py-20">
+        <Reveal>
+          <div className="text-center mb-4">
+            <p className="text-xs tracking-[0.4em] uppercase text-white/40 mb-3">Lo que dicen</p>
+            <h2 className="text-4xl sm:text-5xl font-bold uppercase text-white" style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.08em' }}>
+              Nuestros Clientes
+            </h2>
+          </div>
+        </Reveal>
+        <Reveal delay={150}>
+          <DiamondSeparator />
+        </Reveal>
+        <Reveal delay={250}>
+          <GoogleReviewsCarousel />
+        </Reveal>
+      </section>
 
       {/* ── FOOTER ───────────────────────────────────────────────────────── */}
       <footer className="border-t border-white/10 py-10 mt-8">
