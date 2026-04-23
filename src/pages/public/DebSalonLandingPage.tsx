@@ -355,6 +355,7 @@ const RESENAS: Resena[] = [
 const GOOGLE_MAPS_URL = 'https://www.google.com/maps/place/DEB+Hair+Artist,+Brandsen+103,+B8000+Bah%C3%ADa+Blanca,+Provincia+de+Buenos+Aires';
 
 function GoogleReviewsCarousel() {
+  const [resenas] = useState<Resena[]>(() => [...RESENAS].sort(() => Math.random() - 0.5));
   const [current, setCurrent] = useState(0);
   const [visible, setVisible] = useState(true);
   const [paused, setPaused] = useState(false);
@@ -369,8 +370,8 @@ function GoogleReviewsCarousel() {
     }, 220);
   };
 
-  const prev = () => goTo((current - 1 + RESENAS.length) % RESENAS.length);
-  const next = () => goTo((current + 1) % RESENAS.length);
+  const prev = () => goTo((current - 1 + resenas.length) % resenas.length);
+  const next = () => goTo((current + 1) % resenas.length);
 
   useEffect(() => {
     if (paused) return;
@@ -388,7 +389,7 @@ function GoogleReviewsCarousel() {
     touchStartX.current = null;
   };
 
-  const r = RESENAS[current];
+  const r = resenas[current];
 
   return (
     <div className="flex flex-col items-center">
@@ -467,7 +468,7 @@ function GoogleReviewsCarousel() {
 
       {/* Dots */}
       <div className="flex items-center gap-2 mt-6">
-        {RESENAS.map((_, i) => (
+        {resenas.map((_, i) => (
           <button
             key={i}
             onClick={() => goTo(i)}
