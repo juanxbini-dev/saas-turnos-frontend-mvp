@@ -352,7 +352,7 @@ const RESENAS: Resena[] = [
   },
 ];
 
-const GOOGLE_MAPS_URL = 'https://www.google.com/maps/place/DEB+Hair+Artist,+Brandsen+103,+B8000+Bah%C3%ADa+Blanca,+Provincia+de+Buenos+Aires';
+const GOOGLE_MAPS_URL = 'https://www.google.com/search?q=DEB+Salon+Bah%C3%ADa+Blanca#lrd=0x95edbdbd25e47897:0x884ae17a9d09b2c0,1,,,,';
 
 function GoogleReviewsCarousel() {
   const [resenas] = useState<Resena[]>(() => [...RESENAS].sort(() => Math.random() - 0.5));
