@@ -351,7 +351,7 @@ export function DashboardCalendario({
       if (!profesionalId) return null;
       
       try {
-        const config = await disponibilidadService.getConfiguracion();
+        const config = await disponibilidadService.getConfiguracion(profesionalId);
         dashboardLogger.debug('Configuración obtenida');
         return config;
       } catch (error) {
@@ -405,29 +405,16 @@ export function DashboardCalendario({
       }
     }
     
-    // Fallback: calcular desde slots si no hay configuración
-    if (!slotsDisponibles || loadingSlots) return 30; // Default 30 min
-    
-    // Buscar el primer día que tenga slots para determinar el intervalo
-    const primerDiaConSlots = Object.keys(slotsDisponibles as any).find(dia => 
-      (slotsDisponibles as any)[dia] && (slotsDisponibles as any)[dia].length > 0
-    );
-    
-    if (primerDiaConSlots && (slotsDisponibles as any)[primerDiaConSlots].length > 1) {
-      // Calcular el intervalo entre slots consecutivos
-      const slots = (slotsDisponibles as any)[primerDiaConSlots];
-      if (slots.length >= 2) {
-        const hora1 = USE_NEW_DATE_HELPER ? DateHelper.combineDateTime('2000-01-01', slots[0]) : new Date(`2000-01-01T${slots[0]}:00`);
-        const hora2 = USE_NEW_DATE_HELPER ? DateHelper.combineDateTime('2000-01-01', slots[1]) : new Date(`2000-01-01T${slots[1]}:00`);
-        const diffMinutos = (hora2.getTime() - hora1.getTime()) / 60000;
-        dashboardLogger.debug('Intervalo calculado desde slots', { intervalo: diffMinutos });
-        return diffMinutos > 0 ? diffMinutos : 30;
-      }
+    // Fallback: usar el intervalo de la primera disponibilidad activa del profesional
+    const primeraDisponibilidad = (configData?.disponibilidades as any[])?.find((d: any) => d.activo);
+    if (primeraDisponibilidad?.intervalo_minutos) {
+      dashboardLogger.debug('Usando intervalo de disponibilidad activa', { intervalo: primeraDisponibilidad.intervalo_minutos });
+      return primeraDisponibilidad.intervalo_minutos;
     }
-    
-    dashboardLogger.debug('Usando intervalo default', { intervalo: 30 });
-    return 30; // Default si no se puede determinar
-  }, [configData, slotsDisponibles, loadingSlots, profesionalId]);
+
+    dashboardLogger.debug('Usando intervalo default', { intervalo: 60 });
+    return 60;
+  }, [configData, profesionalId]);
 
   const intervaloConfigurado = getIntervaloConfigurado();
 
@@ -555,10 +542,23 @@ export function DashboardCalendario({
   }, [bloqueosSlots]);
 
   // Desbloquear un slot
-  const handleDesbloquearSlot = useCallback(async (bloqueoId: string) => {
-    setSlotMenu(null); // Cerrar inmediatamente para evitar doble submit
+  const handleDesbloquearSlot = useCallback(async (bloqueoId: string, fechaDate: Date) => {
+    setSlotMenu(null);
     try {
+      const fechaStr = format(fechaDate, 'yyyy-MM-dd');
       await bloqueoSlotService.remove(bloqueoId);
+
+      // Si el día tiene una excepción disponible=false, eliminarla también para que
+      // el slot quede efectivamente disponible tras desbloquear
+      const excNoDisponible = (configData?.excepciones as any[])?.find((exc: any) => {
+        const excFecha = typeof exc.fecha === 'string' ? exc.fecha.slice(0, 10) : '';
+        return excFecha === fechaStr && !exc.disponible;
+      });
+      if (excNoDisponible) {
+        await disponibilidadService.deleteExcepcion(excNoDisponible.id, profesionalId);
+        cacheService.invalidateByPrefix(buildKey(ENTITIES.CONFIGURACION));
+      }
+
       cacheService.invalidateByPrefix(buildKey(ENTITIES.BLOQUEOS));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
       revalidateBloqueos();
@@ -567,7 +567,7 @@ export function DashboardCalendario({
     } catch {
       toast.error('Error al desbloquear el horario');
     }
-  }, [revalidateBloqueos, revalidateSlots, toast]);
+  }, [configData, profesionalId, revalidateBloqueos, revalidateSlots, toast]);
 
   // Bloquear un slot
   const handleBloquearSlot = useCallback(async (fecha: Date, hora: Date) => {
@@ -683,6 +683,7 @@ export function DashboardCalendario({
 
   // Habilitar un slot fuera del horario habitual como excepción adicional
   const handleHabilitarSlot = useCallback(async (fecha: Date, hora: Date) => {
+    setSlotMenu(null);
     try {
       const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(fecha) : format(fecha, 'yyyy-MM-dd');
       const horaStr = USE_NEW_DATE_HELPER ? DateHelper.formatTime(hora) : format(hora, 'HH:mm');
@@ -705,7 +706,6 @@ export function DashboardCalendario({
       cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.CONFIGURACION));
       revalidateSlots();
-      setSlotMenu(null);
       toast.success(`Horario ${horaStr} habilitado`);
     } catch {
       toast.error('Error al habilitar el horario');
@@ -780,7 +780,7 @@ export function DashboardCalendario({
               {slotMenu.bloqueoId ? (
                 <button
                   className="w-full text-left px-5 py-4 text-base text-green-600 font-medium border-b border-gray-50 active:bg-green-50"
-                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!)}
+                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!, slotMenu.fecha)}
                 >
                   Desbloquear horario
                 </button>
@@ -837,7 +837,7 @@ export function DashboardCalendario({
               {slotMenu.bloqueoId ? (
                 <button
                   className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
-                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!)}
+                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!, slotMenu.fecha)}
                 >
                   Desbloquear horario
                 </button>
