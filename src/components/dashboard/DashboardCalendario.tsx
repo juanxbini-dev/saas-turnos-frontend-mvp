@@ -542,21 +542,38 @@ export function DashboardCalendario({
   }, [bloqueosSlots]);
 
   // Desbloquear un slot
-  const handleDesbloquearSlot = useCallback(async (bloqueoId: string, fechaDate: Date) => {
+  const handleDesbloquearSlot = useCallback(async (bloqueoId: string, fechaDate: Date, horaDate: Date) => {
     setSlotMenu(null);
     try {
       const fechaStr = format(fechaDate, 'yyyy-MM-dd');
+      const horaStr = format(horaDate, 'HH:mm');
       await bloqueoSlotService.remove(bloqueoId);
 
-      // Si el día tiene una excepción disponible=false, eliminarla también para que
-      // el slot quede efectivamente disponible tras desbloquear
+      // Si el día tiene excepción disponible=false, habilitar solo ese slot como adicional
+      // (el resto del día sigue no disponible — no se borra la excepción del día)
       const excNoDisponible = (configData?.excepciones as any[])?.find((exc: any) => {
         const excFecha = typeof exc.fecha === 'string' ? exc.fecha.slice(0, 10) : '';
         return excFecha === fechaStr && !exc.disponible;
       });
       if (excNoDisponible) {
-        await disponibilidadService.deleteExcepcion(excNoDisponible.id, profesionalId);
-        cacheService.invalidateByPrefix(buildKey(ENTITIES.CONFIGURACION));
+        const intervalo = getIntervaloConfigurado();
+        const [h, m] = horaStr.split(':').map(Number);
+        const finMinutos = (h ?? 0) * 60 + (m ?? 0) + intervalo;
+        const horaFin = `${Math.floor(finMinutos / 60).toString().padStart(2, '0')}:${(finMinutos % 60).toString().padStart(2, '0')}`;
+        try {
+          await disponibilidadService.createExcepcion({
+            fecha: fechaStr,
+            disponible: true,
+            tipo: 'adicional',
+            hora_inicio: horaStr,
+            hora_fin: horaFin,
+            intervalo_minutos: intervalo,
+            profesional_id: profesionalId,
+          });
+          cacheService.invalidateByPrefix(buildKey(ENTITIES.CONFIGURACION));
+        } catch {
+          // Si ya existe la excepción adicional para este slot, ignorar
+        }
       }
 
       cacheService.invalidateByPrefix(buildKey(ENTITIES.BLOQUEOS));
@@ -567,7 +584,7 @@ export function DashboardCalendario({
     } catch {
       toast.error('Error al desbloquear el horario');
     }
-  }, [configData, profesionalId, revalidateBloqueos, revalidateSlots, toast]);
+  }, [configData, profesionalId, getIntervaloConfigurado, revalidateBloqueos, revalidateSlots, toast]);
 
   // Bloquear un slot
   const handleBloquearSlot = useCallback(async (fecha: Date, hora: Date) => {
@@ -684,9 +701,9 @@ export function DashboardCalendario({
   // Habilitar un slot fuera del horario habitual como excepción adicional
   const handleHabilitarSlot = useCallback(async (fecha: Date, hora: Date) => {
     setSlotMenu(null);
+    const horaStr = USE_NEW_DATE_HELPER ? DateHelper.formatTime(hora) : format(hora, 'HH:mm');
     try {
       const fechaStr = USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(fecha) : format(fecha, 'yyyy-MM-dd');
-      const horaStr = USE_NEW_DATE_HELPER ? DateHelper.formatTime(hora) : format(hora, 'HH:mm');
       const intervalo = getIntervaloConfigurado();
 
       const [h, m] = horaStr.split(':').map(Number);
@@ -707,8 +724,16 @@ export function DashboardCalendario({
       cacheService.invalidateByPrefix(buildKey(ENTITIES.CONFIGURACION));
       revalidateSlots();
       toast.success(`Horario ${horaStr} habilitado`);
-    } catch {
-      toast.error('Error al habilitar el horario');
+    } catch (err: any) {
+      const msg: string = err?.response?.data?.message || '';
+      if (msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('unique')) {
+        // El slot ya fue habilitado — revalidar para que se refleje en el calendario
+        cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
+        revalidateSlots();
+        toast.success(`Horario ${horaStr} habilitado`);
+      } else {
+        toast.error('Error al habilitar el horario');
+      }
     }
   }, [getIntervaloConfigurado, revalidateSlots, toast]);
 
@@ -780,7 +805,7 @@ export function DashboardCalendario({
               {slotMenu.bloqueoId ? (
                 <button
                   className="w-full text-left px-5 py-4 text-base text-green-600 font-medium border-b border-gray-50 active:bg-green-50"
-                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!, slotMenu.fecha)}
+                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!, slotMenu.fecha, slotMenu.hora)}
                 >
                   Desbloquear horario
                 </button>
@@ -837,7 +862,7 @@ export function DashboardCalendario({
               {slotMenu.bloqueoId ? (
                 <button
                   className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50"
-                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!, slotMenu.fecha)}
+                  onClick={() => handleDesbloquearSlot(slotMenu.bloqueoId!, slotMenu.fecha, slotMenu.hora)}
                 >
                   Desbloquear horario
                 </button>
