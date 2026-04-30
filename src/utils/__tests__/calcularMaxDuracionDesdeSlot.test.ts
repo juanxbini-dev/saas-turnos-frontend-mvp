@@ -151,6 +151,57 @@ describe('calcularMaxDuracionDesdeSlot', () => {
     });
   });
 
+  // ── Slot fuera del horario CON slots cargados (escenario real) ──────────
+
+  describe('slot fuera del horario con slots disponibles cargados', () => {
+    it('limita a 30 min cuando solo hay un slot desbloqueado fuera del horario (15:00)', () => {
+      // Escenario: staff desbloquea solo las 15:00 → slots del día incluyen los
+      // regulares + el desbloqueado. El servicio de 120 min NO debe ser seleccionable.
+      const slots = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '15:00'];
+      const result = calcularMaxDuracionDesdeSlot({
+        horaFormatted: '15:00',
+        dayOfWeek: LUNES,
+        disponibilidades: [makeDisp()],
+        slots,
+      });
+      expect(result).toBe(30); // Solo 15:00–15:30 disponible → 30 min
+    });
+
+    it('limita a 60 min cuando hay dos slots consecutivos desbloqueados (15:00 y 15:30)', () => {
+      const slots = ['09:00', '09:30', '10:00', '15:00', '15:30'];
+      const result = calcularMaxDuracionDesdeSlot({
+        horaFormatted: '15:00',
+        dayOfWeek: LUNES,
+        disponibilidades: [makeDisp()],
+        slots,
+      });
+      expect(result).toBe(60);
+    });
+
+    it('un servicio de 120 min no es seleccionable cuando solo hay 30 min libres fuera del horario', () => {
+      const slots = ['15:00']; // un solo slot desbloqueado
+      const result = calcularMaxDuracionDesdeSlot({
+        horaFormatted: '15:00',
+        dayOfWeek: LUNES,
+        disponibilidades: [makeDisp()],
+        slots,
+      });
+      expect(120 > result).toBe(true);  // noFit = true → no seleccionable
+      expect(30 > result).toBe(false);  // servicio de 30 min sí es seleccionable
+    });
+
+    it('devuelve Infinity cuando los slots aún no se cargaron (array vacío) — no filtrar prematuramente', () => {
+      // Slots no cargados todavía: no bloquear servicios hasta tener info real.
+      const result = calcularMaxDuracionDesdeSlot({
+        horaFormatted: '15:00',
+        dayOfWeek: LUNES,
+        disponibilidades: [makeDisp()],
+        slots: [],
+      });
+      expect(result).toBe(Infinity);
+    });
+  });
+
   // ── Slot antes del horario configurado ──────────────────────────────────
 
   describe('slot antes del horario configurado (desbloqueado por excepción)', () => {

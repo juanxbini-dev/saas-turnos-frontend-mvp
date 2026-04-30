@@ -27,10 +27,11 @@ export interface CalcMaxDuracionParams {
  * fin del horario semanal configurado para ese día, descontando cualquier
  * turno intermedio ya ocupado (softLimit).
  *
- * Casos especiales que devuelven Infinity (no filtrar servicios):
- * - No hay disponibilidad semanal para ese día de la semana.
- * - El slot está fuera del rango horario configurado (antes de hora_inicio o
- *   después/en hora_fin), lo que hace que hardLimit <= 0.
+ * Casos especiales:
+ * - Sin disponibilidad semanal para ese día → Infinity (no filtrar).
+ * - Slot fuera del rango horario (hardLimit <= 0, ej: slot desbloqueado por
+ *   excepción adicional): si hay slots cargados, escanea hacia adelante para
+ *   detectar el primer hueco y devuelve esa ventana; si no hay slots, Infinity.
  */
 export function calcularMaxDuracionDesdeSlot(params: CalcMaxDuracionParams): number {
   const { horaFormatted, dayOfWeek, disponibilidades, slots } = params;
@@ -44,22 +45,36 @@ export function calcularMaxDuracionDesdeSlot(params: CalcMaxDuracionParams): num
     (d) => d.activo && dayOfWeek >= d.dia_inicio && dayOfWeek <= d.dia_fin
   );
 
-  // Sin disponibilidad semanal para este día (ej: slot desbloqueado por excepción):
-  // no filtrar en el frontend — el backend valida al crear el turno.
+  // Sin disponibilidad semanal para este día → no filtrar.
   if (!disp) return Infinity;
 
   const fromMin = toMin(horaFormatted);
   const horaFinMin = toMin(disp.hora_fin);
   const hardLimit = horaFinMin - fromMin;
+  const interval = disp.intervalo_minutos;
 
-  // El slot está fuera del horario configurado (ej: desbloqueado a las 15:00
-  // cuando la disponibilidad es 09:00–13:00). hardLimit sería negativo o cero,
-  // lo que haría que todos los servicios aparezcan como no disponibles.
-  // Devolvemos Infinity para no filtrar: el backend valida al crear el turno.
-  if (hardLimit <= 0) return Infinity;
+  // Slot fuera del horario habitual (ej: desbloqueado por excepción a las 15:00
+  // cuando la disponibilidad termina a las 13:00 → hardLimit = -120).
+  if (hardLimit <= 0) {
+    // Si los slots del día están cargados, escanear hacia adelante desde el slot
+    // seleccionado para detectar la ventana real disponible.
+    if (slots.length > 0) {
+      const availableSet = new Set(slots);
+      let cur = fromMin + interval;
+      while (cur <= 1380) { // hasta las 23:00 como tope razonable
+        const slotStr = `${String(Math.floor(cur / 60)).padStart(2, '0')}:${String(cur % 60).padStart(2, '0')}`;
+        if (!availableSet.has(slotStr)) {
+          return cur - fromMin;
+        }
+        cur += interval;
+      }
+    }
+    // Sin slots cargados aún → no filtrar (el backend valida al crear el turno).
+    return Infinity;
+  }
 
+  // Slot dentro del horario normal: softLimit por turno intermedio + hardLimit.
   if (slots.length > 0) {
-    const interval: number = disp.intervalo_minutos;
     const availableSet = new Set(slots);
     let cur = fromMin + interval;
     while (cur < horaFinMin) {
