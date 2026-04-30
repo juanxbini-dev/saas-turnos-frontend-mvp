@@ -6,6 +6,7 @@ import { TurnoConDetalle } from '../../types/turno.types';
 import { Cliente, CreateClienteData } from '../../types/cliente.types';
 import { UsuarioServicio } from '../../types/servicio.types';
 import { turnoService, clienteService, servicioService, disponibilidadService } from '../../services';
+import { calcularMaxDuracionDesdeSlot } from '../../utils/calculos.utils';
 import { useToast } from '../../hooks/useToast';
 import { useFetch } from '../../hooks/useFetch';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
@@ -102,38 +103,12 @@ export function DashboardTurnoModal({
   //   resultado = min(hardLimit, softLimit)
   const maxDuracionDesdeSlot = useMemo(() => {
     if (!horaFormatted || !fecha || !(configData as any)?.disponibilidades) return Infinity;
-
-    const toMin = (s: string) => {
-      const [h, m] = s.slice(0, 5).split(':').map(Number);
-      return (h ?? 0) * 60 + (m ?? 0);
-    };
-
-    const dayOfWeek = fecha.getDay();
-    const disp = ((configData as any).disponibilidades as any[]).find((d: any) =>
-      d.activo && dayOfWeek >= d.dia_inicio && dayOfWeek <= d.dia_fin
-    );
-    // Sin disponibilidad semanal para este día (ej: slot por excepción o día sin configurar):
-    // no filtrar en el frontend — el backend valida al crear el turno.
-    if (!disp) return Infinity;
-
-    const fromMin = toMin(horaFormatted);
-    const horaFinMin = toMin(disp.hora_fin);
-    const hardLimit = horaFinMin - fromMin;
-
-    if (slots.length > 0) {
-      const interval: number = disp.intervalo_minutos;
-      const availableSet = new Set(slots);
-      let cur = fromMin + interval;
-      while (cur < horaFinMin) {
-        const slotStr = `${String(Math.floor(cur / 60)).padStart(2, '0')}:${String(cur % 60).padStart(2, '0')}`;
-        if (!availableSet.has(slotStr)) {
-          return Math.min(hardLimit, cur - fromMin);
-        }
-        cur += interval;
-      }
-    }
-
-    return hardLimit;
+    return calcularMaxDuracionDesdeSlot({
+      horaFormatted,
+      dayOfWeek: fecha.getDay(),
+      disponibilidades: (configData as any).disponibilidades,
+      slots,
+    });
   }, [horaFormatted, fecha, configData, slots]);
 
   // Filtrar clientes por búsqueda — solo mostrar si hay al menos 2 caracteres
