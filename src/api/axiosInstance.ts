@@ -27,10 +27,13 @@ const processQueue = (error: any, token: string | null = null) => {
 // Request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
+    const requestId = crypto.randomUUID();
+    config.headers['X-Request-Id'] = requestId;
+    (config as any)._requestId = requestId;
+
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      // Log solo en desarrollo para no saturar producción
       if ((import.meta as any).env?.DEV) {
       authLogger.debug('Enviando request con access token');
       }
@@ -114,6 +117,24 @@ axiosInstance.interceptors.response.use(
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
+      }
+    }
+
+    // Propagar requestId al ErrorReporter para errores no-401
+    if (error.response && error.response.status !== 401) {
+      const requestId =
+        error.response?.data?.requestId ||
+        error.response?.headers?.['x-request-id'] ||
+        (error.config as any)?._requestId;
+      if (requestId) {
+        window.dispatchEvent(new CustomEvent('app:error', {
+          detail: {
+            requestId,
+            status: error.response?.status,
+            message: error.response?.data?.message,
+            url: error.config?.url,
+          },
+        }));
       }
     }
 

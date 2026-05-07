@@ -26,8 +26,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    console.log('🛡️ getDerivedStateFromError - Error recibido:', error.message);
-    // Actualiza el estado para mostrar la UI de error
     return { hasError: true, error };
   }
 
@@ -37,14 +35,18 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Llamar al callback de error si se proporcionó (para futuro logging con Sentry, etc.)
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
-
-    // Log en consola para desarrollo
-    console.error('Error capturado por ErrorBoundary:', error);
-    console.error('Error Info:', errorInfo);
+    console.error('ErrorBoundary:', error);
+    window.dispatchEvent(new CustomEvent('app:error', {
+      detail: {
+        requestId: null,
+        status: null,
+        message: error.message,
+        url: window.location.pathname,
+      },
+    }));
   }
 
   handleRetry = () => {
@@ -53,21 +55,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   };
 
   render() {
-    console.log('🛡️ ErrorBoundary render - hasError:', this.state.hasError);
-    console.log('🛡️ ErrorBoundary render - has fallback:', !!this.props.fallback);
-    
     if (this.state.hasError) {
-      console.log('🛡️ ErrorBoundary - Mostrando pantalla de error');
-      
-      // Si se proporcionó un fallback personalizado, usarlo
       if (this.props.fallback) {
-        console.log('🛡️ ErrorBoundary - Usando fallback personalizado');
         return this.props.fallback;
       }
 
-      console.log('🛡️ ErrorBoundary - Usando pantalla de error por defecto');
-      
-      // Si no, mostrar la pantalla de error por defecto
+      // Pantalla de error por defecto
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
           <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
@@ -106,8 +99,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    console.log('🛡️ ErrorBoundary - Renderizando children normalmente');
-    // Si no hay error, renderizar los children normalmente
     return this.props.children;
   }
 }
