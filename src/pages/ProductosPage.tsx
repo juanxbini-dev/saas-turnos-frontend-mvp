@@ -584,20 +584,75 @@ function ProductosPage() {
                         </tr>
                         {expandedMarcaId === m.id && (
                           <tr className="border-b bg-gray-50">
-                            <td colSpan={isAdmin ? 3 : 2} className="px-6 py-3">
+                            <td colSpan={isAdmin ? 3 : 2} className="px-4 py-2">
                               {productos?.filter(p => p.marca_id === m.id).length === 0 ? (
-                                <p className="text-xs text-gray-400">Sin productos asignados a esta marca</p>
+                                <p className="text-xs text-gray-400 py-2">Sin productos asignados a esta marca</p>
                               ) : (
-                                <ul className="space-y-1">
-                                  {(productos || []).filter(p => p.marca_id === m.id).map(p => (
-                                    <li key={p.id} className="flex items-center justify-between text-xs text-gray-700">
-                                      <span className="font-medium">{p.nombre}</span>
-                                      <span className={`${p.activo ? 'text-green-600' : 'text-gray-400'}`}>
-                                        Stock: {p.stock} · {p.activo ? 'Activo' : 'Inactivo'}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="text-gray-500">
+                                      <th className="text-left py-1.5 pr-4 font-medium">Producto</th>
+                                      <th className="text-center py-1.5 pr-4 font-medium">Stock</th>
+                                      <th className="text-right py-1.5 pr-4 font-medium">Precio</th>
+                                      <th className="text-center py-1.5 font-medium">Estado</th>
+                                      {isAdmin && <th className="text-right py-1.5 font-medium">Acciones</th>}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(productos || []).filter(p => p.marca_id === m.id).map(p => (
+                                      <tr key={p.id} className="border-t border-gray-100">
+                                        <td className="py-2 pr-4 font-medium text-gray-800">{p.nombre}</td>
+                                        <td className="py-2 pr-4 text-center">
+                                          <span className={`font-semibold ${p.stock <= 3 ? 'text-red-600' : 'text-gray-700'}`}>
+                                            {p.stock}
+                                          </span>
+                                        </td>
+                                        <td className="py-2 pr-4 text-right text-gray-700">
+                                          ${Number(p.precio_efectivo ?? 0).toLocaleString('es-AR')}
+                                        </td>
+                                        <td className="py-2 text-center">
+                                          <span className={`inline-block px-2 py-0.5 rounded-full font-medium ${p.activo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                                            {p.activo ? 'Activo' : 'Inactivo'}
+                                          </span>
+                                        </td>
+                                        {isAdmin && (
+                                          <td className="py-2">
+                                            <div className="flex items-center justify-end gap-1">
+                                              <button
+                                                onClick={() => setStockModal({ open: true, producto: p })}
+                                                title="Agregar stock"
+                                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                              >
+                                                <PlusCircle className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                onClick={() => setProductoModal({ open: true, producto: p })}
+                                                title="Editar"
+                                                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                              >
+                                                <Edit2 className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                onClick={() => handleToggleActivo(p)}
+                                                title={p.activo ? 'Desactivar' : 'Activar'}
+                                                className={`p-1.5 rounded-lg transition-colors ${p.activo ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'}`}
+                                              >
+                                                <Power className="w-3.5 h-3.5" />
+                                              </button>
+                                              <button
+                                                onClick={() => setDeleteConfirm({ open: true, producto: p })}
+                                                title="Eliminar"
+                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                              >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        )}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
                               )}
                             </td>
                           </tr>
