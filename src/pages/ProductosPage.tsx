@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power, Trash2, Tag, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductosVentasTab } from '../components/productos/ProductosVentasTab';
-import { productosService } from '../services/productos.service';
+import { productosService, getRegistroVentas, updateVentaProducto, deleteVentaProducto } from '../services/productos.service';
 import { marcasService } from '../services/marcas.service';
 import { Producto } from '../types/producto.types';
 import { MarcaConProductos } from '../types/marca.types';
@@ -13,8 +13,6 @@ import { MarcaModal } from '../components/productos/MarcaModal';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../context/AuthContext';
 
-type Tab = 'catalogo' | 'marcas' | 'estadisticas' | 'ventas';
-
 const PAGE_SIZE = 10;
 
 function ProductosPage() {
@@ -22,7 +20,28 @@ function ProductosPage() {
   const { state } = useAuth();
   const isAdmin = state.roles?.includes('admin');
 
-  const [tab, setTab] = useState<Tab>('catalogo');
+  // Tabs disponibles según rol
+  const availableTabs = isAdmin
+    ? (['catalogo', 'marcas', 'estadisticas', 'ventas', 'por-profesional'] as const)
+    : (['ventas', 'por-profesional'] as const);
+  type Tab = typeof availableTabs[number];
+
+  const [activeTab, setActiveTab] = useState<Tab>(isAdmin ? 'catalogo' : 'ventas');
+
+  // Si el tab activo no está disponible (ej: staff), forzar a 'ventas'
+  useEffect(() => {
+    if (!(availableTabs as readonly string[]).includes(activeTab)) {
+      setActiveTab('ventas');
+    }
+  }, [isAdmin]);
+
+  const tabLabels: Record<string, string> = {
+    catalogo: 'Catálogo',
+    marcas: 'Marcas',
+    estadisticas: 'Estadísticas',
+    ventas: 'Ventas',
+    'por-profesional': 'Por profesional',
+  };
 
   // Catálogo state
   const [productoModal, setProductoModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
@@ -33,9 +52,35 @@ function ProductosPage() {
   const [filtroMarca, setFiltroMarca] = useState('');
   const [pagina, setPagina] = useState(1);
 
-  // Marcas state
+  // Marcas state — accordion de apertura única
+  const [expandedMarcaId, setExpandedMarcaId] = useState<string | null>(null);
+  const toggleMarcaAccordion = (id: string) => {
+    setExpandedMarcaId(prev => prev === id ? null : id);
+  };
   const [marcaModal, setMarcaModal] = useState<{ open: boolean; marca?: MarcaConProductos | null }>({ open: false });
   const [deleteMarcaConfirm, setDeleteMarcaConfirm] = useState<{ open: boolean; marca?: MarcaConProductos; productosAfectados?: number }>({ open: false });
+
+  // Ventas sub-tab
+  const [ventasSubTab, setVentasSubTab] = useState<'resumen' | 'registro'>('resumen');
+
+  // Registro de ventas state
+  const hoy = new Date();
+  const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+  const hoyStr = hoy.toISOString().split('T')[0];
+  const [registroFechaDesde, setRegistroFechaDesde] = useState(primerDiaMes);
+  const [registroFechaHasta, setRegistroFechaHasta] = useState(hoyStr);
+  const [registroPage, setRegistroPage] = useState(1);
+  const [registroData, setRegistroData] = useState<{ rows: any[]; total: number } | null>(null);
+  const [registroLoading, setRegistroLoading] = useState(false);
+  const [editingVentaId, setEditingVentaId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    fecha_venta: string;
+    nombre_producto: string;
+    cantidad: number;
+    precio_unitario: number;
+    precio_total: number;
+    metodo_pago: string;
+  } | null>(null);
 
   const { data: productos, loading: loadingProductos, revalidate: revalidateProductos } = useFetch(
     'productos:lista',
@@ -124,6 +169,65 @@ function ProductosPage() {
     }
   };
 
+  // Cargar registro de ventas
+  const cargarRegistro = async (page = 1) => {
+    setRegistroLoading(true);
+    try {
+      const params: Parameters<typeof getRegistroVentas>[0] = {
+        fechaDesde: registroFechaDesde,
+        fechaHasta: registroFechaHasta,
+        page,
+        limit: 50,
+      };
+      if (!isAdmin && state.authUser?.id) params.vendedor_id = state.authUser.id;
+      const data = await getRegistroVentas(params);
+      setRegistroData(data);
+      setRegistroPage(page);
+    } catch {
+      toast.error('Error al cargar el registro de ventas');
+    } finally {
+      setRegistroLoading(false);
+    }
+  };
+
+  const handleEditarVenta = (row: any) => {
+    setEditingVentaId(row.id);
+    setEditForm({
+      fecha_venta: row.fecha_venta ? row.fecha_venta.split('T')[0] : '',
+      nombre_producto: row.nombre_producto || '',
+      cantidad: Number(row.cantidad) || 1,
+      precio_unitario: Number(row.precio_unitario) || 0,
+      precio_total: Number(row.precio_total) || 0,
+      metodo_pago: row.metodo_pago || 'efectivo',
+    });
+  };
+
+  const handleGuardarEdicion = async () => {
+    if (!editingVentaId || !editForm) return;
+    try {
+      await updateVentaProducto(editingVentaId, editForm);
+      toast.success('Venta actualizada');
+      setEditingVentaId(null);
+      setEditForm(null);
+      cargarRegistro(registroPage);
+    } catch {
+      toast.error('Error al actualizar la venta');
+    }
+  };
+
+  const handleEliminarVenta = async (id: string) => {
+    if (!window.confirm('¿Eliminar esta venta?')) return;
+    try {
+      await deleteVentaProducto(id);
+      toast.success('Venta eliminada');
+      cargarRegistro(registroPage);
+    } catch {
+      toast.error('Error al eliminar la venta');
+    }
+  };
+
+  const registroTotalPages = registroData ? Math.max(1, Math.ceil(registroData.total / 50)) : 1;
+
   const bajoStock = productos?.filter(p => p.stock <= 3 && p.activo) || [];
 
   return (
@@ -135,14 +239,14 @@ function ProductosPage() {
           <div className="flex items-center gap-3">
             <Package className="w-7 h-7 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
-            {isAdmin && (tab === 'catalogo' || tab === 'marcas') && (
+            {isAdmin && (activeTab === 'catalogo' || activeTab === 'marcas') && (
               <button
-                onClick={() => tab === 'catalogo'
+                onClick={() => activeTab === 'catalogo'
                   ? setProductoModal({ open: true, producto: null })
                   : setMarcaModal({ open: true, marca: null })
                 }
                 className="w-7 h-7 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                aria-label={tab === 'catalogo' ? 'Nuevo producto' : 'Nueva marca'}
+                aria-label={activeTab === 'catalogo' ? 'Nuevo producto' : 'Nueva marca'}
               >
                 <Plus size={16} />
               </button>
@@ -158,22 +262,22 @@ function ProductosPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit">
-          {(['catalogo', 'marcas', 'estadisticas', 'ventas'] as Tab[]).map(t => (
+        <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1 mb-6 w-fit">
+          {availableTabs.map(t => (
             <button
               key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition-colors ${
-                tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              onClick={() => setActiveTab(t)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              {t === 'catalogo' ? 'Catálogo' : t === 'marcas' ? 'Marcas' : t === 'estadisticas' ? 'Estadísticas' : 'Ventas'}
+              {tabLabels[t]}
             </button>
           ))}
         </div>
 
         {/* TAB: CATÁLOGO */}
-        {tab === 'catalogo' && (
+        {activeTab === 'catalogo' && (
           <>
 
             {/* Filtros */}
@@ -416,7 +520,7 @@ function ProductosPage() {
         )}
 
         {/* TAB: MARCAS */}
-        {tab === 'marcas' && (
+        {activeTab === 'marcas' && (
           <div className="space-y-4">
             {loadingMarcas ? (
               <div className="flex justify-center py-12"><Spinner /></div>
@@ -438,41 +542,67 @@ function ProductosPage() {
                   </thead>
                   <tbody>
                     {marcas.map(m => (
-                      <tr key={m.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1.5 font-medium text-gray-900">
-                            <Tag className="w-3.5 h-3.5 text-blue-500" />
-                            {m.nombre}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold ${
-                            m.total_productos > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'
-                          }`}>
-                            {m.total_productos}
-                          </span>
-                        </td>
-                        {isAdmin && (
+                      <React.Fragment key={m.id}>
+                        <tr
+                          className="border-b hover:bg-gray-50 transition-colors cursor-pointer"
+                          onClick={() => toggleMarcaAccordion(m.id)}
+                        >
                           <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => setMarcaModal({ open: true, marca: m })}
-                                title="Editar"
-                                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => setDeleteMarcaConfirm({ open: true, marca: m, productosAfectados: m.total_productos })}
-                                title="Eliminar"
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
+                            <span className="inline-flex items-center gap-1.5 font-medium text-gray-900">
+                              <Tag className="w-3.5 h-3.5 text-blue-500" />
+                              {m.nombre}
+                              <span className="text-gray-400 text-xs ml-1">{expandedMarcaId === m.id ? '▲' : '▼'}</span>
+                            </span>
                           </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-bold ${
+                              m.total_productos > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'
+                            }`}>
+                              {m.total_productos}
+                            </span>
+                          </td>
+                          {isAdmin && (
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-2" onClick={e => e.stopPropagation()}>
+                                <button
+                                  onClick={() => setMarcaModal({ open: true, marca: m })}
+                                  title="Editar"
+                                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteMarcaConfirm({ open: true, marca: m, productosAfectados: m.total_productos })}
+                                  title="Eliminar"
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                        {expandedMarcaId === m.id && (
+                          <tr className="border-b bg-gray-50">
+                            <td colSpan={isAdmin ? 3 : 2} className="px-6 py-3">
+                              {productos?.filter(p => p.marca_id === m.id).length === 0 ? (
+                                <p className="text-xs text-gray-400">Sin productos asignados a esta marca</p>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {(productos || []).filter(p => p.marca_id === m.id).map(p => (
+                                    <li key={p.id} className="flex items-center justify-between text-xs text-gray-700">
+                                      <span className="font-medium">{p.nombre}</span>
+                                      <span className={`${p.activo ? 'text-green-600' : 'text-gray-400'}`}>
+                                        Stock: {p.stock} · {p.activo ? 'Activo' : 'Inactivo'}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </td>
+                          </tr>
                         )}
-                      </tr>
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -482,7 +612,7 @@ function ProductosPage() {
         )}
 
         {/* TAB: ESTADÍSTICAS */}
-        {tab === 'estadisticas' && (
+        {activeTab === 'estadisticas' && (
           <div className="space-y-6">
             {loadingStats ? (
               <div className="flex justify-center py-12"><Spinner /></div>
@@ -551,10 +681,247 @@ function ProductosPage() {
             )}
           </div>
         )}
-      </main>
 
         {/* TAB: VENTAS */}
-        {tab === 'ventas' && <ProductosVentasTab />}
+        {activeTab === 'ventas' && (
+          <div className="space-y-4">
+            {/* Segmented control */}
+            <div className="flex border border-gray-200 rounded-lg overflow-hidden mb-4 self-start w-fit">
+              <button
+                className={`px-4 py-2 text-sm font-medium ${ventasSubTab === 'resumen' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                onClick={() => setVentasSubTab('resumen')}
+              >
+                Resumen por producto
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium border-l border-gray-200 ${ventasSubTab === 'registro' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                onClick={() => { setVentasSubTab('registro'); if (!registroData) cargarRegistro(1); }}
+              >
+                Registro de ventas
+              </button>
+            </div>
+
+            {ventasSubTab === 'resumen' && <ProductosVentasTab />}
+
+            {ventasSubTab === 'registro' && (
+              <div className="space-y-4">
+                {/* Filtros */}
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-600">Desde</label>
+                    <input
+                      type="date"
+                      value={registroFechaDesde}
+                      onChange={e => setRegistroFechaDesde(e.target.value)}
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-600">Hasta</label>
+                    <input
+                      type="date"
+                      value={registroFechaHasta}
+                      onChange={e => setRegistroFechaHasta(e.target.value)}
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <button
+                    onClick={() => cargarRegistro(1)}
+                    className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Filtrar
+                  </button>
+                </div>
+
+                {registroLoading ? (
+                  <div className="flex justify-center py-12"><Spinner /></div>
+                ) : !registroData || registroData.rows.length === 0 ? (
+                  <div className="bg-white rounded-xl border py-16 text-center text-gray-400">
+                    <Package className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p className="font-medium">Sin ventas en el período seleccionado</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-white rounded-xl border overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 border-b">
+                            <th className="text-left px-4 py-3 font-medium text-gray-700">Fecha venta</th>
+                            <th className="text-left px-4 py-3 font-medium text-gray-700">Producto</th>
+                            <th className="text-left px-4 py-3 font-medium text-gray-700">Profesional</th>
+                            <th className="text-center px-4 py-3 font-medium text-gray-700">Cant.</th>
+                            <th className="text-right px-4 py-3 font-medium text-gray-700">Precio unit.</th>
+                            <th className="text-right px-4 py-3 font-medium text-gray-700">Total</th>
+                            <th className="text-left px-4 py-3 font-medium text-gray-700">Método</th>
+                            <th className="text-right px-4 py-3 font-medium text-gray-700">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {registroData.rows.map(row => (
+                            <React.Fragment key={row.id}>
+                              <tr className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                                <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                                  {row.fecha_venta
+                                    ? row.fecha_venta.split('T')[0].split('-').reverse().join('/')
+                                    : '—'}
+                                </td>
+                                <td className="px-4 py-3 font-medium text-gray-900">{row.nombre_producto || '—'}</td>
+                                <td className="px-4 py-3 text-gray-600">{row.vendedor_nombre || '—'}</td>
+                                <td className="px-4 py-3 text-center">{row.cantidad}</td>
+                                <td className="px-4 py-3 text-right">${Number(row.precio_unitario || 0).toLocaleString('es-AR')}</td>
+                                <td className="px-4 py-3 text-right font-semibold">${Number(row.precio_total || 0).toLocaleString('es-AR')}</td>
+                                <td className="px-4 py-3 text-gray-600 capitalize">{row.metodo_pago || '—'}</td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      onClick={() => { if (editingVentaId === row.id) { setEditingVentaId(null); setEditForm(null); } else { handleEditarVenta(row); } }}
+                                      title="Editar"
+                                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleEliminarVenta(row.id)}
+                                      title="Eliminar"
+                                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {editingVentaId === row.id && editForm && (
+                                <tr className="border-b bg-blue-50">
+                                  <td colSpan={8} className="px-4 py-4">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Fecha venta</label>
+                                        <input
+                                          type="date"
+                                          value={editForm.fecha_venta}
+                                          onChange={e => setEditForm(f => f ? { ...f, fecha_venta: e.target.value } : f)}
+                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Producto</label>
+                                        <input
+                                          type="text"
+                                          value={editForm.nombre_producto}
+                                          onChange={e => setEditForm(f => f ? { ...f, nombre_producto: e.target.value } : f)}
+                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Cantidad</label>
+                                        <input
+                                          type="number"
+                                          min={1}
+                                          value={editForm.cantidad}
+                                          onChange={e => {
+                                            const cant = Number(e.target.value);
+                                            setEditForm(f => f ? { ...f, cantidad: cant, precio_total: cant * f.precio_unitario } : f);
+                                          }}
+                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Precio unitario</label>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          value={editForm.precio_unitario}
+                                          onChange={e => {
+                                            const pu = Number(e.target.value);
+                                            setEditForm(f => f ? { ...f, precio_unitario: pu, precio_total: pu * f.cantidad } : f);
+                                          }}
+                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Total (calculado)</label>
+                                        <input
+                                          type="number"
+                                          value={editForm.precio_total}
+                                          readOnly
+                                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-gray-100 text-gray-700"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Método de pago</label>
+                                        <select
+                                          value={editForm.metodo_pago}
+                                          onChange={e => setEditForm(f => f ? { ...f, metodo_pago: e.target.value } : f)}
+                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                          <option value="efectivo">Efectivo</option>
+                                          <option value="transferencia">Transferencia</option>
+                                          <option value="pendiente">Pendiente</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2 mt-3">
+                                      <button
+                                        onClick={handleGuardarEdicion}
+                                        className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                                      >
+                                        Guardar
+                                      </button>
+                                      <button
+                                        onClick={() => { setEditingVentaId(null); setEditForm(null); }}
+                                        className="px-4 py-1.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+                                      >
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Paginación */}
+                    {registroTotalPages > 1 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500">
+                          {registroData.total} ventas — Página {registroPage} de {registroTotalPages}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => cargarRegistro(registroPage - 1)}
+                            disabled={registroPage <= 1}
+                            className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Anterior
+                          </button>
+                          <button
+                            onClick={() => cargarRegistro(registroPage + 1)}
+                            disabled={registroPage >= registroTotalPages}
+                            className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: POR PROFESIONAL */}
+        {activeTab === 'por-profesional' && (
+          <div className="text-center py-16 text-gray-400">
+            <p className="text-sm">Reporte por profesional — próximamente</p>
+          </div>
+        )}
+
+      </main>
 
       {/* Modales */}
       {isAdmin && productoModal.open && (

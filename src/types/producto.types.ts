@@ -85,9 +85,12 @@ export interface CreateVentaData {
   vendedor_id: string;
   metodo_pago: 'efectivo' | 'transferencia' | 'pendiente';
   notas?: string;
+  fecha_venta?: string;
   items: {
     producto_id: string;
     cantidad: number;
     precio_unitario: number;
+    es_venta_costo?: boolean;
+    precio_costo?: number;
   }[];
 }

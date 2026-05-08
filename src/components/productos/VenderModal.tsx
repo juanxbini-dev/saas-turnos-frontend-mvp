@@ -13,6 +13,7 @@ import { buildKey, ENTITIES } from '../../cache/key.builder';
 interface VentaItem {
   producto: Producto;
   cantidad: number;
+  esVentaCosto: boolean;
 }
 
 interface VenderModalProps {
@@ -47,6 +48,10 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   // Pago
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('efectivo');
   const [notas, setNotas] = useState('');
+
+  // Fecha retroactiva
+  const [esFechaRetroactiva, setEsFechaRetroactiva] = useState(false);
+  const [fechaVenta, setFechaVenta] = useState('');
 
   const { data: clientesResp, loading: loadingClientes } = useFetch(
     buildKey(ENTITIES.CLIENTES, 'all'),
@@ -100,9 +105,15 @@ export const VenderModal: React.FC<VenderModalProps> = ({
       }
       setItems(prev => prev.map(i => i.producto.id === producto.id ? { ...i, cantidad: i.cantidad + 1 } : i));
     } else {
-      setItems(prev => [...prev, { producto, cantidad: 1 }]);
+      setItems(prev => [...prev, { producto, cantidad: 1, esVentaCosto: false }]);
     }
     setProductoSearch('');
+  };
+
+  const handleToggleVentaCosto = (productoId: string) => {
+    setItems(prev => prev.map(i =>
+      i.producto.id === productoId ? { ...i, esVentaCosto: !i.esVentaCosto } : i
+    ));
   };
 
   const handleChangeCantidad = (productoId: string, delta: number) => {
@@ -116,12 +127,13 @@ export const VenderModal: React.FC<VenderModalProps> = ({
     setItems(prev => prev.filter(i => i.producto.id !== productoId));
   };
 
-  const getPrecioUnitario = (producto: Producto): number => {
+  const getPrecioUnitario = (producto: Producto, esVentaCosto = false): number => {
+    if (esVentaCosto) return Number(producto.costo) || 0;
     if (metodoPago === 'transferencia') return Number(producto.precio_transferencia) || 0;
     return Number(producto.precio_efectivo) || 0;
   };
 
-  const total = items.reduce((sum, i) => sum + getPrecioUnitario(i.producto) * i.cantidad, 0);
+  const total = items.reduce((sum, i) => sum + getPrecioUnitario(i.producto, i.esVentaCosto) * i.cantidad, 0);
 
   const handleSubmit = async () => {
     if (items.length === 0) {
@@ -135,10 +147,12 @@ export const VenderModal: React.FC<VenderModalProps> = ({
         vendedor_id: vendedorId,
         metodo_pago: metodoPago,
         notas: notas.trim() || undefined,
+        ...(esFechaRetroactiva && fechaVenta ? { fecha_venta: fechaVenta } : {}),
         items: items.map(i => ({
           producto_id: i.producto.id,
           cantidad: i.cantidad,
-          precio_unitario: getPrecioUnitario(i.producto),
+          precio_unitario: getPrecioUnitario(i.producto, i.esVentaCosto),
+          ...(i.esVentaCosto ? { es_venta_costo: true, precio_costo: Number(i.producto.costo) || 0 } : {}),
         })),
       });
       toast.success('Venta registrada');
@@ -304,38 +318,62 @@ export const VenderModal: React.FC<VenderModalProps> = ({
             {/* Items seleccionados */}
             {items.length > 0 && (
               <div className="mt-3 space-y-2">
-                {items.map(item => (
-                  <div key={item.producto.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{item.producto.nombre}</p>
-                      <p className="text-xs text-gray-500">${getPrecioUnitario(item.producto).toLocaleString('es-AR')} c/u</p>
+                {items.map(item => {
+                  const tieneCosto = item.producto.costo != null && Number(item.producto.costo) > 0;
+                  const precioUnit = getPrecioUnitario(item.producto, item.esVentaCosto);
+                  return (
+                    <div key={item.producto.id} className="bg-gray-50 rounded-lg px-3 py-2 space-y-1.5">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.producto.nombre}</p>
+                          {item.esVentaCosto ? (
+                            tieneCosto ? (
+                              <p className="text-xs text-orange-600 font-medium">Precio costo: ${Number(item.producto.costo).toLocaleString('es-AR')} c/u</p>
+                            ) : (
+                              <p className="text-xs text-orange-500">Se usará precio de costo (pendiente configurar)</p>
+                            )
+                          ) : (
+                            <p className="text-xs text-gray-500">${precioUnit.toLocaleString('es-AR')} c/u</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleChangeCantidad(item.producto.id, -1)}
+                            className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-sm font-medium w-6 text-center">{item.cantidad}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleChangeCantidad(item.producto.id, 1)}
+                            disabled={item.cantidad >= item.producto.stock}
+                            className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center disabled:opacity-40"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <span className="text-sm font-semibold w-20 text-right">
+                          ${(precioUnit * item.cantidad).toLocaleString('es-AR')}
+                        </span>
+                        <button type="button" onClick={() => handleRemove(item.producto.id)} className="text-gray-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {/* Toggle al costo */}
+                      <label className="flex items-center gap-2 cursor-pointer w-fit">
+                        <input
+                          type="checkbox"
+                          checked={item.esVentaCosto}
+                          onChange={() => handleToggleVentaCosto(item.producto.id)}
+                          className="w-3.5 h-3.5 accent-orange-500"
+                        />
+                        <span className="text-xs text-gray-500 select-none">Al costo</span>
+                      </label>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleChangeCantidad(item.producto.id, -1)}
-                        className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="text-sm font-medium w-6 text-center">{item.cantidad}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleChangeCantidad(item.producto.id, 1)}
-                        disabled={item.cantidad >= item.producto.stock}
-                        className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center disabled:opacity-40"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <span className="text-sm font-semibold w-20 text-right">
-                      ${(getPrecioUnitario(item.producto) * item.cantidad).toLocaleString('es-AR')}
-                    </span>
-                    <button type="button" onClick={() => handleRemove(item.producto.id)} className="text-gray-400 hover:text-red-500">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
                 <div className="flex justify-between items-center pt-2 border-t">
                   <span className="font-semibold text-gray-700">Total</span>
                   <span className="text-lg font-bold text-gray-900">${total.toLocaleString('es-AR')}</span>
@@ -352,6 +390,31 @@ export const VenderModal: React.FC<VenderModalProps> = ({
               onChange={e => setNotas(e.target.value)}
               placeholder="Observaciones..."
             />
+          </section>
+
+          {/* Fecha retroactiva */}
+          <section>
+            <label className="flex items-center gap-2 cursor-pointer w-fit">
+              <input
+                type="checkbox"
+                checked={esFechaRetroactiva}
+                onChange={e => {
+                  setEsFechaRetroactiva(e.target.checked);
+                  if (!e.target.checked) setFechaVenta('');
+                }}
+                className="w-4 h-4 accent-blue-600"
+              />
+              <span className="text-sm font-medium text-gray-700 select-none">Venta de fecha pasada</span>
+            </label>
+            {esFechaRetroactiva && (
+              <input
+                type="date"
+                value={fechaVenta}
+                onChange={e => setFechaVenta(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              />
+            )}
           </section>
         </div>
 

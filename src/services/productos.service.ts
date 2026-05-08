@@ -39,3 +39,40 @@ export const productosService = {
     return res.data.data;
   },
 };
+
+export async function getRegistroVentas(params: {
+  fechaDesde: string;
+  fechaHasta: string;
+  vendedor_id?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ rows: any[]; total: number }> {
+  const searchParams = new URLSearchParams({
+    fechaDesde: params.fechaDesde,
+    fechaHasta: params.fechaHasta,
+    page: String(params.page ?? 1),
+    limit: String(params.limit ?? 50),
+  });
+  if (params.vendedor_id) searchParams.set('vendedor_id', params.vendedor_id);
+  const res = await axiosInstance.get(`/api/ventas?${searchParams}`);
+  return { rows: res.data.data, total: res.data.total };
+}
+
+export async function updateVentaProducto(
+  id: string,
+  data: {
+    nombre_producto?: string;
+    cantidad?: number;
+    precio_unitario?: number;
+    precio_total?: number;
+    metodo_pago?: string;
+    fecha_venta?: string;
+  }
+): Promise<any> {
+  const res = await axiosInstance.patch(`/api/ventas/${id}`, data);
+  return res.data.data;
+}
+
+export async function deleteVentaProducto(id: string): Promise<void> {
+  await axiosInstance.delete(`/api/ventas/${id}`);
+}
