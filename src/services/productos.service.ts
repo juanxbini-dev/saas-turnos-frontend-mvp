@@ -61,6 +61,7 @@ export async function getRegistroVentas(params: {
 export async function updateVentaProducto(
   id: string,
   data: {
+    vendedor_id?: string;
     nombre_producto?: string;
     cantidad?: number;
     precio_unitario?: number;
@@ -70,6 +71,33 @@ export async function updateVentaProducto(
   }
 ): Promise<any> {
   const res = await axiosInstance.patch(`/api/ventas/${id}`, data);
+  return res.data.data;
+}
+
+export interface ResumenProfesional {
+  vendedor_id: string;
+  nombre: string;
+  comision_producto: number;
+  total_ventas: number;
+  costo_total: number;
+  ganancia_bruta: number;
+  ganancia_profesional: number;
+  ganancia_empresa: number;
+}
+
+export interface ResumenTotalesVentas {
+  total_ventas: number;
+  costo_total: number;
+  ganancia_bruta: number;
+  ganancia_profesionales: number;
+  ganancia_empresa: number;
+}
+
+export async function getResumenVentas(params: {
+  fechaDesde: string;
+  fechaHasta: string;
+}): Promise<{ totales: ResumenTotalesVentas; por_profesional: ResumenProfesional[] }> {
+  const res = await axiosInstance.get(`/api/ventas/resumen?fechaDesde=${params.fechaDesde}&fechaHasta=${params.fechaHasta}`);
   return res.data.data;
 }
 

@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power, Trash2, Tag, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductosVentasTab } from '../components/productos/ProductosVentasTab';
-import { productosService, getRegistroVentas, updateVentaProducto, deleteVentaProducto } from '../services/productos.service';
+import { productosService, getRegistroVentas, updateVentaProducto, deleteVentaProducto, getResumenVentas, ResumenTotalesVentas, ResumenProfesional } from '../services/productos.service';
 import { marcasService } from '../services/marcas.service';
+import { usuarioService } from '../services/usuario.service';
 import { Producto } from '../types/producto.types';
 import { MarcaConProductos } from '../types/marca.types';
 import { useFetch } from '../hooks/useFetch';
@@ -74,6 +75,7 @@ function ProductosPage() {
   const [registroLoading, setRegistroLoading] = useState(false);
   const [editingVentaId, setEditingVentaId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
+    vendedor_id: string;
     fecha_venta: string;
     nombre_producto: string;
     cantidad: number;
@@ -81,6 +83,12 @@ function ProductosPage() {
     precio_total: number;
     metodo_pago: string;
   } | null>(null);
+
+  // Resumen ventas (cards + por profesional)
+  const [resumenFechaDesde, setResumenFechaDesde] = useState(primerDiaMes);
+  const [resumenFechaHasta, setResumenFechaHasta] = useState(hoyStr);
+  const [resumenData, setResumenData] = useState<{ totales: ResumenTotalesVentas; por_profesional: ResumenProfesional[] } | null>(null);
+  const [resumenLoading, setResumenLoading] = useState(false);
 
   const { data: productos, loading: loadingProductos, revalidate: revalidateProductos } = useFetch(
     'productos:lista',
@@ -96,6 +104,18 @@ function ProductosPage() {
     'productos:stats',
     () => productosService.getStats()
   );
+
+  const { data: usuarios } = useFetch(
+    'usuarios:lista',
+    () => usuarioService.getUsuarios(),
+    { ttl: 300 }
+  );
+
+  useEffect(() => {
+    if (activeTab === 'ventas' || activeTab === 'por-profesional') {
+      if (!resumenData) cargarResumen();
+    }
+  }, [activeTab]);
 
   const refresh = () => {
     revalidateProductos();
@@ -169,6 +189,19 @@ function ProductosPage() {
     }
   };
 
+  // Cargar resumen de ventas
+  const cargarResumen = async (fechaDesde = resumenFechaDesde, fechaHasta = resumenFechaHasta) => {
+    setResumenLoading(true);
+    try {
+      const data = await getResumenVentas({ fechaDesde, fechaHasta });
+      setResumenData(data);
+    } catch {
+      toast.error('Error al cargar el resumen de ventas');
+    } finally {
+      setResumenLoading(false);
+    }
+  };
+
   // Cargar registro de ventas
   const cargarRegistro = async (page = 1) => {
     setRegistroLoading(true);
@@ -193,6 +226,7 @@ function ProductosPage() {
   const handleEditarVenta = (row: any) => {
     setEditingVentaId(row.id);
     setEditForm({
+      vendedor_id: row.vendedor_id || '',
       fecha_venta: row.fecha_venta ? row.fecha_venta.split('T')[0] : '',
       nombre_producto: row.nombre_producto || '',
       cantidad: Number(row.cantidad) || 1,
@@ -740,6 +774,22 @@ function ProductosPage() {
         {/* TAB: VENTAS */}
         {activeTab === 'ventas' && (
           <div className="space-y-4">
+            {/* Cards de ganancia */}
+            {resumenData && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-white rounded-xl border p-4">
+                  <p className="text-xs font-medium text-gray-500 mb-1">Ganancia bruta</p>
+                  <p className="text-xl font-bold text-gray-900">${Number(resumenData.totales.ganancia_bruta).toLocaleString('es-AR')}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Ventas ${Number(resumenData.totales.total_ventas).toLocaleString('es-AR')} − Costo ${Number(resumenData.totales.costo_total).toLocaleString('es-AR')}</p>
+                </div>
+                <div className="bg-white rounded-xl border p-4">
+                  <p className="text-xs font-medium text-gray-500 mb-1">Ganancia empresa (neta)</p>
+                  <p className="text-xl font-bold text-emerald-600">${Number(resumenData.totales.ganancia_empresa).toLocaleString('es-AR')}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Bruta − Comisiones profesionales ${Number(resumenData.totales.ganancia_profesionales).toLocaleString('es-AR')}</p>
+                </div>
+              </div>
+            )}
+
             {/* Segmented control */}
             <div className="flex border border-gray-200 rounded-lg overflow-hidden mb-4 self-start w-fit">
               <button
@@ -849,6 +899,18 @@ function ProductosPage() {
                                 <tr className="border-b bg-blue-50">
                                   <td colSpan={8} className="px-4 py-4">
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                      <div>
+                                        <label className="text-xs font-medium text-gray-600 block mb-1">Profesional</label>
+                                        <select
+                                          value={editForm.vendedor_id}
+                                          onChange={e => setEditForm(f => f ? { ...f, vendedor_id: e.target.value } : f)}
+                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                          {(usuarios || []).map(u => (
+                                            <option key={u.id} value={u.id}>{u.nombre}</option>
+                                          ))}
+                                        </select>
+                                      </div>
                                       <div>
                                         <label className="text-xs font-medium text-gray-600 block mb-1">Fecha venta</label>
                                         <input
@@ -971,8 +1033,84 @@ function ProductosPage() {
 
         {/* TAB: POR PROFESIONAL */}
         {activeTab === 'por-profesional' && (
-          <div className="text-center py-16 text-gray-400">
-            <p className="text-sm">Reporte por profesional — próximamente</p>
+          <div className="space-y-4">
+            {/* Filtros */}
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-600">Desde</label>
+                <input
+                  type="date"
+                  value={resumenFechaDesde}
+                  onChange={e => setResumenFechaDesde(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-600">Hasta</label>
+                <input
+                  type="date"
+                  value={resumenFechaHasta}
+                  onChange={e => setResumenFechaHasta(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={() => cargarResumen(resumenFechaDesde, resumenFechaHasta)}
+                className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                Filtrar
+              </button>
+            </div>
+
+            {resumenLoading ? (
+              <div className="flex justify-center py-12"><Spinner /></div>
+            ) : !resumenData || resumenData.por_profesional.length === 0 ? (
+              <div className="bg-white rounded-xl border py-16 text-center text-gray-400">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p className="font-medium">Sin ventas en el período seleccionado</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="text-left px-4 py-3 font-medium text-gray-700">Profesional</th>
+                      <th className="text-right px-4 py-3 font-medium text-gray-700">Total ventas</th>
+                      <th className="text-right px-4 py-3 font-medium text-gray-700">Ganancia bruta</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-700">% Comisión</th>
+                      <th className="text-right px-4 py-3 font-medium text-gray-700">Gana profesional</th>
+                      <th className="text-right px-4 py-3 font-medium text-gray-700">Gana empresa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resumenData.por_profesional.map(p => (
+                      <tr key={p.vendedor_id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-gray-900">{p.nombre}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">${Number(p.total_ventas).toLocaleString('es-AR')}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">${Number(p.ganancia_bruta).toLocaleString('es-AR')}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="inline-block px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                            {Number(p.comision_producto)}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-blue-600">${Number(p.ganancia_profesional).toLocaleString('es-AR')}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-emerald-600">${Number(p.ganancia_empresa).toLocaleString('es-AR')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-50 border-t-2 border-gray-200">
+                      <td className="px-4 py-3 font-bold text-gray-900">Total</td>
+                      <td className="px-4 py-3 text-right font-bold text-gray-900">${Number(resumenData.totales.total_ventas).toLocaleString('es-AR')}</td>
+                      <td className="px-4 py-3 text-right font-bold text-gray-900">${Number(resumenData.totales.ganancia_bruta).toLocaleString('es-AR')}</td>
+                      <td className="px-4 py-3" />
+                      <td className="px-4 py-3 text-right font-bold text-blue-600">${Number(resumenData.totales.ganancia_profesionales).toLocaleString('es-AR')}</td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-600">${Number(resumenData.totales.ganancia_empresa).toLocaleString('es-AR')}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
