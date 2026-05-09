@@ -29,7 +29,7 @@ const ErrorReportModal: React.FC = () => {
 
   const handleWhatsApp = () => {
     const text = encodeURIComponent(`REPORTE DE ERROR\n\n${report}`);
-    window.open(`https://wa.me/542915705322?text=${text}`, '_blank');
+    window.open(`https://wa.me/5492915705322?text=${text}`, '_blank');
   };
 
   return (
