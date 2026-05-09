@@ -14,11 +14,11 @@ export function useFetch<T>(
   const { ttl, persist, revalidateOnFocus } = options || {};
   
   const [state, setState] = useState<FetchState<T>>(() => {
-    // Si no hay key, no usar caché
+    // Si no hay key, no fetchear
     if (!key) {
       return {
         data: null,
-        loading: true,
+        loading: false,
         error: null
       };
     }
@@ -66,6 +66,7 @@ export function useFetch<T>(
 
   // Ejecutar fetcher al montar y cuando cambian las dependencias clave
   useEffect(() => {
+    if (!key) return;
     fetchData(true);
   }, [key, ttl, persist]);
 

@@ -34,9 +34,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   };
 
   const footer = (
-    <div className="flex justify-end gap-3">
+    <div className="flex justify-end gap-2">
       <Button
-        variant="secondary"
+        variant="ghost"
         onClick={handleCancel}
         disabled={loading}
       >
@@ -63,7 +63,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       closeOnOverlayClick={!loading}
       closeOnEscape={!loading}
     >
-      <div className="text-gray-600">
+      <div className="text-sm text-gray-500 leading-relaxed">
         {typeof message === 'string' ? (
           <div dangerouslySetInnerHTML={{ __html: message }} />
         ) : (

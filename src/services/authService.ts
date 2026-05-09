@@ -43,7 +43,8 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    const response = await axiosInstance.post('/auth/logout');
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    const response = await axiosInstance.post('/auth/logout', storedRefreshToken ? { refreshToken: storedRefreshToken } : {});
     
     // Backend devuelve {success: true, message}
     if (!response.data.success) {

@@ -169,7 +169,7 @@ export function DashboardPage() {
             Gestiona tus turnos y disponibilidad
           </p>
         </div>
-        {selectedProfesionalId && !isStaff && (
+        {selectedProfesionalId && (
           <Button
             variant="secondary"
             leftIcon={ShoppingCart}

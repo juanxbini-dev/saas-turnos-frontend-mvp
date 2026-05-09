@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Clock, User, CheckCircle, XCircle, Search, Plus, X, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Search, Plus, X, AlertCircle } from 'lucide-react';
 import { TurnoConDetalle } from '../../types/turno.types';
 import { Cliente, CreateClienteData } from '../../types/cliente.types';
 import { UsuarioServicio } from '../../types/servicio.types';
@@ -157,7 +157,7 @@ export function DashboardTurnoModal({
   // Manejar confirmación de turno
   const handleConfirmar = async () => {
     if (!turno?.id) return;
-    
+
     setLoading(true);
     try {
       await turnoService.confirmarTurno(turno.id);
@@ -174,7 +174,7 @@ export function DashboardTurnoModal({
   // Manejar cancelación de turno
   const handleCancelar = async () => {
     if (!turno?.id) return;
-    
+
     setLoading(true);
     try {
       await turnoService.cancelarTurno(turno.id);
@@ -255,51 +255,42 @@ export function DashboardTurnoModal({
       {modalType === 'disponible' ? (
         // Contenido para slot disponible
         <div className="space-y-4">
-          <Card flat className="border-blue-200 bg-blue-50">
-            <h3 className="font-medium text-blue-900 mb-3">Información del Turno</h3>
-            
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <User className="w-4 h-4 text-blue-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Profesional</p>
-                  <p className="font-medium text-gray-900">{profesionalNombre || 'No asignado'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Fecha</p>
-                  <p className="font-medium text-gray-900">{fechaStr || 'No seleccionada'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Hora</p>
-                  <p className="font-medium text-gray-900">{horaStr || 'No seleccionada'}</p>
-                </div>
-              </div>
+          {/* Info del turno — strip horizontal con separadores */}
+          <div className="flex items-center justify-center gap-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div className="text-center">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Profesional</p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">{profesionalNombre || 'No asignado'}</p>
             </div>
-          </Card>
+            <div className="w-px h-8 bg-gray-200" />
+            <div className="text-center">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Fecha</p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">{fechaStr || 'No seleccionada'}</p>
+            </div>
+            <div className="w-px h-8 bg-gray-200" />
+            <div className="text-center">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Hora</p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">{horaStr || 'No seleccionada'}</p>
+            </div>
+          </div>
 
           {/* Selección de Cliente */}
-          <Card flat>
-            <h3 className="font-medium text-gray-900 mb-3">Seleccionar Cliente</h3>
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Seleccionar Cliente</p>
 
             {/* Chip de cliente seleccionado */}
             {selectedCliente ? (
-              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-3">
-                <div>
-                  <div className="font-medium text-blue-900">{selectedCliente.nombre}</div>
-                  <div className="text-sm text-blue-600">{selectedCliente.email}</div>
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100 mb-3">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold shrink-0">
+                  {selectedCliente.nombre.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-blue-900 truncate">{selectedCliente.nombre}</div>
+                  <div className="text-sm text-blue-600 truncate">{selectedCliente.email}</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => { setSelectedCliente(null); setClienteSearch(''); }}
-                  className="text-blue-400 hover:text-blue-600 ml-2"
+                  className="text-blue-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-100 transition-colors shrink-0"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -325,18 +316,17 @@ export function DashboardTurnoModal({
                 ) : filteredClientes.length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-2">Sin resultados</p>
                 ) : (
-                  <div className="max-h-40 overflow-y-auto space-y-2">
+                  <div className="max-h-40 overflow-y-auto divide-y divide-gray-50 rounded-xl border border-gray-100">
                     {filteredClientes.map((cliente) => (
-                      <Card
+                      <button
                         key={cliente.id}
-                        className="cursor-pointer hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-300 transition-all"
+                        type="button"
+                        className="w-full text-left px-3 py-2.5 hover:bg-blue-50 transition-colors first:rounded-t-xl last:rounded-b-xl"
                         onClick={() => { setSelectedCliente(cliente); setClienteSearch(''); }}
                       >
-                        <div>
-                          <div className="font-medium">{cliente.nombre}</div>
-                          <div className="text-sm text-gray-500">{cliente.email}</div>
-                        </div>
-                      </Card>
+                        <div className="font-medium text-gray-900">{cliente.nombre}</div>
+                        <div className="text-sm text-gray-500">{cliente.email}</div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -352,13 +342,13 @@ export function DashboardTurnoModal({
             >
               Crear Nuevo Cliente
             </Button>
-          </Card>
+          </div>
 
           {/* Crear Cliente */}
           {showCreateCliente && (
-            <Card flat className="border-green-200 bg-green-50">
-              <h3 className="font-medium text-green-900 mb-3">Crear Nuevo Cliente</h3>
-              
+            <div className="border border-dashed border-green-200 rounded-xl p-4 bg-green-50/50">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Crear Nuevo Cliente</p>
+
               <div className="space-y-3">
                 <Input
                   placeholder="Nombre del cliente"
@@ -376,10 +366,10 @@ export function DashboardTurnoModal({
                   value={newCliente.telefono}
                   onChange={(e) => setNewCliente({ ...newCliente, telefono: e.target.value })}
                 />
-                
+
                 <div className="flex gap-2">
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     onClick={handleCancelCreateCliente}
                     block
                   >
@@ -395,12 +385,12 @@ export function DashboardTurnoModal({
                   </Button>
                 </div>
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Selección de Servicio */}
-          <Card flat>
-            <h3 className="font-medium text-gray-900 mb-3">Seleccionar Servicio</h3>
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Seleccionar Servicio</p>
 
             {loadingServicios || loadingConfig || loadingSlots ? (
               <div className="flex justify-center py-4">
@@ -416,48 +406,49 @@ export function DashboardTurnoModal({
                   const duracion = servicio.duracion_personalizada || servicio.duracion_minutos || 0;
                   const noFit = duracion > maxDuracionDesdeSlot;
                   return (
-                  <Card
-                    key={servicio.id}
-                    className={`border-2 transition-all ${
-                      noFit
-                        ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50'
-                        : selectedServicio?.id === servicio.id
-                        ? 'cursor-pointer bg-blue-100 border-blue-500'
-                        : 'cursor-pointer hover:bg-blue-50 hover:border-blue-300 border-gray-200'
-                    }`}
-                    onClick={() => { if (!noFit) setSelectedServicio(servicio); }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{servicio.nombre}</div>
-                        <div className="text-sm text-gray-500">
-                          {servicio.duracion_personalizada || servicio.duracion_minutos} min •
-                          ${servicio.precio_personalizado || servicio.precio || 'N/A'}
+                    <div
+                      key={servicio.id}
+                      className={`rounded-xl border p-3 transition-all ${
+                        noFit
+                          ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50'
+                          : selectedServicio?.id === servicio.id
+                          ? 'cursor-pointer border-blue-500 bg-blue-50 shadow-sm'
+                          : 'cursor-pointer border-gray-100 hover:border-blue-200 hover:shadow-sm'
+                      }`}
+                      onClick={() => { if (!noFit) setSelectedServicio(servicio); }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-gray-900">{servicio.nombre}</div>
+                          <div className="text-sm text-gray-500">
+                            {servicio.duracion_personalizada || servicio.duracion_minutos} min •
+                            ${servicio.precio_personalizado || servicio.precio || 'N/A'}
+                          </div>
+                          {noFit && (
+                            <div className="text-xs text-amber-600 mt-1">
+                              No disponible: el servicio requiere {duracion} min pero solo hay {maxDuracionDesdeSlot} min libres en este horario
+                            </div>
+                          )}
                         </div>
-                        {noFit && (
-                          <div className="text-xs text-amber-600 mt-1">
-                            No disponible: el servicio requiere {duracion} min pero solo hay {maxDuracionDesdeSlot} min libres en este horario
+                        {selectedServicio?.id === servicio.id && !noFit && (
+                          <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center shrink-0">
+                            ✓
                           </div>
                         )}
                       </div>
-                      {selectedServicio?.id === servicio.id && !noFit && (
-                        <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center">
-                          ✓
-                        </div>
-                      )}
                     </div>
-                  </Card>
                   );
                 })}
               </div>
             )}
-          </Card>
+          </div>
 
           {/* Botón de Crear Turno */}
           <Button
             onClick={() => setShowConfirmModal(true)}
             disabled={!selectedCliente || !selectedServicio}
             block
+            className="h-11 text-base font-semibold"
           >
             Crear Turno
           </Button>
@@ -465,84 +456,62 @@ export function DashboardTurnoModal({
       ) : (
         // Contenido para slot ocupado
         <div className="space-y-4">
-          <Card flat className="border-purple-200 bg-purple-50">
-            <h3 className="font-medium text-purple-900 mb-3">Información del Turno</h3>
-            
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <User className="w-4 h-4 text-purple-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Cliente</p>
-                  <p className="font-medium text-gray-900">{turno?.cliente_nombre || 'N/A'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-purple-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Fecha</p>
-                  <p className="font-medium text-gray-900">
-                    {turno?.fecha ? format(new Date(turno.fecha.split('T')[0] + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es }) : 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Clock className="w-4 h-4 text-purple-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Hora</p>
-                  <p className="font-medium text-gray-900">{turno?.hora || 'N/A'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 text-purple-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Servicio</p>
-                  <p className="font-medium text-gray-900">{turno?.servicio || 'N/A'}</p>
-                </div>
-              </div>
+          {/* Grid de info del turno */}
+          <div className="grid grid-cols-2 gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Cliente</p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">{turno?.cliente_nombre || 'N/A'}</p>
             </div>
-          </Card>
-
-          {/* Estado del turno */}
-          <Card flat className={`${
-            turno?.estado === 'pendiente' ? 'border-yellow-200 bg-yellow-50' :
-            turno?.estado === 'confirmado' ? 'border-green-200 bg-green-50' :
-            turno?.estado === 'cancelado' ? 'border-red-200 bg-red-50' :
-            'border-gray-200 bg-gray-50'
-          }`}>
-            <p className={`text-sm ${
-              turno?.estado === 'pendiente' ? 'text-yellow-800' :
-              turno?.estado === 'confirmado' ? 'text-green-800' :
-              turno?.estado === 'cancelado' ? 'text-red-800' :
-              'text-gray-800'
-            }`}>
-              <span className="font-medium">Estado:</span> {turno?.estado || 'N/A'}
-            </p>
-          </Card>
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Servicio</p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">{turno?.servicio || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Fecha</p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">
+                {turno?.fecha ? format(new Date(turno.fecha.split('T')[0] + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es }) : 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Hora</p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">{turno?.hora || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Estado</p>
+              <p className={`text-sm font-semibold mt-0.5 ${
+                turno?.estado === 'pendiente' ? 'text-yellow-600' :
+                turno?.estado === 'confirmado' ? 'text-green-600' :
+                turno?.estado === 'cancelado' ? 'text-red-600' :
+                'text-gray-700'
+              }`}>
+                {turno?.estado ? turno.estado.charAt(0).toUpperCase() + turno.estado.slice(1) : 'N/A'}
+              </p>
+            </div>
+          </div>
 
           {/* Botones de acción según estado */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-2 mt-4">
             <Button
-              variant="secondary"
+              variant="ghost"
               onClick={onClose}
               block
+              className="h-10"
             >
               Cerrar
             </Button>
-            
+
             {turno?.estado === 'pendiente' && (
               <Button
                 onClick={handleConfirmar}
                 loading={loading}
                 leftIcon={CheckCircle}
                 block
+                className="h-10"
               >
                 {loading ? 'Confirmando...' : 'Confirmar'}
               </Button>
             )}
-            
+
             {turno?.estado === 'confirmado' && (
               <Button
                 variant="primary"
@@ -550,11 +519,12 @@ export function DashboardTurnoModal({
                 loading={loading}
                 leftIcon={CheckCircle}
                 block
+                className="h-10"
               >
                 {loading ? 'Procesando...' : 'Finalizar Turno'}
               </Button>
             )}
-            
+
             {turno?.estado === 'confirmado' && (
               <Button
                 variant="danger"
@@ -562,6 +532,7 @@ export function DashboardTurnoModal({
                 loading={loading}
                 leftIcon={XCircle}
                 block
+                className="h-10"
               >
                 {loading ? 'Cancelando...' : 'Cancelar'}
               </Button>
@@ -572,6 +543,7 @@ export function DashboardTurnoModal({
                 variant="secondary"
                 onClick={() => setShowEditarPagoModal(true)}
                 block
+                className="h-10"
               >
                 Editar pago
               </Button>
@@ -588,7 +560,7 @@ export function DashboardTurnoModal({
         title="Confirmar Creación de Turno"
         message={`
           ¿Deseas confirmar la creación del turno con los siguientes datos?
-          
+
           <div style="margin: 16px 0; padding: 12px; background-color: #f8fafc; border-radius: 6px; border-left: 4px solid #3b82f6;">
             <div style="margin-bottom: 8px;"><strong>Profesional:</strong> ${profesionalNombre}</div>
             <div style="margin-bottom: 8px;"><strong>Cliente:</strong> ${selectedCliente?.nombre}</div>

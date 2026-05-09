@@ -14,12 +14,12 @@ export interface ModalProps {
 
 // Modal con overlay oscuro y panel centrado con animaciones
 export const Modal = forwardRef<HTMLDivElement, ModalProps>(
-  ({ 
-    isOpen, 
-    onClose, 
-    title, 
-    children, 
-    footer, 
+  ({
+    isOpen,
+    onClose,
+    title,
+    children,
+    footer,
     size = 'md',
     closeOnOverlayClick = true,
     closeOnEscape = true
@@ -55,32 +55,32 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
     return (
       <div className="fixed inset-0 z-50 overflow-y-auto">
         {/* Overlay */}
-        <div 
-          className="fixed inset-0 bg-black/50 transition-opacity"
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
           onClick={handleOverlayClick}
         />
-        
+
         {/* Modal container */}
         <div className="flex min-h-full items-center justify-center p-4">
           <div
             ref={ref}
             className={`
-              relative w-full bg-white rounded-lg shadow-xl 
-              transform transition-all duration-300 scale-100 opacity-100
+              relative w-full bg-white rounded-xl shadow-xl ring-1 ring-black/5
+              transition-all duration-200 ease-out scale-100 opacity-100
               ${sizeClasses[size]}
             `}
           >
             {/* Header */}
             {title && (
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h3 className="text-xl font-semibold text-gray-900">
                   {title}
                 </h3>
                 <button
                   onClick={onClose}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
             )}
@@ -88,21 +88,21 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
               <div className="flex justify-end px-6 py-4">
                 <button
                   onClick={onClose}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
             )}
-            
+
             {/* Body */}
             <div className="px-6 py-4">
               {children}
             </div>
-            
+
             {/* Footer */}
             {footer && (
-              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+              <div className="px-6 py-4 border-t border-gray-100 bg-white rounded-b-xl">
                 {footer}
               </div>
             )}
@@ -119,8 +119,8 @@ Modal.displayName = 'Modal';
 Ejemplos de uso:
 
 // Modal básico
-<Modal 
-  isOpen={isOpen} 
+<Modal
+  isOpen={isOpen}
   onClose={() => setIsOpen(false)}
   title="Confirmar acción"
   footer={
@@ -138,8 +138,8 @@ Ejemplos de uso:
 </Modal>
 
 // Modal grande con formulario
-<Modal 
-  isOpen={isOpen} 
+<Modal
+  isOpen={isOpen}
   onClose={() => setIsOpen(false)}
   title="Nuevo usuario"
   size="lg"
@@ -147,18 +147,18 @@ Ejemplos de uso:
   <form className="space-y-4">
     <Input label="Nombre" value={name} onChange={setName} />
     <Input label="Email" type="email" value={email} onChange={setEmail} />
-    <Select 
-      label="Rol" 
-      options={roleOptions} 
-      value={role} 
-      onChange={setRole} 
+    <Select
+      label="Rol"
+      options={roleOptions}
+      value={role}
+      onChange={setRole}
     />
   </form>
 </Modal>
 
 // Modal sin título (solo overlay)
-<Modal 
-  isOpen={isOpen} 
+<Modal
+  isOpen={isOpen}
   onClose={() => setIsOpen(false)}
   size="sm"
 >
@@ -172,8 +172,8 @@ Ejemplos de uso:
 </Modal>
 
 // Modal que no cierra con overlay ni escape
-<Modal 
-  isOpen={isOpen} 
+<Modal
+  isOpen={isOpen}
   onClose={() => setIsOpen(false)}
   title="Formulario crítico"
   closeOnOverlayClick={false}

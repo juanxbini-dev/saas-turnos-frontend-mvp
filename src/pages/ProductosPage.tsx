@@ -106,7 +106,7 @@ function ProductosPage() {
   );
 
   const { data: usuarios } = useFetch(
-    'usuarios:lista',
+    isAdmin ? 'usuarios:lista' : null,
     () => usuarioService.getUsuarios(),
     { ttl: 300 }
   );

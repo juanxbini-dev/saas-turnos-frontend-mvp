@@ -55,7 +55,7 @@ export function FinanzasPage() {
     loading: loadingProfesionales,
     revalidate: revalidateProfesionales
   } = useFetch(
-    buildKey(ENTITIES.USUARIOS, 'finanzas-selector'),
+    isAdmin ? buildKey(ENTITIES.USUARIOS, 'finanzas-selector') : null,
     () => usuarioService.getUsuarios(),
     { ttl: TTL.MEDIUM }
   );

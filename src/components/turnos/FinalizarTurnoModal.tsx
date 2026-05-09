@@ -222,64 +222,55 @@ export function FinalizarTurnoModal({
       title={titulo}
       size="lg"
     >
-      <div className="space-y-6">
-        {/* Información del Turno */}
-        <Card flat className="border-blue-200 bg-blue-50">
-          <h3 className="font-medium text-blue-900 mb-3">Información del Turno</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-600">Cliente</p>
-              <p className="font-medium">{turno.cliente_nombre}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Servicio</p>
-              <p className="font-medium">{turno.servicio}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Fecha</p>
-              <p className="font-medium">
-                {turno.fecha ? format(new Date(turno.fecha.split('T')[0] + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es }) : 'N/A'}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Hora</p>
-              <p className="font-medium">{turno.hora}</p>
-            </div>
+      <div className="space-y-5">
+        {/* Información del Turno — grid 2x2 limpio */}
+        <div className="grid grid-cols-2 gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Cliente</p>
+            <p className="text-sm font-semibold text-gray-900 mt-0.5">{turno.cliente_nombre}</p>
           </div>
-        </Card>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Servicio</p>
+            <p className="text-sm font-semibold text-gray-900 mt-0.5">{turno.servicio}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Fecha</p>
+            <p className="text-sm font-semibold text-gray-900 mt-0.5">
+              {turno.fecha ? format(new Date(turno.fecha.split('T')[0] + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es }) : 'N/A'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Hora</p>
+            <p className="text-sm font-semibold text-gray-900 mt-0.5">{turno.hora}</p>
+          </div>
+        </div>
 
-        {/* Método de Pago */}
-        <Card flat>
-          <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-            <CreditCard className="w-4 h-4" />
-            Método de Pago
-          </h3>
-          <div className="grid grid-cols-3 gap-3">
+        {/* Método de Pago — pills modernos */}
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Método de Pago</p>
+          <div className="grid grid-cols-3 gap-2">
             {(['efectivo', 'transferencia', 'pendiente'] as MetodoPago[]).map((metodo) => (
               <button
                 key={metodo}
                 onClick={() => setMetodoPago(metodo)}
-                className={`p-3 rounded-lg border-2 transition-all ${
+                className={`py-2.5 rounded-xl border text-sm font-medium transition-all ${
                   metodoPago === metodo
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
                 }`}
               >
                 <div className="capitalize">{metodo}</div>
               </button>
             ))}
           </div>
-        </Card>
+        </div>
 
         {/* Precio del Servicio */}
-        <Card flat>
-          <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-            <DollarSign className="w-4 h-4" />
-            Precio del Servicio
-          </h3>
-          <div className="space-y-3">
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Precio del Servicio</p>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
                 Precio Original
               </label>
               <Input
@@ -289,11 +280,11 @@ export function FinalizarTurnoModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Precio Modificado (opcional)
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                Precio Modificado
               </label>
               <Input
-                placeholder="Ingrese el precio modificado..."
+                placeholder="Opcional..."
                 value={precioModificado}
                 onChange={(e) => setPrecioModificado(e.target.value)}
                 type="number"
@@ -302,15 +293,12 @@ export function FinalizarTurnoModal({
               />
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Productos */}
-        <Card flat>
+        <div className="border-t border-gray-100 pt-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-medium text-gray-900 flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Productos
-            </h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Productos</p>
             <Button
               variant="secondary"
               onClick={() => setShowAgregarProductos(true)}
@@ -324,23 +312,23 @@ export function FinalizarTurnoModal({
           {loadingProductosExistentes ? (
             <div className="flex justify-center py-4"><Spinner size="sm" /></div>
           ) : productos.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No hay productos agregados</p>
+            <p className="text-gray-500 text-center py-4 text-sm">No hay productos agregados</p>
           ) : (
-            <div className="space-y-2">
+            <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
               {productos.map((producto) => (
-                <div key={producto.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
+                <div key={producto.id} className="p-3 space-y-2 bg-white">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-medium">{producto.nombre_producto}</div>
+                      <div className="font-medium text-gray-900">{producto.nombre_producto}</div>
                       <div className="text-sm text-gray-500">
                         {producto.cantidad} × {formatCurrency(producto.precio_unitario)}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="font-medium">{formatCurrency(producto.precio_total)}</div>
+                      <div className="font-medium text-gray-900">{formatCurrency(producto.precio_total)}</div>
                       <button
                         onClick={() => handleEliminarProducto(producto.id)}
-                        className="text-red-500 hover:text-red-700"
+                        className="text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -366,17 +354,17 @@ export function FinalizarTurnoModal({
               ))}
             </div>
           )}
-        </Card>
+        </div>
 
         {/* Selector de Catálogo */}
         {showAgregarProductos && (
-          <Card flat className="border-green-200 bg-green-50">
-            <h3 className="font-medium text-green-900 mb-3">Seleccionar Producto del Catálogo</h3>
+          <div className="border border-dashed border-gray-200 rounded-xl p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Seleccionar Producto del Catálogo</p>
             <div className="space-y-3">
               {selectedCatalogProducto ? (
-                <div className="bg-white border border-green-300 rounded-lg px-3 py-2 flex justify-between items-center">
+                <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex justify-between items-center">
                   <div>
-                    <p className="text-sm font-medium">{selectedCatalogProducto.nombre}</p>
+                    <p className="text-sm font-medium text-gray-900">{selectedCatalogProducto.nombre}</p>
                     <p className="text-xs text-gray-500">
                       {selectedCatalogProducto.marca_nombre && <span className="text-blue-600 font-medium">{selectedCatalogProducto.marca_nombre} · </span>}
                       {formatCurrency(metodoPago === 'transferencia' ? selectedCatalogProducto.precio_transferencia ?? 0 : selectedCatalogProducto.precio_efectivo ?? 0)} c/u · Stock: {selectedCatalogProducto.stock}
@@ -430,8 +418,8 @@ export function FinalizarTurnoModal({
               )}
               {selectedCatalogProducto && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cantidad <span className="text-gray-400 font-normal">(stock: {selectedCatalogProducto.stock})</span>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                    Cantidad <span className="text-gray-400 font-normal normal-case">(stock: {selectedCatalogProducto.stock})</span>
                   </label>
                   <Input
                     type="number"
@@ -457,7 +445,7 @@ export function FinalizarTurnoModal({
                 </div>
               )}
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => { setShowAgregarProductos(false); setSelectedCatalogProducto(null); setCatalogoSearch(''); }} block>
+                <Button variant="ghost" onClick={() => { setShowAgregarProductos(false); setSelectedCatalogProducto(null); setCatalogoSearch(''); }} block>
                   Cancelar
                 </Button>
                 <Button onClick={handleAgregarProducto} disabled={!selectedCatalogProducto || !!cantidadError} block>
@@ -465,19 +453,16 @@ export function FinalizarTurnoModal({
                 </Button>
               </div>
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Descuento */}
-        <Card flat>
-          <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-            <Percent className="w-4 h-4" />
-            Descuento
-          </h3>
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Descuento</p>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Porcentaje de Descuento
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                Porcentaje
               </label>
               <Input
                 placeholder="0%"
@@ -491,7 +476,7 @@ export function FinalizarTurnoModal({
             </div>
             {descuentoPorcentaje && parseFloat(descuentoPorcentaje) > 0 && (
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Aplicar descuento a:</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Aplicar a:</p>
                 <div className="flex gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -527,46 +512,46 @@ export function FinalizarTurnoModal({
               </div>
             )}
           </div>
-        </Card>
+        </div>
 
-        {/* Resumen y Cálculos */}
+        {/* Resumen — panel oscuro prominente */}
         {calculo && (
-          <Card flat className="border-purple-200 bg-purple-50">
-            <h3 className="font-medium text-purple-900 mb-3">Resumen</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
+          <div className="rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 text-white p-4">
+            <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold mb-3">Resumen</p>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between text-slate-300">
                 <span>Servicio:</span>
                 <span>{formatCurrency(calculo.precioOriginalServicio)}</span>
               </div>
               {calculo.precioOriginalProductos > 0 && (
                 <>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-slate-300">
                     <span>Productos:</span>
                     <span>{formatCurrency(calculo.precioOriginalProductos)}</span>
                   </div>
-                  <div className="flex justify-between font-medium">
+                  <div className="flex justify-between text-slate-300 font-medium">
                     <span>Subtotal:</span>
                     <span>{formatCurrency(calculo.subtotal)}</span>
                   </div>
                 </>
               )}
               {calculo.descuentoMonto > 0 && (
-                <div className="flex justify-between text-green-600">
+                <div className="flex justify-between text-green-400">
                   <span>Descuento ({calculo.descuentoPorcentaje}%):</span>
                   <span>-{formatCurrency(calculo.descuentoMonto)}</span>
                 </div>
               )}
-              <div className="border-t pt-2 flex justify-between font-semibold text-lg">
-                <span>Total:</span>
-                <span>{formatCurrency(calculo.totalConDescuento)}</span>
+              <div className="flex justify-between font-bold text-lg pt-3 mt-1 border-t border-slate-700">
+                <span className="text-white">Total:</span>
+                <span className="text-white">{formatCurrency(calculo.totalConDescuento)}</span>
               </div>
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Botones de Acción */}
-        <div className="flex gap-3 pt-4">
-          <Button variant="secondary" onClick={handleClose} block>
+        <div className="flex gap-2 pt-4 border-t border-gray-100">
+          <Button variant="ghost" onClick={handleClose} block>
             Cancelar
           </Button>
           <Button
@@ -574,6 +559,7 @@ export function FinalizarTurnoModal({
             loading={loading}
             disabled={!metodoPago}
             block
+            className="h-11 font-semibold"
             variant={mode === 'editar' ? 'primary' : metodoPago === 'pendiente' ? 'secondary' : 'primary'}
           >
             {loading ? 'Guardando...' : labelBoton}

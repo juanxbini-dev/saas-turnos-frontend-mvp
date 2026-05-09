@@ -166,13 +166,13 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-xl ring-1 ring-black/5 w-full max-w-lg max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-5 border-b flex items-center justify-between">
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Vender</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Vender</h2>
           </div>
           <div className="flex items-center gap-1 text-sm text-gray-500">
             <User className="w-4 h-4" />
@@ -183,17 +183,17 @@ export const VenderModal: React.FC<VenderModalProps> = ({
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {/* Método de pago */}
           <section>
-            <label className="text-sm font-medium text-gray-700 block mb-2">Método de pago</label>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">Método de pago</label>
             <div className="flex gap-2">
               {(['efectivo', 'transferencia', 'pendiente'] as MetodoPago[]).map(m => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => setMetodoPago(m)}
-                  className={`flex-1 py-2 rounded-lg border text-sm font-medium capitalize transition-colors ${
+                  className={`flex-1 py-2.5 rounded-xl border text-sm font-medium capitalize transition-all ${
                     metodoPago === m
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
                   }`}
                 >
                   {m}
@@ -205,7 +205,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
           {/* Cliente */}
           <section>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700">Cliente (opcional)</label>
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Cliente (opcional)</label>
               {!showCreateCliente && !selectedCliente && (
                 <button
                   type="button"
@@ -218,12 +218,12 @@ export const VenderModal: React.FC<VenderModalProps> = ({
             </div>
 
             {selectedCliente ? (
-              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
                 <div>
                   <p className="text-sm font-medium text-blue-900">{selectedCliente.nombre}</p>
                   <p className="text-xs text-blue-600">{selectedCliente.email}</p>
                 </div>
-                <button onClick={() => setSelectedCliente(null)} className="text-blue-400 hover:text-blue-600">
+                <button onClick={() => setSelectedCliente(null)} className="text-blue-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-100 transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -233,7 +233,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                 <Input placeholder="Email *" type="email" value={newCliente.email} onChange={e => setNewCliente(f => ({ ...f, email: e.target.value }))} required />
                 <Input placeholder="Teléfono" value={newCliente.telefono} onChange={e => setNewCliente(f => ({ ...f, telefono: e.target.value }))} />
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setShowCreateCliente(false)} className="flex-1">Cancelar</Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowCreateCliente(false)} className="flex-1">Cancelar</Button>
                   <Button type="submit" size="sm" className="flex-1" disabled={creatingCliente}>
                     {creatingCliente ? 'Creando...' : 'Crear cliente'}
                   </Button>
@@ -249,7 +249,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                   className="pl-9"
                 />
                 {clienteSearch && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-40 overflow-y-auto">
                     {loadingClientes ? (
                       <div className="p-2 text-center"><Spinner size="sm" /></div>
                     ) : filteredClientes.length === 0 ? (
@@ -260,7 +260,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                           key={c.id}
                           type="button"
                           onClick={() => { setSelectedCliente(c); setClienteSearch(''); }}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-0"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0"
                         >
                           <p className="text-sm font-medium">{c.nombre}</p>
                           <p className="text-xs text-gray-500">{c.email}</p>
@@ -275,7 +275,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
 
           {/* Productos */}
           <section>
-            <label className="text-sm font-medium text-gray-700 block mb-2">Productos *</label>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">Productos *</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
@@ -285,7 +285,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                 className="pl-9"
               />
               {productoSearch && (
-                <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
                   {loadingProductos ? (
                     <div className="p-2 text-center"><Spinner size="sm" /></div>
                   ) : filteredProductos.length === 0 ? (
@@ -296,7 +296,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                         key={p.id}
                         type="button"
                         onClick={() => handleAddProducto(p)}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-0 flex justify-between items-center"
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0 flex justify-between items-center"
                       >
                         <div>
                           <p className="text-sm font-medium">{p.nombre}</p>
@@ -317,66 +317,68 @@ export const VenderModal: React.FC<VenderModalProps> = ({
 
             {/* Items seleccionados */}
             {items.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {items.map(item => {
-                  const tieneCosto = item.producto.costo != null && Number(item.producto.costo) > 0;
-                  const precioUnit = getPrecioUnitario(item.producto, item.esVentaCosto);
-                  return (
-                    <div key={item.producto.id} className="bg-gray-50 rounded-lg px-3 py-2 space-y-1.5">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{item.producto.nombre}</p>
-                          {item.esVentaCosto ? (
-                            tieneCosto ? (
-                              <p className="text-xs text-orange-600 font-medium">Precio costo: ${Number(item.producto.costo).toLocaleString('es-AR')} c/u</p>
+              <div className="mt-3">
+                <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
+                  {items.map(item => {
+                    const tieneCosto = item.producto.costo != null && Number(item.producto.costo) > 0;
+                    const precioUnit = getPrecioUnitario(item.producto, item.esVentaCosto);
+                    return (
+                      <div key={item.producto.id} className="bg-white px-3 py-2.5 space-y-1.5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{item.producto.nombre}</p>
+                            {item.esVentaCosto ? (
+                              tieneCosto ? (
+                                <p className="text-xs text-orange-600 font-medium">Precio costo: ${Number(item.producto.costo).toLocaleString('es-AR')} c/u</p>
+                              ) : (
+                                <p className="text-xs text-orange-500">Se usará precio de costo (pendiente configurar)</p>
+                              )
                             ) : (
-                              <p className="text-xs text-orange-500">Se usará precio de costo (pendiente configurar)</p>
-                            )
-                          ) : (
-                            <p className="text-xs text-gray-500">${precioUnit.toLocaleString('es-AR')} c/u</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleChangeCantidad(item.producto.id, -1)}
-                            className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
-                          >
-                            <Minus className="w-3 h-3" />
+                              <p className="text-xs text-gray-500">${precioUnit.toLocaleString('es-AR')} c/u</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleChangeCantidad(item.producto.id, -1)}
+                              className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="text-sm font-medium w-6 text-center">{item.cantidad}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleChangeCantidad(item.producto.id, 1)}
+                              disabled={item.cantidad >= item.producto.stock}
+                              className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center disabled:opacity-40 transition-colors"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900 w-20 text-right">
+                            ${(precioUnit * item.cantidad).toLocaleString('es-AR')}
+                          </span>
+                          <button type="button" onClick={() => handleRemove(item.producto.id)} className="text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition-colors">
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                          <span className="text-sm font-medium w-6 text-center">{item.cantidad}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleChangeCantidad(item.producto.id, 1)}
-                            disabled={item.cantidad >= item.producto.stock}
-                            className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center disabled:opacity-40"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
                         </div>
-                        <span className="text-sm font-semibold w-20 text-right">
-                          ${(precioUnit * item.cantidad).toLocaleString('es-AR')}
-                        </span>
-                        <button type="button" onClick={() => handleRemove(item.producto.id)} className="text-gray-400 hover:text-red-500">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {/* Toggle al costo */}
+                        <label className="flex items-center gap-2 cursor-pointer w-fit">
+                          <input
+                            type="checkbox"
+                            checked={item.esVentaCosto}
+                            onChange={() => handleToggleVentaCosto(item.producto.id)}
+                            className="w-3.5 h-3.5 accent-orange-500"
+                          />
+                          <span className="text-xs text-gray-500 select-none">Al costo</span>
+                        </label>
                       </div>
-                      {/* Toggle al costo */}
-                      <label className="flex items-center gap-2 cursor-pointer w-fit">
-                        <input
-                          type="checkbox"
-                          checked={item.esVentaCosto}
-                          onChange={() => handleToggleVentaCosto(item.producto.id)}
-                          className="w-3.5 h-3.5 accent-orange-500"
-                        />
-                        <span className="text-xs text-gray-500 select-none">Al costo</span>
-                      </label>
-                    </div>
-                  );
-                })}
-                <div className="flex justify-between items-center pt-2 border-t">
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between items-center pt-3 mt-1">
                   <span className="font-semibold text-gray-700">Total</span>
-                  <span className="text-lg font-bold text-gray-900">${total.toLocaleString('es-AR')}</span>
+                  <span className="text-lg font-bold text-blue-600">${total.toLocaleString('es-AR')}</span>
                 </div>
               </div>
             )}
@@ -384,7 +386,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
 
           {/* Notas */}
           <section>
-            <label className="text-sm font-medium text-gray-700 block mb-1">Notas (opcional)</label>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-1">Notas (opcional)</label>
             <Input
               value={notas}
               onChange={e => setNotas(e.target.value)}
@@ -419,8 +421,8 @@ export const VenderModal: React.FC<VenderModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t flex gap-3">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+        <div className="p-4 border-t border-gray-100 flex gap-2">
+          <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>
             Cancelar
           </Button>
           <Button
