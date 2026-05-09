@@ -5,17 +5,21 @@ import { Usuario } from '../../types/usuario.types';
 interface UsuariosMobileListProps {
   usuarios: Usuario[];
   loading: boolean;
+  isSuperAdmin?: boolean;
   onEdit: (usuario: Usuario) => void;
   onCambiarRol: (usuario: Usuario) => void;
   onEliminar: (usuario: Usuario) => void;
+  onResetPassword?: (usuario: Usuario) => void;
 }
 
 export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
   usuarios,
   loading,
+  isSuperAdmin = false,
   onEdit,
   onCambiarRol,
-  onEliminar
+  onEliminar,
+  onResetPassword
 }) => {
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
 
@@ -119,6 +123,14 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
                 >
                   ⇄ Cambiar rol
                 </button>
+                {isSuperAdmin && onResetPassword && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onResetPassword(usuario); }}
+                    className="text-left text-sm text-yellow-600 hover:text-yellow-800 py-1.5 font-medium"
+                  >
+                    🔑 Resetear contraseña
+                  </button>
+                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); onEliminar(usuario); }}
                   className="text-left text-sm py-1.5 font-medium text-red-500 hover:text-red-700"

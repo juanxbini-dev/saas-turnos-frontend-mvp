@@ -42,5 +42,9 @@ export const usuarioService = {
   async deleteAvatarAdmin(id: string): Promise<Usuario> {
     const response = await axiosInstance.delete(`/api/usuarios/${id}/avatar`);
     return response.data.data;
+  },
+
+  async resetPasswordSuperAdmin(id: string, nuevaPassword: string): Promise<void> {
+    await axiosInstance.put(`/admin/usuarios/${id}/reset-password`, { nuevaPassword });
   }
 };

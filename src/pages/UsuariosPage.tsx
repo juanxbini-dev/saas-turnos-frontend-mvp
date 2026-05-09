@@ -8,6 +8,7 @@ import { UsuariosTabla } from '../components/usuarios/UsuariosTabla';
 import { UsuariosMobileList } from '../components/usuarios/UsuariosMobileList';
 import { EditarUsuarioModal } from '../components/usuarios/EditarUsuarioModal';
 import { CambiarRolModal } from '../components/usuarios/CambiarRolModal';
+import { ResetPasswordModal } from '../components/usuarios/ResetPasswordModal';
 import { Button, Modal, ConfirmModal } from '../components/ui';
 import { Usuario } from '../types/usuario.types';
 import { cacheService } from '../cache/cache.service';
@@ -17,11 +18,14 @@ import { TTL } from '../cache/ttl';
 
 function UsuariosPage() {
   const { state } = useAuth();
+  const isSuperAdmin = state.authUser?.roles?.includes('super_admin') ?? false;
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const [rolTarget, setRolTarget] = useState<Usuario | null>(null);
+  const [resetTarget, setResetTarget] = useState<Usuario | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [isRolModalOpen, setIsRolModalOpen] = useState(false);
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; usuario: Usuario | null }>({
     isOpen: false,
     usuario: null
@@ -54,6 +58,11 @@ function UsuariosPage() {
 
   const handleEliminar = (usuario: Usuario) => {
     setDeleteModal({ isOpen: true, usuario });
+  };
+
+  const handleResetPassword = (usuario: Usuario) => {
+    setResetTarget(usuario);
+    setIsResetPasswordOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
@@ -125,9 +134,11 @@ function UsuariosPage() {
             <UsuariosTabla
               usuarios={usuarios || []}
               loading={loading}
+              isSuperAdmin={isSuperAdmin}
               onEdit={handleEdit}
               onCambiarRol={handleCambiarRol}
               onEliminar={handleEliminar}
+              onResetPassword={handleResetPassword}
             />
           </div>
 
@@ -136,9 +147,11 @@ function UsuariosPage() {
             <UsuariosMobileList
               usuarios={usuarios || []}
               loading={loading}
+              isSuperAdmin={isSuperAdmin}
               onEdit={handleEdit}
               onCambiarRol={handleCambiarRol}
               onEliminar={handleEliminar}
+              onResetPassword={handleResetPassword}
             />
           </div>
 
@@ -176,6 +189,15 @@ function UsuariosPage() {
               }}
             />
           </Modal>
+
+          <ResetPasswordModal
+            usuario={resetTarget}
+            isOpen={isResetPasswordOpen}
+            onClose={() => {
+              setIsResetPasswordOpen(false);
+              setResetTarget(null);
+            }}
+          />
 
           {/* Modal de confirmación para eliminar usuario */}
           <ConfirmModal

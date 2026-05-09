@@ -6,17 +6,21 @@ import { Usuario } from '../../types/usuario.types';
 interface UsuariosTablaProps {
   usuarios: Usuario[];
   loading: boolean;
+  isSuperAdmin?: boolean;
   onEdit: (usuario: Usuario) => void;
   onCambiarRol: (usuario: Usuario) => void;
   onEliminar: (usuario: Usuario) => void;
+  onResetPassword?: (usuario: Usuario) => void;
 }
 
 export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
   usuarios,
   loading,
+  isSuperAdmin = false,
   onEdit,
   onCambiarRol,
-  onEliminar
+  onEliminar,
+  onResetPassword
 }) => {
   const columns: Array<any> = [
     {
@@ -115,6 +119,15 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
             >
               Rol
             </Button>
+            {isSuperAdmin && onResetPassword && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onResetPassword(usuario)}
+              >
+                Reset clave
+              </Button>
+            )}
             <Button
               variant="danger"
               size="sm"
