@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power, Trash2, Tag, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power, Trash2, Tag, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { ProductosVentasTab } from '../components/productos/ProductosVentasTab';
 import { productosService, getRegistroVentas, updateVentaProducto, deleteVentaProducto, getResumenVentas, ResumenTotalesVentas, ResumenProfesional, ResumenProducto } from '../services/productos.service';
 import { marcasService } from '../services/marcas.service';
@@ -89,6 +89,56 @@ function ProductosPage() {
   const [resumenFechaHasta, setResumenFechaHasta] = useState(hoyStr);
   const [resumenData, setResumenData] = useState<{ totales: ResumenTotalesVentas; por_profesional: ResumenProfesional[]; por_producto: ResumenProducto[] } | null>(null);
   const [resumenLoading, setResumenLoading] = useState(false);
+
+  // Sorting de tablas
+  type SortDir = 'asc' | 'desc';
+  const [registroSort, setRegistroSort] = useState<{ key: string; dir: SortDir }>({ key: 'fecha_venta', dir: 'desc' });
+  const [prodSort, setProdSort] = useState<{ key: string; dir: SortDir }>({ key: 'total_ventas', dir: 'desc' });
+  const [profSort, setProfSort] = useState<{ key: string; dir: SortDir }>({ key: 'total_ventas', dir: 'desc' });
+
+  function sortRows<T extends Record<string, any>>(rows: T[], key: string, dir: SortDir): T[] {
+    return [...rows].sort((a, b) => {
+      const va = a[key];
+      const vb = b[key];
+      if (va === null || va === undefined) return 1;
+      if (vb === null || vb === undefined) return -1;
+      const cmp = typeof va === 'number' && typeof vb === 'number'
+        ? va - vb
+        : String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' });
+      return dir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  const registroSorted = useMemo(
+    () => sortRows(registroData?.rows ?? [], registroSort.key, registroSort.dir),
+    [registroData, registroSort]
+  );
+  const prodSorted = useMemo(
+    () => sortRows(resumenData?.por_producto ?? [], prodSort.key, prodSort.dir),
+    [resumenData, prodSort]
+  );
+  const profSorted = useMemo(
+    () => sortRows(resumenData?.por_profesional ?? [], profSort.key, profSort.dir),
+    [resumenData, profSort]
+  );
+
+  function toggleSort(
+    current: { key: string; dir: SortDir },
+    key: string,
+    setter: (s: { key: string; dir: SortDir }) => void
+  ) {
+    setter(current.key === key
+      ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: 'desc' }
+    );
+  }
+
+  function SortIcon({ col, sort }: { col: string; sort: { key: string; dir: SortDir } }) {
+    if (sort.key !== col) return <ArrowUpDown className="w-3 h-3 opacity-30 inline ml-1" />;
+    return sort.dir === 'asc'
+      ? <ArrowUp className="w-3 h-3 opacity-70 inline ml-1" />
+      : <ArrowDown className="w-3 h-3 opacity-70 inline ml-1" />;
+  }
 
   const { data: productos, loading: loadingProductos, revalidate: revalidateProductos } = useFetch(
     'productos:lista',
@@ -881,14 +931,24 @@ function ProductosPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 border-b">
-                        <th className="text-left px-4 py-3 font-medium text-gray-700">Producto</th>
-                        <th className="text-center px-4 py-3 font-medium text-gray-700">Unidades</th>
-                        <th className="text-right px-4 py-3 font-medium text-gray-700">Total ventas</th>
-                        <th className="text-right px-4 py-3 font-medium text-gray-700">Ganancia bruta</th>
+                        {[
+                          { key: 'nombre_producto', label: 'Producto',       align: 'left'   },
+                          { key: 'cantidad_total',  label: 'Unidades',       align: 'center' },
+                          { key: 'total_ventas',    label: 'Total ventas',   align: 'right'  },
+                          { key: 'ganancia_bruta',  label: 'Ganancia bruta', align: 'right'  },
+                        ].map(({ key, label, align }) => (
+                          <th
+                            key={key}
+                            onClick={() => toggleSort(prodSort, key, setProdSort)}
+                            className={`px-4 py-3 font-medium text-gray-700 cursor-pointer select-none hover:bg-gray-100 text-${align}`}
+                          >
+                            {label}<SortIcon col={key} sort={prodSort} />
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {resumenData.por_producto.map((p, i) => (
+                      {prodSorted.map((p, i) => (
                         <tr key={p.producto_id ?? i} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3 font-medium text-gray-900">{p.nombre_producto}</td>
                           <td className="px-4 py-3 text-center text-gray-700">{p.cantidad_total}</td>
@@ -961,18 +1021,28 @@ function ProductosPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="bg-gray-50 border-b">
-                            <th className="text-left px-4 py-3 font-medium text-gray-700">Fecha venta</th>
-                            <th className="text-left px-4 py-3 font-medium text-gray-700">Producto</th>
-                            <th className="text-left px-4 py-3 font-medium text-gray-700">Profesional</th>
-                            <th className="text-center px-4 py-3 font-medium text-gray-700">Cant.</th>
-                            <th className="text-right px-4 py-3 font-medium text-gray-700">Precio unit.</th>
-                            <th className="text-right px-4 py-3 font-medium text-gray-700">Total</th>
-                            <th className="text-left px-4 py-3 font-medium text-gray-700">Método</th>
+                            {[
+                              { key: 'fecha_venta',      label: 'Fecha venta',  align: 'left'   },
+                              { key: 'nombre_producto',  label: 'Producto',     align: 'left'   },
+                              { key: 'vendedor_nombre',  label: 'Profesional',  align: 'left'   },
+                              { key: 'cantidad',         label: 'Cant.',        align: 'center' },
+                              { key: 'precio_unitario',  label: 'Precio unit.', align: 'right'  },
+                              { key: 'precio_total',     label: 'Total',        align: 'right'  },
+                              { key: 'metodo_pago',      label: 'Método',       align: 'left'   },
+                            ].map(({ key, label, align }) => (
+                              <th
+                                key={key}
+                                onClick={() => toggleSort(registroSort, key, setRegistroSort)}
+                                className={`px-4 py-3 font-medium text-gray-700 cursor-pointer select-none hover:bg-gray-100 text-${align}`}
+                              >
+                                {label}<SortIcon col={key} sort={registroSort} />
+                              </th>
+                            ))}
                             {isAdmin && <th className="text-right px-4 py-3 font-medium text-gray-700">Acciones</th>}
                           </tr>
                         </thead>
                         <tbody>
-                          {registroData.rows.map(row => (
+                          {registroSorted.map(row => (
                             <React.Fragment key={row.id}>
                               <tr className="border-b last:border-0 hover:bg-gray-50 transition-colors">
                                 <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
@@ -1186,16 +1256,26 @@ function ProductosPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left px-4 py-3 font-medium text-gray-700">Profesional</th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">Total ventas</th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">Ganancia bruta</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-700">% Comisión</th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">Gana profesional</th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">Gana empresa</th>
+                      {[
+                        { key: 'nombre',               label: 'Profesional',      align: 'left'   },
+                        { key: 'total_ventas',         label: 'Total ventas',     align: 'right'  },
+                        { key: 'ganancia_bruta',       label: 'Ganancia bruta',   align: 'right'  },
+                        { key: 'comision_producto',    label: '% Comisión',       align: 'center' },
+                        { key: 'ganancia_profesional', label: 'Gana profesional', align: 'right'  },
+                        { key: 'ganancia_empresa',     label: 'Gana empresa',     align: 'right'  },
+                      ].map(({ key, label, align }) => (
+                        <th
+                          key={key}
+                          onClick={() => toggleSort(profSort, key, setProfSort)}
+                          className={`px-4 py-3 font-medium text-gray-700 cursor-pointer select-none hover:bg-gray-100 text-${align}`}
+                        >
+                          {label}<SortIcon col={key} sort={profSort} />
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {resumenData.por_profesional.map(p => (
+                    {profSorted.map(p => (
                       <tr key={p.vendedor_id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-900">{p.nombre}</td>
                         <td className="px-4 py-3 text-right text-gray-700">${Number(p.total_ventas).toLocaleString('es-AR')}</td>
