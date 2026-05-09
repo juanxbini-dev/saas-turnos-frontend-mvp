@@ -120,8 +120,9 @@ axiosInstance.interceptors.response.use(
       }
     }
 
-    // Propagar requestId al ErrorReporter para errores no-401
-    if (error.response && error.response.status !== 401) {
+    // Propagar requestId al ErrorReporter para errores no-401 y no-409
+    // El 409 es un error de negocio esperado que cada componente maneja localmente
+    if (error.response && error.response.status !== 401 && error.response.status !== 409) {
       const requestId =
         error.response?.data?.requestId ||
         error.response?.headers?.['x-request-id'] ||
