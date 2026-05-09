@@ -55,8 +55,10 @@ const SidebarContent = ({
   const navigate = useNavigate();
   const roles = state.authUser?.roles || [];
 
+  const isAdmin = roles.includes('admin') || roles.includes('super_admin');
+
   const { data: productosStats } = useFetch(
-    'productos:stats:sidebar',
+    isAdmin ? 'productos:stats:sidebar' : null,
     () => productosService.getStats(),
     { ttl: 120 }
   );
@@ -112,7 +114,7 @@ const SidebarContent = ({
             >
               <Icon size={20} className="flex-shrink-0" />
               {(!collapsed || isMobile) && <span className="truncate flex-1">{label}</span>}
-              {(!collapsed || isMobile) && path === '/productos' && (productosStats?.bajo_stock_count ?? 0) > 0 && (
+              {(!collapsed || isMobile) && path === '/productos' && isAdmin && (productosStats?.bajo_stock_count ?? 0) > 0 && (
                 <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0">
                   {productosStats!.bajo_stock_count}
                 </span>

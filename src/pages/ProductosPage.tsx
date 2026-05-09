@@ -293,7 +293,7 @@ function ProductosPage() {
               </button>
             )}
           </div>
-          {bajoStock.length > 0 && (
+          {isAdmin && bajoStock.length > 0 && (
             <div className="mt-2">
               <span className="flex items-center gap-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-full w-fit">
                 <AlertTriangle className="w-3 h-3" /> {bajoStock.length} bajo stock
