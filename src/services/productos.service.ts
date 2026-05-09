@@ -93,10 +93,19 @@ export interface ResumenTotalesVentas {
   ganancia_empresa: number;
 }
 
+export interface ResumenProducto {
+  producto_id: string | null;
+  nombre_producto: string;
+  cantidad_total: number;
+  total_ventas: number;
+  costo_total: number;
+  ganancia_bruta: number;
+}
+
 export async function getResumenVentas(params: {
   fechaDesde: string;
   fechaHasta: string;
-}): Promise<{ totales: ResumenTotalesVentas; por_profesional: ResumenProfesional[] }> {
+}): Promise<{ totales: ResumenTotalesVentas; por_profesional: ResumenProfesional[]; por_producto: ResumenProducto[] }> {
   const res = await axiosInstance.get(`/api/ventas/resumen?fechaDesde=${params.fechaDesde}&fechaHasta=${params.fechaHasta}`);
   return res.data.data;
 }
