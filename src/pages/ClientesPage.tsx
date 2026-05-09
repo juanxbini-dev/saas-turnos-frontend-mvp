@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Tabs, Button, ConfirmModal } from '../components/ui';
+import { Tabs, Button, ConfirmModal, Modal } from '../components/ui';
 import { ClientesCatalogo } from '../components/clientes/ClientesCatalogo';
 import { ClienteModal } from '../components/clientes/ClienteModal';
 import { ClientePerfilDrawer } from '../components/clientes/ClientePerfilDrawer';
@@ -28,6 +28,10 @@ function ClientesPage() {
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; cliente: Cliente | null }>({
     isOpen: false,
     cliente: null
+  });
+  const [turnosActivosModal, setTurnosActivosModal] = useState<{ isOpen: boolean; mensaje: string }>({
+    isOpen: false,
+    mensaje: ''
   });
   const [profesionales, setProfesionales] = useState<Profesional[]>([]);
   const [profesionalSeleccionado, setProfesionalSeleccionado] = useState<Profesional | null>(null);
@@ -98,7 +102,15 @@ function ClientesPage() {
         revalidate();
         setDeleteModal({ isOpen: false, cliente: null });
       } catch (error: any) {
-        toast.error(error.response?.data?.message || error.message || 'Error inesperado');
+        if (error.response?.status === 409) {
+          setDeleteModal({ isOpen: false, cliente: null });
+          setTurnosActivosModal({
+            isOpen: true,
+            mensaje: error.response.data?.message || 'El cliente tiene turnos activos.'
+          });
+        } else {
+          toast.error(error.response?.data?.message || error.message || 'Error inesperado');
+        }
       }
     }
   };
@@ -215,6 +227,34 @@ function ClientesPage() {
             confirmText="Eliminar"
             variant="danger"
           />
+
+          {/* Modal informativo: cliente con turnos pendientes/confirmados */}
+          <Modal
+            isOpen={turnosActivosModal.isOpen}
+            onClose={() => setTurnosActivosModal({ isOpen: false, mensaje: '' })}
+            title="No se puede eliminar el cliente"
+            size="sm"
+            footer={
+              <div className="flex justify-end">
+                <Button onClick={() => setTurnosActivosModal({ isOpen: false, mensaje: '' })}>
+                  Entendido
+                </Button>
+              </div>
+            }
+          >
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <div className="text-sm text-gray-600 space-y-2">
+                <p>{turnosActivosModal.mensaje}</p>
+                <p>Para poder eliminarlo, primero completá o cancelá los turnos pendientes desde la sección de turnos.</p>
+              </div>
+            </div>
+          </Modal>
         </div>
       </main>
     </div>
