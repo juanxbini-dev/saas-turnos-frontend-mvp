@@ -862,37 +862,75 @@ function ProductosPage() {
             )}
 
             {/* Cards de ganancia */}
-            {resumenData && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {isAdmin ? (
-                  <>
-                    <div className="bg-white rounded-xl border p-4">
-                      <p className="text-xs font-medium text-gray-500 mb-1">Ganancia bruta</p>
-                      <p className="text-xl font-bold text-gray-900">${Number(resumenData.totales.ganancia_bruta).toLocaleString('es-AR')}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Ventas ${Number(resumenData.totales.total_ventas).toLocaleString('es-AR')} − Costo ${Number(resumenData.totales.costo_total).toLocaleString('es-AR')}</p>
+            {resumenData && (() => {
+              const fmt = (d: string) => d.split('-').reverse().join('/');
+              const periodo = `${fmt(resumenFechaDesde)} — ${fmt(resumenFechaHasta)}`;
+              const t = resumenData.totales;
+              return (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-400 font-medium">Período: {periodo}</p>
+                  {isAdmin ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="bg-white rounded-xl border p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Ingresos totales</p>
+                        <p className="text-xl font-bold text-gray-900">${Number(t.total_ventas).toLocaleString('es-AR')}</p>
+                        <div className="mt-1.5 space-y-0.5">
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>Efectivo</span>
+                            <span className="font-medium text-gray-700">${Number(t.ingresos_efectivo).toLocaleString('es-AR')}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>Transferencia</span>
+                            <span className="font-medium text-gray-700">${Number(t.ingresos_transferencia).toLocaleString('es-AR')}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-xl border p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Ganancia bruta</p>
+                        <p className="text-xl font-bold text-gray-900">${Number(t.ganancia_bruta).toLocaleString('es-AR')}</p>
+                        <div className="mt-1.5 space-y-0.5">
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>Ventas</span>
+                            <span className="font-medium text-gray-700">${Number(t.total_ventas).toLocaleString('es-AR')}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>Costo</span>
+                            <span className="font-medium text-gray-700">${Number(t.costo_total).toLocaleString('es-AR')}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-xl border p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Ganancia empresa (neta)</p>
+                        <p className="text-xl font-bold text-emerald-600">${Number(t.ganancia_empresa).toLocaleString('es-AR')}</p>
+                        <div className="mt-1.5 space-y-0.5">
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>Bruta</span>
+                            <span className="font-medium text-gray-700">${Number(t.ganancia_bruta).toLocaleString('es-AR')}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>Comisiones prof.</span>
+                            <span className="font-medium text-gray-700">${Number(t.ganancia_profesionales).toLocaleString('es-AR')}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="bg-white rounded-xl border p-4">
-                      <p className="text-xs font-medium text-gray-500 mb-1">Ganancia empresa (neta)</p>
-                      <p className="text-xl font-bold text-emerald-600">${Number(resumenData.totales.ganancia_empresa).toLocaleString('es-AR')}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Bruta − Comisiones profesionales ${Number(resumenData.totales.ganancia_profesionales).toLocaleString('es-AR')}</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="bg-white rounded-xl border p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Mi ganancia bruta</p>
+                        <p className="text-xl font-bold text-gray-900">${Number(t.ganancia_bruta).toLocaleString('es-AR')}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Ventas ${Number(t.total_ventas).toLocaleString('es-AR')} − Costo ${Number(t.costo_total).toLocaleString('es-AR')}</p>
+                      </div>
+                      <div className="bg-white rounded-xl border p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Mi comisión</p>
+                        <p className="text-xl font-bold text-blue-600">${Number(t.ganancia_profesionales).toLocaleString('es-AR')}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Sobre ${Number(t.total_ventas).toLocaleString('es-AR')} en ventas</p>
+                      </div>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="bg-white rounded-xl border p-4">
-                      <p className="text-xs font-medium text-gray-500 mb-1">Mi ganancia bruta</p>
-                      <p className="text-xl font-bold text-gray-900">${Number(resumenData.totales.ganancia_bruta).toLocaleString('es-AR')}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Ventas ${Number(resumenData.totales.total_ventas).toLocaleString('es-AR')} − Costo ${Number(resumenData.totales.costo_total).toLocaleString('es-AR')}</p>
-                    </div>
-                    <div className="bg-white rounded-xl border p-4">
-                      <p className="text-xs font-medium text-gray-500 mb-1">Mi comisión</p>
-                      <p className="text-xl font-bold text-blue-600">${Number(resumenData.totales.ganancia_profesionales).toLocaleString('es-AR')}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Sobre ${Number(resumenData.totales.total_ventas).toLocaleString('es-AR')} en ventas</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Segmented control */}
             <div className="flex border border-gray-200 rounded-lg overflow-hidden mb-4 self-start w-fit">
