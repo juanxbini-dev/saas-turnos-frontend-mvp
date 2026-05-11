@@ -872,16 +872,6 @@ function ProductosPage() {
                       <div className="bg-white rounded-xl border p-4">
                         <p className="text-xs font-medium text-gray-500 mb-1">Ingresos totales</p>
                         <p className="text-xl font-bold text-gray-900">${Number(t.total_ventas).toLocaleString('es-AR')}</p>
-                        <div className="mt-1.5 space-y-0.5">
-                          <div className="flex justify-between text-xs text-gray-400">
-                            <span>Efectivo</span>
-                            <span className="font-medium text-gray-700">${(Number(t.ingresos_efectivo) || 0).toLocaleString('es-AR')}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-gray-400">
-                            <span>Transferencia</span>
-                            <span className="font-medium text-gray-700">${(Number(t.ingresos_transferencia) || 0).toLocaleString('es-AR')}</span>
-                          </div>
-                        </div>
                       </div>
                       <div className="bg-white rounded-xl border p-4">
                         <p className="text-xs font-medium text-gray-500 mb-1">Ganancia bruta</p>
