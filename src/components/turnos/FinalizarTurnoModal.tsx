@@ -37,6 +37,7 @@ export function FinalizarTurnoModal({
   const [selectedCatalogProducto, setSelectedCatalogProducto] = useState<Producto | null>(null);
   const [nuevaCantidad, setNuevaCantidad] = useState(1);
   const [cantidadError, setCantidadError] = useState<string | null>(null);
+  const [nuevaEsVentaCosto, setNuevaEsVentaCosto] = useState(false);
   const [loadingProductosExistentes, setLoadingProductosExistentes] = useState(false);
 
   const { data: catalogoProductos, loading: loadingCatalogo } = useFetch(
@@ -84,11 +85,26 @@ export function FinalizarTurnoModal({
   // Cambiar método de pago de un producto y recalcular su precio
   const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia') => {
     setProductos(prev => prev.map(p => {
-      if (p.id !== id) return p;
+      if (p.id !== id || p.es_venta_costo) return p;
       const nuevoPrecio = metodo === 'transferencia'
         ? (p._precio_transferencia ?? p.precio_unitario)
         : (p._precio_efectivo ?? p.precio_unitario);
       return { ...p, metodo_pago: metodo, precio_unitario: nuevoPrecio, precio_total: nuevoPrecio * p.cantidad };
+    }));
+  };
+
+  const handleToggleVentaCosto = (id: string) => {
+    setProductos(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const activar = !p.es_venta_costo;
+      if (activar) {
+        const precio = p._precio_costo ?? 0;
+        return { ...p, es_venta_costo: true, metodo_pago: undefined, precio_unitario: precio, precio_total: precio * p.cantidad };
+      } else {
+        const metodo = metodoPago === 'transferencia' ? 'transferencia' : 'efectivo';
+        const precio = metodo === 'transferencia' ? (p._precio_transferencia ?? 0) : (p._precio_efectivo ?? 0);
+        return { ...p, es_venta_costo: false, metodo_pago: metodo, precio_unitario: precio, precio_total: precio * p.cantidad };
+      }
     }));
   };
 
@@ -131,7 +147,10 @@ export function FinalizarTurnoModal({
       const metodoProd = metodoPago as 'efectivo' | 'transferencia' | 'pendiente';
       const precioEfectivo = Number(selectedCatalogProducto.precio_efectivo) || 0;
       const precioTransferencia = Number(selectedCatalogProducto.precio_transferencia) || 0;
-      const precioUnitario = metodoProd === 'transferencia' ? precioTransferencia : precioEfectivo;
+      const precioCosto = Number(selectedCatalogProducto.costo) || 0;
+      const precioUnitario = nuevaEsVentaCosto
+        ? precioCosto
+        : (metodoProd === 'transferencia' ? precioTransferencia : precioEfectivo);
       const producto: VentaProductoData = {
         id: generarId(),
         producto_id: selectedCatalogProducto.id,
@@ -139,9 +158,11 @@ export function FinalizarTurnoModal({
         cantidad: nuevaCantidad,
         precio_unitario: precioUnitario,
         precio_total: precioUnitario * nuevaCantidad,
-        metodo_pago: metodoProd,
+        metodo_pago: nuevaEsVentaCosto ? undefined : metodoProd as 'efectivo' | 'transferencia',
+        es_venta_costo: nuevaEsVentaCosto,
         _precio_efectivo: precioEfectivo,
         _precio_transferencia: precioTransferencia,
+        _precio_costo: precioCosto,
       };
       setProductos([...productos, producto]);
     }
@@ -150,6 +171,7 @@ export function FinalizarTurnoModal({
     setCatalogoSearch('');
     setNuevaCantidad(1);
     setCantidadError(null);
+    setNuevaEsVentaCosto(false);
     setShowAgregarProductos(false);
   };
 
@@ -201,6 +223,7 @@ export function FinalizarTurnoModal({
     setCatalogoSearch('');
     setNuevaCantidad(1);
     setCantidadError(null);
+    setNuevaEsVentaCosto(false);
     onClose();
   };
 
@@ -334,8 +357,8 @@ export function FinalizarTurnoModal({
                       </button>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    {(['efectivo', 'transferencia'] as const).map(m => (
+                  <div className="flex gap-1 flex-wrap">
+                    {!producto.es_venta_costo && (['efectivo', 'transferencia'] as const).map(m => (
                       <button
                         key={m}
                         type="button"
@@ -349,6 +372,17 @@ export function FinalizarTurnoModal({
                         {m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleVentaCosto(producto.id)}
+                      className={`text-xs px-2 py-0.5 rounded border transition-all ${
+                        producto.es_venta_costo
+                          ? 'border-orange-500 bg-orange-50 text-orange-700 font-medium'
+                          : 'border-gray-200 text-gray-500 hover:border-orange-300'
+                      }`}
+                    >
+                      Al costo
+                    </button>
                   </div>
                 </div>
               ))}
@@ -417,31 +451,47 @@ export function FinalizarTurnoModal({
                 </div>
               )}
               {selectedCatalogProducto && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
-                    Cantidad <span className="text-gray-400 font-normal normal-case">(stock: {selectedCatalogProducto.stock})</span>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                      Cantidad <span className="text-gray-400 font-normal normal-case">(stock: {selectedCatalogProducto.stock})</span>
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max={selectedCatalogProducto.stock}
+                      value={nuevaCantidad}
+                      onChange={e => {
+                        const val = parseInt(e.target.value) || 1;
+                        setNuevaCantidad(val);
+                        if (val > selectedCatalogProducto.stock) {
+                          setCantidadError(`Supera el stock disponible (${selectedCatalogProducto.stock})`);
+                        } else if (val < 1) {
+                          setCantidadError('La cantidad mínima es 1');
+                        } else {
+                          setCantidadError(null);
+                        }
+                      }}
+                      className={cantidadError ? 'border-red-400' : ''}
+                    />
+                    {cantidadError && (
+                      <p className="text-xs text-red-600 mt-1">{cantidadError}</p>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer w-fit">
+                    <input
+                      type="checkbox"
+                      checked={nuevaEsVentaCosto}
+                      onChange={e => setNuevaEsVentaCosto(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-orange-500 cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-700">Vender al costo</span>
+                    {nuevaEsVentaCosto && selectedCatalogProducto.costo != null && (
+                      <span className="text-xs text-orange-600 font-medium">
+                        {formatCurrency(Number(selectedCatalogProducto.costo))} c/u
+                      </span>
+                    )}
                   </label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max={selectedCatalogProducto.stock}
-                    value={nuevaCantidad}
-                    onChange={e => {
-                      const val = parseInt(e.target.value) || 1;
-                      setNuevaCantidad(val);
-                      if (val > selectedCatalogProducto.stock) {
-                        setCantidadError(`Supera el stock disponible (${selectedCatalogProducto.stock})`);
-                      } else if (val < 1) {
-                        setCantidadError('La cantidad mínima es 1');
-                      } else {
-                        setCantidadError(null);
-                      }
-                    }}
-                    className={cantidadError ? 'border-red-400' : ''}
-                  />
-                  {cantidadError && (
-                    <p className="text-xs text-red-600 mt-1">{cantidadError}</p>
-                  )}
                 </div>
               )}
               <div className="flex gap-2">
