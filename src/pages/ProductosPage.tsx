@@ -67,8 +67,6 @@ function ProductosPage() {
   const hoy = new Date();
   const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
   const hoyStr = hoy.toISOString().split('T')[0];
-  const [registroFechaDesde, setRegistroFechaDesde] = useState(primerDiaMes);
-  const [registroFechaHasta, setRegistroFechaHasta] = useState(hoyStr);
   const [registroPage, setRegistroPage] = useState(1);
   const [registroData, setRegistroData] = useState<{ rows: any[]; total: number } | null>(null);
   const [registroLoading, setRegistroLoading] = useState(false);
@@ -277,7 +275,7 @@ function ProductosPage() {
   };
 
   const cargarRegistro = (page = 1) =>
-    cargarRegistroConFechas(registroFechaDesde, registroFechaHasta, page);
+    cargarRegistroConFechas(resumenFechaDesde, resumenFechaHasta, page);
 
   const handleEditarVenta = (row: any) => {
     setEditingVentaId(row.id);
@@ -830,35 +828,36 @@ function ProductosPage() {
         {/* TAB: VENTAS */}
         {activeTab === 'ventas' && (
           <div className="space-y-4">
-            {/* Filtro de fechas para staff (unificado) */}
-            {!isAdmin && (
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-600">Desde</label>
-                  <input
-                    type="date"
-                    value={resumenFechaDesde}
-                    onChange={e => setResumenFechaDesde(e.target.value)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-600">Hasta</label>
-                  <input
-                    type="date"
-                    value={resumenFechaHasta}
-                    onChange={e => setResumenFechaHasta(e.target.value)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <button
-                  onClick={() => cargarResumen(resumenFechaDesde, resumenFechaHasta)}
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-                >
-                  Filtrar
-                </button>
+            {/* Filtro de fechas unificado para toda la sección */}
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-600">Desde</label>
+                <input
+                  type="date"
+                  value={resumenFechaDesde}
+                  onChange={e => setResumenFechaDesde(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-600">Hasta</label>
+                <input
+                  type="date"
+                  value={resumenFechaHasta}
+                  onChange={e => setResumenFechaHasta(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={() => {
+                  cargarResumen(resumenFechaDesde, resumenFechaHasta);
+                  cargarRegistroConFechas(resumenFechaDesde, resumenFechaHasta, 1);
+                }}
+                className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                Filtrar
+              </button>
+            </div>
 
             {/* Cards de ganancia */}
             {resumenData && (() => {
@@ -1013,35 +1012,6 @@ function ProductosPage() {
 
             {ventasSubTab === 'registro' && (
               <div className="space-y-4">
-                {/* Filtros solo para admin (staff usa el filtro unificado de arriba) */}
-                {isAdmin && (
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium text-gray-600">Desde</label>
-                      <input
-                        type="date"
-                        value={registroFechaDesde}
-                        onChange={e => setRegistroFechaDesde(e.target.value)}
-                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium text-gray-600">Hasta</label>
-                      <input
-                        type="date"
-                        value={registroFechaHasta}
-                        onChange={e => setRegistroFechaHasta(e.target.value)}
-                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <button
-                      onClick={() => cargarRegistro(1)}
-                      className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-                    >
-                      Filtrar
-                    </button>
-                  </div>
-                )}
 
                 {registroLoading ? (
                   <div className="flex justify-center py-12"><Spinner /></div>
