@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power, Trash2, Tag, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
-import { ProductosVentasTab } from '../components/productos/ProductosVentasTab';
 import { productosService, getRegistroVentas, updateVentaProducto, deleteVentaProducto, getResumenVentas, ResumenTotalesVentas, ResumenProfesional, ResumenProducto } from '../services/productos.service';
 import { marcasService } from '../services/marcas.service';
 import { usuarioService } from '../services/usuario.service';
@@ -877,11 +876,11 @@ function ProductosPage() {
                         <div className="mt-1.5 space-y-0.5">
                           <div className="flex justify-between text-xs text-gray-400">
                             <span>Efectivo</span>
-                            <span className="font-medium text-gray-700">${Number(t.ingresos_efectivo).toLocaleString('es-AR')}</span>
+                            <span className="font-medium text-gray-700">${(Number(t.ingresos_efectivo) || 0).toLocaleString('es-AR')}</span>
                           </div>
                           <div className="flex justify-between text-xs text-gray-400">
                             <span>Transferencia</span>
-                            <span className="font-medium text-gray-700">${Number(t.ingresos_transferencia).toLocaleString('es-AR')}</span>
+                            <span className="font-medium text-gray-700">${(Number(t.ingresos_transferencia) || 0).toLocaleString('es-AR')}</span>
                           </div>
                         </div>
                       </div>
@@ -954,9 +953,7 @@ function ProductosPage() {
               </button>
             </div>
 
-            {ventasSubTab === 'resumen' && isAdmin && <ProductosVentasTab />}
-
-            {ventasSubTab === 'resumen' && !isAdmin && (
+            {ventasSubTab === 'resumen' && (
               resumenLoading ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
               ) : !resumenData || resumenData.por_producto.length === 0 ? (
