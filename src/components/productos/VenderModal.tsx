@@ -166,7 +166,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white rounded-xl shadow-xl ring-1 ring-black/5 w-full max-w-lg max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-5 border-b border-gray-100 flex items-center justify-between">

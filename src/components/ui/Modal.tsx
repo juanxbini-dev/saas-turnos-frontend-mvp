@@ -56,7 +56,7 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
       <div className="fixed inset-0 z-50 overflow-y-auto">
         {/* Overlay */}
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-black/60 transition-opacity"
           onClick={handleOverlayClick}
         />
 

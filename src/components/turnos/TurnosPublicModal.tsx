@@ -433,7 +433,7 @@ export const TurnosPublicModal: React.FC<TurnosPublicModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleClose} />
+      <div className="absolute inset-0 bg-black/80" onClick={handleClose} />
       <div className="relative w-full max-w-md bg-[#111] border border-white/15 max-h-[90vh] flex flex-col">
 
         {/* Header */}

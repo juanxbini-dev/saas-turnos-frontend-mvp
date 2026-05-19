@@ -55,7 +55,7 @@ export const Spinner = forwardRef<HTMLDivElement, SpinnerProps>(
       return (
         <div 
           ref={ref}
-          className={`flex items-center justify-center bg-white/80 backdrop-blur-sm ${className}`}
+          className={`flex items-center justify-center bg-white/90 ${className}`}
           {...props}
         >
           {spinner}

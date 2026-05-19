@@ -264,7 +264,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     <>
       {/* ── Modal principal ── */}
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleClose} />
+        <div className="absolute inset-0 bg-black/80" onClick={handleClose} />
         <div className="relative w-full max-w-lg bg-[#111] border border-white/15 max-h-[90vh] flex flex-col">
 
           {/* Header */}
@@ -514,7 +514,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       {/* ── Modal de error ── */}
       {showErrorModal && submitError && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowErrorModal(false)} />
+          <div className="absolute inset-0 bg-black/80" onClick={() => setShowErrorModal(false)} />
           <div className="relative w-full max-w-sm bg-[#111] border border-white/15 p-6">
             <div className="text-center mb-5">
               <div className="w-10 h-10 border border-red-500/50 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -541,7 +541,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       {/* ── Modal cliente existente ── */}
       {showMatchModal && existingCliente && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowMatchModal(false)} />
+          <div className="absolute inset-0 bg-black/80" onClick={() => setShowMatchModal(false)} />
           <div className="relative w-full max-w-sm bg-[#111] border border-white/15 p-6">
             {/* X cierre */}
             <button
@@ -598,7 +598,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       {/* ── Modal de turno confirmado ── */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/80" />
           <div className="relative w-full max-w-sm bg-[#111] border border-white/15 p-6 text-center">
             <div className="w-12 h-12 border border-white/30 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-white text-2xl">✓</span>

@@ -603,7 +603,7 @@ export function DashboardTurnoModal({
       {/* Modal de Error */}
       {errorModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setErrorModal(null)} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => setErrorModal(null)} />
           <div className="relative w-full max-w-sm bg-white rounded-lg shadow-xl p-6 text-center">
             <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <AlertCircle className="w-5 h-5 text-red-500" />
