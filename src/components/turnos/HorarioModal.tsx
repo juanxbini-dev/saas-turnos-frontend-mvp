@@ -29,9 +29,8 @@ const diasSemana = [
 ];
 
 const intervalos = [
-  { value: '15', label: '15 minutos' },
-  { value: '30', label: '30 minutos' },
-  { value: '60', label: '1 hora' }
+  { value: '60', label: '1 hora' },
+  { value: '120', label: '2 horas' }
 ];
 
 export const HorarioModal: React.FC<HorarioModalProps> = ({
@@ -49,7 +48,7 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
     dia_fin: horario?.dia_fin?.toString() || '5',
     hora_inicio: horario?.hora_inicio || '09:00',
     hora_fin: horario?.hora_fin || '17:00',
-    intervalo_minutos: horario?.intervalo_minutos?.toString() || '30'
+    intervalo_minutos: horario?.intervalo_minutos?.toString() || '60'
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -62,7 +61,7 @@ export const HorarioModal: React.FC<HorarioModalProps> = ({
       dia_fin: horario?.dia_fin?.toString() || '5',
       hora_inicio: horario?.hora_inicio || '09:00',
       hora_fin: horario?.hora_fin || '17:00',
-      intervalo_minutos: horario?.intervalo_minutos?.toString() || '30'
+      intervalo_minutos: horario?.intervalo_minutos?.toString() || '60'
     });
     setErrors({});
   }, [horario]);

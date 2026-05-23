@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { buildKey } from '../cache/key.builder';
 import { ENTITIES } from '../cache/key.builder';
@@ -88,6 +88,23 @@ export const useDisponibilidad = (profesionalId: string | null, servicioId?: str
     });
   }, [slots, selectedDate, profesionalId, loadingSlots, slotsError]);
 
+  // Filtrar slots pasados cuando la fecha seleccionada es hoy.
+  // El backend devuelve todos los slots porque corre en UTC y no conoce la timezone del cliente.
+  const slotsFiltrados = useMemo(() => {
+    if (!slots || !selectedDate) return slots || [];
+
+    const ahora = new Date();
+    const hoyStr = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+
+    if (selectedDate !== hoyStr) return slots;
+
+    const minutosActuales = ahora.getHours() * 60 + ahora.getMinutes();
+    return slots.filter((slot: string) => {
+      const [h, m] = slot.split(':').map(Number);
+      return (h * 60 + m) > minutosActuales;
+    });
+  }, [slots, selectedDate]);
+
   const handleMonthChange = useCallback((newMes: number, newAño: number) => {
     disponibilidadLogger.debug('handleMonthChange llamado', { newMes, newAño });
     setMes(newMes);
@@ -148,7 +165,7 @@ export const useDisponibilidad = (profesionalId: string | null, servicioId?: str
     
     // Datos
     availableDates: availableDates || [],
-    slots: slots || [],
+    slots: slotsFiltrados,
     
     // Loading states
     loadingDates,

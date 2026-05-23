@@ -32,7 +32,7 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
     disponible: excepcion?.disponible ?? true,
     hora_inicio: excepcion?.hora_inicio || '',
     hora_fin: excepcion?.hora_fin || '',
-    intervalo_minutos: excepcion?.intervalo_minutos?.toString() || '30',
+    intervalo_minutos: excepcion?.intervalo_minutos?.toString() || '60',
     notas: excepcion?.notas || ''
   });
 
@@ -46,7 +46,7 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
       disponible: excepcion?.disponible ?? true,
       hora_inicio: excepcion?.hora_inicio || '',
       hora_fin: excepcion?.hora_fin || '',
-      intervalo_minutos: excepcion?.intervalo_minutos?.toString() || '30',
+      intervalo_minutos: excepcion?.intervalo_minutos?.toString() || '60',
       notas: excepcion?.notas || ''
     });
     setErrors({});
@@ -143,18 +143,23 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
         
         // Invalidar caché específico para la fecha de la excepción
         if (formData.fecha) {
-          // Necesitamos el ID del profesional autenticado para invalidar slots específicos
-          const authUser = JSON.parse(localStorage.getItem('authUser') || '{}');
-          if (authUser?.id) {
-            const specificSlotsKey = buildKey(ENTITIES.SLOTS, authUser.id, formData.fecha);
-            const specificDisponibilidadKey = buildKey(ENTITIES.DISPONIBILIDAD, authUser.id, 
-              `${new Date(formData.fecha).getMonth() + 1}-${new Date(formData.fecha).getFullYear()}`);
-            
-            excepcionLogger.debug('Invalidando caché específico', { 
+          // Usar el id del profesional efectivo (super_admin actuando) o el del usuario autenticado
+          const ownerId = profesionalId || authUser?.authUser?.id;
+          if (ownerId) {
+            // Parsear el string YYYY-MM-DD directo para evitar el shift de timezone que sufre `new Date(...)`
+            const [yearStr, monthStr] = formData.fecha.split('-');
+            const specificSlotsKey = buildKey(ENTITIES.SLOTS, ownerId, formData.fecha);
+            const specificDisponibilidadKey = buildKey(
+              ENTITIES.DISPONIBILIDAD,
+              ownerId,
+              `${parseInt(monthStr, 10)}-${parseInt(yearStr, 10)}`
+            );
+
+            excepcionLogger.debug('Invalidando caché específico', {
               specificSlotsKey,
               specificDisponibilidadKey
             });
-            
+
             cacheService.invalidate(specificSlotsKey);
             cacheService.invalidate(specificDisponibilidadKey);
             excepcionLogger.debug('Caché específico de fecha invalidado', { fecha: formData.fecha });
@@ -182,9 +187,8 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
   };
 
   const intervalos = [
-    { value: '15', label: '15 minutos' },
-    { value: '30', label: '30 minutos' },
-    { value: '60', label: '1 hora' }
+    { value: '60', label: '1 hora' },
+    { value: '120', label: '2 horas' }
   ];
 
   const opcionesDisponible = [
