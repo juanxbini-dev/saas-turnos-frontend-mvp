@@ -9,6 +9,28 @@ export interface ClientesPaginadosResponse {
   total_paginas: number;
 }
 
+export interface ClienteDuplicado {
+  cliente: Cliente;
+  mensaje: string;
+}
+
+/**
+ * Si el error proviene de intentar crear un cliente con un email/teléfono que ya
+ * existe, el backend devuelve el cliente existente en `data.cliente`. Devuelve esa
+ * info para poder mostrar un aviso y ofrecer usar el cliente existente, o null si
+ * no es un caso de duplicado.
+ */
+export function getClienteDuplicado(error: any): ClienteDuplicado | null {
+  const data = error?.response?.data;
+  if (data?.cliente) {
+    return {
+      cliente: data.cliente as Cliente,
+      mensaje: data.message || 'Ya existe un cliente con esos datos'
+    };
+  }
+  return null;
+}
+
 export const clienteService = {
   async getClientes(pagina = 1, porPagina = 20, busqueda?: string): Promise<ClientesPaginadosResponse> {
     const params: Record<string, any> = { pagina, por_pagina: porPagina };

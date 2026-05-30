@@ -3,7 +3,8 @@ import { Search, Plus, Minus, Trash2, ShoppingCart, User } from 'lucide-react';
 import { Button, Input, Spinner } from '../ui';
 import { Cliente, CreateClienteData } from '../../types/cliente.types';
 import { Producto } from '../../types/producto.types';
-import { clienteService } from '../../services/cliente.service';
+import { clienteService, getClienteDuplicado } from '../../services/cliente.service';
+import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
 import { ventasService } from '../../services/ventas.service';
 import { productosService } from '../../services/productos.service';
 import { useToast } from '../../hooks/useToast';
@@ -41,6 +42,11 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   const [showCreateCliente, setShowCreateCliente] = useState(false);
   const [newCliente, setNewCliente] = useState({ nombre: '', email: '', telefono: '' });
   const [creatingCliente, setCreatingCliente] = useState(false);
+  const [clienteDuplicado, setClienteDuplicado] = useState<{ isOpen: boolean; cliente: Cliente | null; mensaje: string }>({
+    isOpen: false,
+    cliente: null,
+    mensaje: ''
+  });
 
   // Productos
   const [productoSearch, setProductoSearch] = useState('');
@@ -98,11 +104,25 @@ export const VenderModal: React.FC<VenderModalProps> = ({
       setSelectedCliente(created);
       setShowCreateCliente(false);
       setNewCliente({ nombre: '', email: '', telefono: '' });
-    } catch {
-      toast.error('Error al crear el cliente');
+    } catch (error: any) {
+      const dup = getClienteDuplicado(error);
+      if (dup) {
+        setClienteDuplicado({ isOpen: true, cliente: dup.cliente, mensaje: dup.mensaje });
+      } else {
+        toast.error(error?.response?.data?.message || 'Error al crear el cliente');
+      }
     } finally {
       setCreatingCliente(false);
     }
+  };
+
+  const usarClienteExistente = (cliente: Cliente) => {
+    setSelectedCliente(cliente);
+    setShowCreateCliente(false);
+    setNewCliente({ nombre: '', email: '', telefono: '' });
+    setClienteSearch('');
+    setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' });
+    toast.success('Cliente existente seleccionado');
   };
 
   const handleAddProducto = (producto: Producto) => {
@@ -175,6 +195,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   };
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white rounded-xl shadow-xl ring-1 ring-black/5 w-full max-w-lg max-h-[90vh] flex flex-col">
         {/* Header */}
@@ -447,5 +468,14 @@ export const VenderModal: React.FC<VenderModalProps> = ({
         </div>
       </div>
     </div>
+
+    <ClienteDuplicadoModal
+      isOpen={clienteDuplicado.isOpen}
+      mensaje={clienteDuplicado.mensaje}
+      cliente={clienteDuplicado.cliente}
+      onClose={() => setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' })}
+      onUsar={usarClienteExistente}
+    />
+    </>
   );
 };

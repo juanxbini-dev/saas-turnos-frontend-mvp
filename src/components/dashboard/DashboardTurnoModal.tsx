@@ -10,6 +10,8 @@ import { calcularMaxDuracionDesdeSlot } from '../../utils/calculos.utils';
 import { useToast } from '../../hooks/useToast';
 import { useFetch } from '../../hooks/useFetch';
 import { useDebounce } from '../../hooks/useDebounce';
+import { getClienteDuplicado } from '../../services/cliente.service';
+import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { cacheService } from '../../cache/cache.service';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
@@ -48,6 +50,11 @@ export function DashboardTurnoModal({
   const [showCreateCliente, setShowCreateCliente] = useState(false);
   const [newCliente, setNewCliente] = useState({ nombre: '', email: '', telefono: '' });
   const [creatingCliente, setCreatingCliente] = useState(false);
+  const [clienteDuplicado, setClienteDuplicado] = useState<{ isOpen: boolean; cliente: Cliente | null; mensaje: string }>({
+    isOpen: false,
+    cliente: null,
+    mensaje: ''
+  });
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
@@ -147,10 +154,24 @@ export function DashboardTurnoModal({
 
       toast.success('Cliente creado y seleccionado');
     } catch (error: any) {
-      setErrorModal(error.response?.data?.message || error.message || 'Error al crear cliente');
+      const dup = getClienteDuplicado(error);
+      if (dup) {
+        setClienteDuplicado({ isOpen: true, cliente: dup.cliente, mensaje: dup.mensaje });
+      } else {
+        setErrorModal(error.response?.data?.message || error.message || 'Error al crear cliente');
+      }
     } finally {
       setCreatingCliente(false);
     }
+  };
+
+  const usarClienteExistente = (cliente: Cliente) => {
+    setSelectedCliente(cliente);
+    setNewCliente({ nombre: '', email: '', telefono: '' });
+    setShowCreateCliente(false);
+    setClienteSearch('');
+    setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' });
+    toast.success('Cliente existente seleccionado');
   };
 
   // Manejar cancelación de creación de cliente
@@ -622,6 +643,14 @@ export function DashboardTurnoModal({
           </div>
         </div>
       )}
+
+      <ClienteDuplicadoModal
+        isOpen={clienteDuplicado.isOpen}
+        mensaje={clienteDuplicado.mensaje}
+        cliente={clienteDuplicado.cliente}
+        onClose={() => setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' })}
+        onUsar={usarClienteExistente}
+      />
     </Modal>
   );
 }

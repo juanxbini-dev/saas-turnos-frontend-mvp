@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Input } from '../ui';
 import { Cliente, CreateClienteData, UpdateClienteData } from '../../types/cliente.types';
-import { clienteService } from '../../services/cliente.service';
+import { clienteService, getClienteDuplicado } from '../../services/cliente.service';
+import { ClienteDuplicadoModal } from './ClienteDuplicadoModal';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../context/AuthContext';
 import { cacheService } from '../../cache/cache.service';
@@ -26,6 +27,11 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
     nombre: '',
     email: '',
     telefono: ''
+  });
+  const [duplicado, setDuplicado] = useState<{ isOpen: boolean; cliente: Cliente | null; mensaje: string }>({
+    isOpen: false,
+    cliente: null,
+    mensaje: ''
   });
   const { state: authState } = useAuth();
   const toast = useToast();
@@ -83,7 +89,12 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
       onSuccess();
       onClose();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || error.message || 'Error inesperado');
+      const dup = getClienteDuplicado(error);
+      if (dup) {
+        setDuplicado({ isOpen: true, cliente: dup.cliente, mensaje: dup.mensaje });
+      } else {
+        toast.error(error.response?.data?.message || error.message || 'Error inesperado');
+      }
     } finally {
       setLoading(false);
     }
@@ -97,6 +108,7 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
   };
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -162,5 +174,13 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
         </div>
       </form>
     </Modal>
+
+    <ClienteDuplicadoModal
+      isOpen={duplicado.isOpen}
+      mensaje={duplicado.mensaje}
+      cliente={duplicado.cliente}
+      onClose={() => setDuplicado({ isOpen: false, cliente: null, mensaje: '' })}
+    />
+    </>
   );
 };

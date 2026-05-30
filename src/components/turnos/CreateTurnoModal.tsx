@@ -8,6 +8,9 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { cacheService } from '../../cache/cache.service';
 import { disponibilidadService, turnoService, clienteService } from '../../services';
+import { getClienteDuplicado } from '../../services/cliente.service';
+import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
+import { Cliente as ClienteFull } from '../../types/cliente.types';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
 import { format } from 'date-fns';
@@ -82,7 +85,12 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     telefono: ''
   });
   const [creatingCliente, setCreatingCliente] = useState(false);
-  
+  const [clienteDuplicado, setClienteDuplicado] = useState<{ isOpen: boolean; cliente: ClienteFull | null; mensaje: string }>({
+    isOpen: false,
+    cliente: null,
+    mensaje: ''
+  });
+
   const { state: authUser } = useAuth();
   const toast = useToast();
   const isAdmin = authUser?.roles.includes('admin');
@@ -344,10 +352,23 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
       toast.success('Cliente creado y seleccionado');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || error.message || 'Error al crear cliente');
+      const dup = getClienteDuplicado(error);
+      if (dup) {
+        setClienteDuplicado({ isOpen: true, cliente: dup.cliente, mensaje: dup.mensaje });
+      } else {
+        toast.error(error.response?.data?.message || error.message || 'Error al crear cliente');
+      }
     } finally {
       setCreatingCliente(false);
     }
+  };
+
+  const usarClienteExistente = (cliente: ClienteFull) => {
+    setSelectedCliente({ id: cliente.id, nombre: cliente.nombre, email: cliente.email });
+    setNewCliente({ nombre: '', email: '', telefono: '' });
+    setShowCreateCliente(false);
+    setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' });
+    toast.success('Cliente existente seleccionado');
   };
 
   const handleClose = () => {
@@ -899,6 +920,14 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
         </div>
       </div>
     )}
+
+    <ClienteDuplicadoModal
+      isOpen={clienteDuplicado.isOpen}
+      mensaje={clienteDuplicado.mensaje}
+      cliente={clienteDuplicado.cliente}
+      onClose={() => setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' })}
+      onUsar={usarClienteExistente}
+    />
     </>
   );
 };
