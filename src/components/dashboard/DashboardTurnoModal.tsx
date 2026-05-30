@@ -9,6 +9,7 @@ import { turnoService, clienteService, servicioService, disponibilidadService } 
 import { calcularMaxDuracionDesdeSlot } from '../../utils/calculos.utils';
 import { useToast } from '../../hooks/useToast';
 import { useFetch } from '../../hooks/useFetch';
+import { useDebounce } from '../../hooks/useDebounce';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { cacheService } from '../../cache/cache.service';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
@@ -62,13 +63,17 @@ export function DashboardTurnoModal({
   const fechaStr = fecha ? format(fecha, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }) : '';
   const horaStr = hora ? format(hora, 'HH:mm', { locale: es }) : '';
 
-  // Cargar clientes (todos, sin paginación para el selector)
+  // Búsqueda de clientes server-side: solo consultamos al backend cuando hay al
+  // menos 2 caracteres. El servidor filtra por nombre/email/teléfono, así que ya
+  // no cargamos solo los primeros 100 clientes alfabéticos en memoria.
+  const debouncedClienteSearch = useDebounce(clienteSearch.trim(), 350);
   const { data: clientesResp, loading: loadingClientes } = useFetch(
-    buildKey(ENTITIES.CLIENTES, 'all'),
-    () => clienteService.getClientes(1, 1000),
+    debouncedClienteSearch.length >= 2
+      ? buildKey(ENTITIES.CLIENTES, `selector:${debouncedClienteSearch}`)
+      : null,
+    () => clienteService.getClientes(1, 20, debouncedClienteSearch),
     { ttl: 300 }
   );
-  const clientes = clientesResp?.items;
 
   // Cargar servicios del profesional
   const { data: servicios, loading: loadingServicios } = useFetch(
@@ -111,13 +116,14 @@ export function DashboardTurnoModal({
     });
   }, [horaFormatted, fecha, configData, slots]);
 
-  // Filtrar clientes por búsqueda — solo mostrar si hay al menos 2 caracteres
+  // El backend ya devuelve los clientes filtrados por la búsqueda
   const filteredClientes = clienteSearch.trim().length >= 2
-    ? (clientes?.filter(cliente =>
-        cliente.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) ||
-        cliente.email.toLowerCase().includes(clienteSearch.toLowerCase())
-      ) || [])
+    ? (clientesResp?.items || [])
     : [];
+
+  // "Buscando" incluye la ventana de debounce (todavía no se consultó al backend)
+  const clienteBuscando = clienteSearch.trim().length >= 2 &&
+    (loadingClientes || debouncedClienteSearch !== clienteSearch.trim());
 
   // Manejar creación de cliente
   const handleCreateCliente = async () => {
@@ -307,7 +313,7 @@ export function DashboardTurnoModal({
                   />
                 </div>
 
-                {loadingClientes ? (
+                {clienteBuscando ? (
                   <div className="flex justify-center py-4"><Spinner /></div>
                 ) : clienteSearch.trim().length < 2 ? (
                   <p className="text-sm text-gray-400 text-center py-2">

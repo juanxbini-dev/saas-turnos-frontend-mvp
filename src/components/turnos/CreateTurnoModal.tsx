@@ -4,6 +4,7 @@ import { Modal, Button, Input, Textarea, Card, Spinner } from '../ui';
 import { Calendar, TimeSlots } from '../ui';
 import { useDisponibilidad } from '../../hooks/useDisponibilidad';
 import { useFetch } from '../../hooks/useFetch';
+import { useDebounce } from '../../hooks/useDebounce';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { cacheService } from '../../cache/cache.service';
 import { disponibilidadService, turnoService, clienteService } from '../../services';
@@ -198,25 +199,30 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     }
   }, [servicios]);
 
-  // Obtener clientes (todos, sin paginación para el selector)
+  // Búsqueda de clientes (server-side con debounce)
+  const [clienteSearch, setClienteSearch] = useState('');
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  const debouncedClienteSearch = useDebounce(clienteSearch.trim(), 350);
+
+  // Solo consultamos al backend cuando hay al menos 2 caracteres. El servidor
+  // filtra por nombre/email/teléfono, así que ya no dependemos de cargar todos
+  // los clientes en memoria (antes se cortaban en los primeros 100 alfabéticos).
   const {
     data: clientesResp,
     loading: loadingClientes
   } = useFetch(
-    buildKey(ENTITIES.CLIENTES, 'all'),
-    () => clienteService.getClientes(1, 1000),
+    debouncedClienteSearch.length >= 2
+      ? buildKey(ENTITIES.CLIENTES, `selector:${debouncedClienteSearch}`)
+      : null,
+    () => clienteService.getClientes(1, 20, debouncedClienteSearch),
     { ttl: 300 }
   );
-  const clientes = clientesResp?.items;
 
-  // Búsqueda de clientes
-  const [clienteSearch, setClienteSearch] = useState('');
-  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  const filteredClientes = clientesResp?.items || [];
 
-  const filteredClientes = clientes?.filter(cliente =>
-    cliente.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) ||
-    cliente.email.toLowerCase().includes(clienteSearch.toLowerCase())
-  ).slice(0, 5) || [];
+  // "Buscando" incluye la ventana de debounce (todavía no se consultó al backend)
+  const clienteBuscando = debouncedClienteSearch.length >= 2 &&
+    (loadingClientes || debouncedClienteSearch !== clienteSearch.trim());
 
   // Preseleccionar fecha y hora si vienen como props (pero no saltar de paso)
   useEffect(() => {
@@ -657,22 +663,28 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                 onFocus={() => setShowClienteDropdown(true)}
               />
               
-              {showClienteDropdown && clienteSearch.length >= 2 && (
+              {showClienteDropdown && clienteSearch.trim().length >= 2 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
-                  {filteredClientes.map((cliente) => (
-                    <div
-                      key={cliente.id}
-                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => {
-                        setSelectedCliente(cliente);
-                        setClienteSearch('');
-                        setShowClienteDropdown(false);
-                      }}
-                    >
-                      <div className="font-medium">{cliente.nombre}</div>
-                      <div className="text-sm text-gray-500">{cliente.email}</div>
-                    </div>
-                  ))}
+                  {clienteBuscando ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">Buscando...</div>
+                  ) : filteredClientes.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-500">No se encontraron clientes</div>
+                  ) : (
+                    filteredClientes.map((cliente) => (
+                      <div
+                        key={cliente.id}
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setSelectedCliente(cliente);
+                          setClienteSearch('');
+                          setShowClienteDropdown(false);
+                        }}
+                      >
+                        <div className="font-medium">{cliente.nombre}</div>
+                        <div className="text-sm text-gray-500">{cliente.email}</div>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>

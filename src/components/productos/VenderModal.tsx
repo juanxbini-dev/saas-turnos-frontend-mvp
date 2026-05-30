@@ -8,6 +8,7 @@ import { ventasService } from '../../services/ventas.service';
 import { productosService } from '../../services/productos.service';
 import { useToast } from '../../hooks/useToast';
 import { useFetch } from '../../hooks/useFetch';
+import { useDebounce } from '../../hooks/useDebounce';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 
 interface VentaItem {
@@ -53,12 +54,17 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   const [esFechaRetroactiva, setEsFechaRetroactiva] = useState(false);
   const [fechaVenta, setFechaVenta] = useState('');
 
+  // Búsqueda de clientes server-side: el backend filtra por nombre/email/teléfono
+  // (solo consultamos a partir de 2 caracteres) en vez de cargar los primeros
+  // 100 clientes alfabéticos en memoria y filtrar en el navegador.
+  const debouncedClienteSearch = useDebounce(clienteSearch.trim(), 350);
   const { data: clientesResp, loading: loadingClientes } = useFetch(
-    buildKey(ENTITIES.CLIENTES, 'all'),
-    () => clienteService.getClientes(1, 1000),
+    debouncedClienteSearch.length >= 2
+      ? buildKey(ENTITIES.CLIENTES, `selector:${debouncedClienteSearch}`)
+      : null,
+    () => clienteService.getClientes(1, 20, debouncedClienteSearch),
     { ttl: 300 }
   );
-  const clientes = clientesResp?.items;
 
   const { data: productos, loading: loadingProductos } = useFetch(
     'productos:lista',
@@ -66,10 +72,13 @@ export const VenderModal: React.FC<VenderModalProps> = ({
     { ttl: 60 }
   );
 
-  const filteredClientes = clientes?.filter(c =>
-    c.nombre.toLowerCase().includes(clienteSearch.toLowerCase()) ||
-    c.email.toLowerCase().includes(clienteSearch.toLowerCase())
-  ) || [];
+  const filteredClientes = debouncedClienteSearch.length >= 2
+    ? (clientesResp?.items || [])
+    : [];
+
+  // "Buscando" incluye la ventana de debounce (todavía no se consultó al backend)
+  const clienteBuscando = clienteSearch.trim().length >= 2 &&
+    (loadingClientes || debouncedClienteSearch !== clienteSearch.trim());
 
   const filteredProductos = productos?.filter(p =>
     p.activo &&
@@ -250,8 +259,10 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                 />
                 {clienteSearch && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg max-h-40 overflow-y-auto">
-                    {loadingClientes ? (
+                    {clienteBuscando ? (
                       <div className="p-2 text-center"><Spinner size="sm" /></div>
+                    ) : clienteSearch.trim().length < 2 ? (
+                      <p className="p-3 text-sm text-gray-400">Escribí al menos 2 caracteres para buscar</p>
                     ) : filteredClientes.length === 0 ? (
                       <p className="p-3 text-sm text-gray-500">Sin resultados</p>
                     ) : (
