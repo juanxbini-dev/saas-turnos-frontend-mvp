@@ -43,7 +43,7 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
     if (isEditing && cliente) {
       setFormData({
         nombre: cliente.nombre,
-        email: cliente.email,
+        email: cliente.email || '',
         telefono: cliente.telefono || ''
       });
     } else {
@@ -58,8 +58,8 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.nombre.trim() || !formData.email.trim()) {
-      toast.error('Nombre y email son requeridos');
+    if (!formData.nombre.trim()) {
+      toast.error('El nombre es requerido');
       return;
     }
 
@@ -68,7 +68,7 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
       if (isEditing && cliente) {
         const updateData: UpdateClienteData = {
           nombre: formData.nombre,
-          email: formData.email,
+          email: formData.email.trim() || null,
           telefono: formData.telefono || null
         };
         await clienteService.updateCliente(cliente.id, updateData);
@@ -76,7 +76,7 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
       } else {
         const createData: CreateClienteData = {
           nombre: formData.nombre,
-          email: formData.email,
+          email: formData.email.trim() || undefined,
           telefono: formData.telefono || undefined
         };
         await clienteService.createCliente(createData);
@@ -131,14 +131,13 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email *
+            Email
           </label>
           <Input
             type="email"
             value={formData.email}
             onChange={(e) => handleInputChange('email', e.target.value)}
-            placeholder="email@ejemplo.com"
-            required
+            placeholder="email@ejemplo.com (opcional)"
             disabled={loading}
           />
         </div>

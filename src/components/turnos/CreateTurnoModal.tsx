@@ -33,7 +33,7 @@ interface CreateTurnoModalProps {
 interface Cliente {
   id: string;
   nombre: string;
-  email: string;
+  email: string | null;
 }
 
 interface Profesional {
@@ -323,8 +323,8 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   };
 
   const handleCreateCliente = async () => {
-    if (!newCliente.nombre.trim() || !newCliente.email.trim()) {
-      toast.error('Nombre y email son requeridos');
+    if (!newCliente.nombre.trim()) {
+      toast.error('El nombre es requerido');
       return;
     }
 
@@ -332,7 +332,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     try {
       const createdCliente = await clienteService.createCliente({
         nombre: newCliente.nombre,
-        email: newCliente.email,
+        email: newCliente.email.trim() || undefined,
         telefono: newCliente.telefono || undefined
       });
 
@@ -702,7 +702,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                         }}
                       >
                         <div className="font-medium">{cliente.nombre}</div>
-                        <div className="text-sm text-gray-500">{cliente.email}</div>
+                        <div className="text-sm text-gray-500">{cliente.email || 'Sin email'}</div>
                       </div>
                     ))
                   )}
@@ -756,13 +756,13 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
+                  Email
                 </label>
                 <Input
                   type="email"
                   value={newCliente.email}
                   onChange={(e) => setNewCliente(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="email@ejemplo.com"
+                  placeholder="email@ejemplo.com (opcional)"
                   disabled={creatingCliente}
                 />
               </div>
@@ -796,7 +796,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                   type="button"
                   onClick={handleCreateCliente}
                   loading={creatingCliente}
-                  disabled={!newCliente.nombre.trim() || !newCliente.email.trim()}
+                  disabled={!newCliente.nombre.trim()}
                 >
                   Crear y seleccionar
                 </Button>
@@ -808,7 +808,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
               <div>
                 <div className="font-medium">{selectedCliente.nombre}</div>
-                <div className="text-sm text-gray-500">{selectedCliente.email}</div>
+                <div className="text-sm text-gray-500">{selectedCliente.email || 'Sin email'}</div>
               </div>
               <button
                 onClick={() => setSelectedCliente(null)}

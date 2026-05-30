@@ -186,10 +186,12 @@ export const ClientePerfilDrawer: React.FC<ClientePerfilDrawerProps> = ({ client
             <div className="min-w-0">
               <h3 className="text-xl font-bold text-gray-900">{perfil.cliente.nombre}</h3>
               <div className="mt-1.5 space-y-1">
-                <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <Mail size={13} className="text-gray-400 shrink-0" />
-                  {perfil.cliente.email}
-                </div>
+                {perfil.cliente.email && (
+                  <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                    <Mail size={13} className="text-gray-400 shrink-0" />
+                    {perfil.cliente.email}
+                  </div>
+                )}
                 {perfil.cliente.telefono && (
                   <div className="flex items-center gap-1.5 text-sm text-gray-600">
                     <Phone size={13} className="text-gray-400 shrink-0" />

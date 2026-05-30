@@ -134,8 +134,8 @@ export function DashboardTurnoModal({
 
   // Manejar creación de cliente
   const handleCreateCliente = async () => {
-    if (!newCliente.nombre.trim() || !newCliente.email.trim()) {
-      setErrorModal('El nombre y el email del cliente son requeridos.');
+    if (!newCliente.nombre.trim()) {
+      setErrorModal('El nombre del cliente es requerido.');
       return;
     }
 
@@ -143,7 +143,7 @@ export function DashboardTurnoModal({
     try {
       const createdCliente = await clienteService.createCliente({
         nombre: newCliente.nombre,
-        email: newCliente.email,
+        email: newCliente.email.trim() || undefined,
         telefono: newCliente.telefono || undefined
       });
 
@@ -312,7 +312,7 @@ export function DashboardTurnoModal({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-blue-900 truncate">{selectedCliente.nombre}</div>
-                  <div className="text-sm text-blue-600 truncate">{selectedCliente.email}</div>
+                  <div className="text-sm text-blue-600 truncate">{selectedCliente.email || 'Sin email'}</div>
                 </div>
                 <button
                   type="button"
@@ -352,7 +352,7 @@ export function DashboardTurnoModal({
                         onClick={() => { setSelectedCliente(cliente); setClienteSearch(''); }}
                       >
                         <div className="font-medium text-gray-900">{cliente.nombre}</div>
-                        <div className="text-sm text-gray-500">{cliente.email}</div>
+                        <div className="text-sm text-gray-500">{cliente.email || 'Sin email'}</div>
                       </button>
                     ))}
                   </div>
@@ -383,7 +383,7 @@ export function DashboardTurnoModal({
                   onChange={(e) => setNewCliente({ ...newCliente, nombre: e.target.value })}
                 />
                 <Input
-                  placeholder="Email del cliente"
+                  placeholder="Email del cliente (opcional)"
                   type="email"
                   value={newCliente.email}
                   onChange={(e) => setNewCliente({ ...newCliente, email: e.target.value })}
@@ -405,7 +405,7 @@ export function DashboardTurnoModal({
                   <Button
                     onClick={handleCreateCliente}
                     loading={creatingCliente}
-                    disabled={!newCliente.nombre.trim() || !newCliente.email.trim()}
+                    disabled={!newCliente.nombre.trim()}
                     block
                   >
                     Crear y Seleccionar

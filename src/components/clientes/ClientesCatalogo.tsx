@@ -58,10 +58,10 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
     {
       key: 'email',
       header: 'Email',
-      render: (email: string, cliente: Cliente) => {
+      render: (email: string | null, cliente: Cliente) => {
         return (
           <div className="text-sm text-gray-600">
-            {email}
+            {email || '—'}
           </div>
         );
       }
@@ -123,7 +123,7 @@ export const ClientesCatalogo: React.FC<ClientesCatalogoProps> = ({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="font-medium text-gray-900 truncate">{cliente.nombre}</div>
-            <div className="text-sm text-gray-500 truncate">{cliente.email}</div>
+            <div className="text-sm text-gray-500 truncate">{cliente.email || 'Sin email'}</div>
           </div>
           <Badge variant={cliente.activo ? 'green' : 'red'} size="sm">
             {cliente.activo ? 'Activo' : 'Inactivo'}

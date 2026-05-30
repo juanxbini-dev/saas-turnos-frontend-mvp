@@ -21,14 +21,13 @@ interface CreateTurnoPublicModalProps {
 
 interface ClienteFormData {
   nombre: string;
-  email: string;
   telefono: string;
 }
 
 interface ExistingCliente {
   id: string;
   nombre: string;
-  email: string;
+  email?: string;
   telefono?: string;
 }
 
@@ -43,7 +42,6 @@ interface ServicioProfesional {
 interface FieldErrors {
   nombre?: string;
   telefono?: string;
-  email?: string;
 }
 
 export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
@@ -58,7 +56,6 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const [selectedServicio, setSelectedServicio] = useState<ServicioProfesional | null>(null);
   const [clienteData, setClienteData] = useState<ClienteFormData>({
     nombre: '',
-    email: '',
     telefono: ''
   });
   const [notas, setNotas] = useState('');
@@ -125,12 +122,6 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     const errors: FieldErrors = {};
     if (!clienteData.nombre.trim()) errors.nombre = 'El nombre es requerido';
     if (!clienteData.telefono.trim()) errors.telefono = 'El teléfono es requerido';
-    if (!clienteData.email.trim()) {
-      errors.email = 'El email es requerido';
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(clienteData.email)) errors.email = 'El email no es válido';
-    }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -142,7 +133,6 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
     try {
       const response = await turnoPublicService.validateCliente({
-        email: clienteData.email.trim() || undefined,
         telefono: clienteData.telefono.trim() || undefined,
         nombre: clienteData.nombre.trim(),
         empresa_id: empresaId
@@ -209,7 +199,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const resetModal = () => {
     setStep(1);
     setSelectedServicio(null);
-    setClienteData({ nombre: '', email: '', telefono: '' });
+    setClienteData({ nombre: '', telefono: '' });
     setNotas('');
     setExistingCliente(null);
     setShowMatchModal(false);
@@ -239,7 +229,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     switch (stepNumber) {
       case 1: return !!selectedServicio;
       case 2: return !!selectedDate && !!selectedSlot;
-      case 3: return !!clienteData.nombre && !!clienteData.email;
+      case 3: return !!clienteData.nombre && !!clienteData.telefono;
       default: return false;
     }
   };
@@ -436,21 +426,6 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   )}
                 </div>
 
-                <div>
-                  <label className={darkLabel}>Email *</label>
-                  <input
-                    type="email"
-                    value={clienteData.email}
-                    onChange={(e) => { setClienteData(prev => ({ ...prev, email: e.target.value })); clearFieldError('email'); }}
-                    placeholder="tu@email.com"
-                    disabled={loading}
-                    className={darkInput(!!fieldErrors.email)}
-                  />
-                  {fieldErrors.email && (
-                    <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
-                  )}
-                </div>
-
                 {/* Resumen */}
                 <div className={darkCard}>
                   <p className="text-xs tracking-[0.2em] uppercase text-white/50 mb-3" style={{ fontFamily: 'Oswald, sans-serif' }}>
@@ -571,10 +546,12 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                 <span className="text-white/40">Nombre</span>
                 <span className="text-white">{existingCliente.nombre}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-white/40">Email</span>
-                <span className="text-white">{existingCliente.email}</span>
-              </div>
+              {existingCliente.email && (
+                <div className="flex justify-between">
+                  <span className="text-white/40">Email</span>
+                  <span className="text-white">{existingCliente.email}</span>
+                </div>
+              )}
               {existingCliente.telefono && (
                 <div className="flex justify-between">
                   <span className="text-white/40">Teléfono</span>

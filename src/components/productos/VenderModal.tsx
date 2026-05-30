@@ -94,8 +94,8 @@ export const VenderModal: React.FC<VenderModalProps> = ({
 
   const handleCrearCliente = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCliente.nombre.trim() || !newCliente.email.trim()) {
-      toast.error('Nombre y email son requeridos');
+    if (!newCliente.nombre.trim()) {
+      toast.error('El nombre es requerido');
       return;
     }
     setCreatingCliente(true);
@@ -251,7 +251,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
               <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
                 <div>
                   <p className="text-sm font-medium text-blue-900">{selectedCliente.nombre}</p>
-                  <p className="text-xs text-blue-600">{selectedCliente.email}</p>
+                  <p className="text-xs text-blue-600">{selectedCliente.email || 'Sin email'}</p>
                 </div>
                 <button onClick={() => setSelectedCliente(null)} className="text-blue-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-100 transition-colors">
                   <Trash2 className="w-4 h-4" />
@@ -260,7 +260,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
             ) : showCreateCliente ? (
               <form onSubmit={handleCrearCliente} className="space-y-2">
                 <Input placeholder="Nombre *" value={newCliente.nombre} onChange={e => setNewCliente(f => ({ ...f, nombre: e.target.value }))} required />
-                <Input placeholder="Email *" type="email" value={newCliente.email} onChange={e => setNewCliente(f => ({ ...f, email: e.target.value }))} required />
+                <Input placeholder="Email (opcional)" type="email" value={newCliente.email} onChange={e => setNewCliente(f => ({ ...f, email: e.target.value }))} />
                 <Input placeholder="Teléfono" value={newCliente.telefono} onChange={e => setNewCliente(f => ({ ...f, telefono: e.target.value }))} />
                 <div className="flex gap-2">
                   <Button type="button" variant="ghost" size="sm" onClick={() => setShowCreateCliente(false)} className="flex-1">Cancelar</Button>
@@ -295,7 +295,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                           className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-50 last:border-0"
                         >
                           <p className="text-sm font-medium">{c.nombre}</p>
-                          <p className="text-xs text-gray-500">{c.email}</p>
+                          <p className="text-xs text-gray-500">{c.email || 'Sin email'}</p>
                         </button>
                       ))
                     )}

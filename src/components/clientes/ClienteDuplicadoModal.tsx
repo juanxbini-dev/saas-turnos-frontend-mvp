@@ -45,10 +45,12 @@ export const ClienteDuplicadoModal: React.FC<ClienteDuplicadoModalProps> = ({
               <User size={14} className="text-gray-400 shrink-0" />
               {cliente.nombre}
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Mail size={13} className="text-gray-400 shrink-0" />
-              {cliente.email}
-            </div>
+            {cliente.email && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Mail size={13} className="text-gray-400 shrink-0" />
+                {cliente.email}
+              </div>
+            )}
             {cliente.telefono && (
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Phone size={13} className="text-gray-400 shrink-0" />
