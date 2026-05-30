@@ -35,8 +35,13 @@ export const Calendar: React.FC<CalendarProps> = ({
   };
 
   const formatDate = (day: number) => {
-    const date = USE_NEW_DATE_HELPER ? DateHelper.createDate(currentAño, currentMes, day) : new Date(currentAño, currentMes - 1, day);
-    return USE_NEW_DATE_HELPER ? DateHelper.formatForAPI(date) : date.toISOString().split('T')[0];
+    if (USE_NEW_DATE_HELPER) {
+      return DateHelper.formatForAPI(DateHelper.createDate(currentAño, currentMes, day));
+    }
+    // Construir YYYY-MM-DD directamente desde los componentes del calendario.
+    // NO usar toISOString(): convierte a UTC y corre la fecha un día para clientes
+    // al este de UTC, lo que rompía el filtro de slots pasados del día actual.
+    return `${currentAño}-${String(currentMes).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   };
 
   const isDateAvailable = (date: string) => {
