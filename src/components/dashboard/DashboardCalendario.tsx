@@ -1204,9 +1204,9 @@ export function DashboardCalendario({
         endAccessor="end"
         titleAccessor="title"
         resourceAccessor="resource"
-        min={new Date(new Date().setHours(7, 0, 0, 0))}
-        max={new Date(new Date().setHours(23, 0, 0, 0))}
-        scrollToTime={new Date(new Date().setHours(Math.max(primeraHoraDisponible - 1, 7), 0, 0, 0))}
+        min={new Date(new Date().setHours(8, 0, 0, 0))}
+        max={new Date(new Date().setHours(21, 0, 0, 0))}
+        scrollToTime={new Date(new Date().setHours(Math.max(primeraHoraDisponible - 1, 8), 0, 0, 0))}
         timeGutterWidth={isMobile ? 45 : 70}
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
