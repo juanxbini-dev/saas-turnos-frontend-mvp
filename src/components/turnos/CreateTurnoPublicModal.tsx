@@ -21,6 +21,8 @@ interface CreateTurnoPublicModalProps {
 
 interface ClienteFormData {
   nombre: string;
+  apellido: string;
+  email: string;
   telefono: string;
 }
 
@@ -41,6 +43,8 @@ interface ServicioProfesional {
 
 interface FieldErrors {
   nombre?: string;
+  apellido?: string;
+  email?: string;
   telefono?: string;
 }
 
@@ -56,6 +60,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const [selectedServicio, setSelectedServicio] = useState<ServicioProfesional | null>(null);
   const [clienteData, setClienteData] = useState<ClienteFormData>({
     nombre: '',
+    apellido: '',
+    email: '',
     telefono: ''
   });
   const [notas, setNotas] = useState('');
@@ -121,10 +127,25 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const validateForm = (): boolean => {
     const errors: FieldErrors = {};
     if (!clienteData.nombre.trim()) errors.nombre = 'El nombre es requerido';
+    if (!clienteData.apellido.trim()) errors.apellido = 'El apellido es requerido';
+    if (!clienteData.email.trim()) {
+      errors.email = 'El email es requerido';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clienteData.email.trim())) {
+      errors.email = 'Ingresá un email válido';
+    }
     if (!clienteData.telefono.trim()) errors.telefono = 'El teléfono es requerido';
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
+
+  // Arma el payload para el backend: nombre y apellido se unen en un solo campo
+  // `nombre` (no hay columna de apellido en la DB) y el email se normaliza para
+  // ser consistente con el índice UNIQUE(email, empresa_id).
+  const buildClientePayload = () => ({
+    nombre: `${clienteData.nombre.trim()} ${clienteData.apellido.trim()}`.trim(),
+    email: clienteData.email.trim().toLowerCase(),
+    telefono: clienteData.telefono.trim()
+  });
 
   const handleValidateAndCreateTurno = async () => {
     if (!validateForm()) return;
@@ -132,9 +153,11 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setLoading(true);
 
     try {
+      const payload = buildClientePayload();
       const response = await turnoPublicService.validateCliente({
-        telefono: clienteData.telefono.trim() || undefined,
-        nombre: clienteData.nombre.trim(),
+        telefono: payload.telefono || undefined,
+        email: payload.email || undefined,
+        nombre: payload.nombre,
         empresa_id: empresaId
       });
 
@@ -162,7 +185,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         servicio_id: selectedServicio?.id,
         fecha: selectedDate,
         hora: selectedSlot,
-        cliente_data: clienteData,
+        cliente_data: buildClientePayload(),
         cliente_id: useExisting ? existingCliente?.id : undefined,
         notas
       };
@@ -199,7 +222,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const resetModal = () => {
     setStep(1);
     setSelectedServicio(null);
-    setClienteData({ nombre: '', telefono: '' });
+    setClienteData({ nombre: '', apellido: '', email: '', telefono: '' });
     setNotas('');
     setExistingCliente(null);
     setShowMatchModal(false);
@@ -229,7 +252,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     switch (stepNumber) {
       case 1: return !!selectedServicio;
       case 2: return !!selectedDate && !!selectedSlot;
-      case 3: return !!clienteData.nombre && !!clienteData.telefono;
+      case 3: return !!clienteData.nombre && !!clienteData.apellido && !!clienteData.email && !!clienteData.telefono;
       default: return false;
     }
   };
@@ -396,18 +419,53 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={darkLabel}>Nombre *</label>
+                    <input
+                      type="text"
+                      value={clienteData.nombre}
+                      onChange={(e) => { setClienteData(prev => ({ ...prev, nombre: e.target.value })); clearFieldError('nombre'); }}
+                      placeholder="Tu nombre"
+                      maxLength={45}
+                      disabled={loading}
+                      className={darkInput(!!fieldErrors.nombre)}
+                    />
+                    {fieldErrors.nombre && (
+                      <p className="text-red-400 text-xs mt-1">{fieldErrors.nombre}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className={darkLabel}>Apellido *</label>
+                    <input
+                      type="text"
+                      value={clienteData.apellido}
+                      onChange={(e) => { setClienteData(prev => ({ ...prev, apellido: e.target.value })); clearFieldError('apellido'); }}
+                      placeholder="Tu apellido"
+                      maxLength={45}
+                      disabled={loading}
+                      className={darkInput(!!fieldErrors.apellido)}
+                    />
+                    {fieldErrors.apellido && (
+                      <p className="text-red-400 text-xs mt-1">{fieldErrors.apellido}</p>
+                    )}
+                  </div>
+                </div>
+
                 <div>
-                  <label className={darkLabel}>Nombre completo *</label>
+                  <label className={darkLabel}>Email *</label>
                   <input
-                    type="text"
-                    value={clienteData.nombre}
-                    onChange={(e) => { setClienteData(prev => ({ ...prev, nombre: e.target.value })); clearFieldError('nombre'); }}
-                    placeholder="Tu nombre completo"
+                    type="email"
+                    value={clienteData.email}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, email: e.target.value })); clearFieldError('email'); }}
+                    placeholder="tucorreo@ejemplo.com"
+                    maxLength={255}
                     disabled={loading}
-                    className={darkInput(!!fieldErrors.nombre)}
+                    className={darkInput(!!fieldErrors.email)}
                   />
-                  {fieldErrors.nombre && (
-                    <p className="text-red-400 text-xs mt-1">{fieldErrors.nombre}</p>
+                  {fieldErrors.email && (
+                    <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
                   )}
                 </div>
 
