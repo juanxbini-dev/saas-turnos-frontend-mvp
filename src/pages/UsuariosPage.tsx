@@ -9,6 +9,7 @@ import { UsuariosMobileList } from '../components/usuarios/UsuariosMobileList';
 import { EditarUsuarioModal } from '../components/usuarios/EditarUsuarioModal';
 import { CambiarRolModal } from '../components/usuarios/CambiarRolModal';
 import { ResetPasswordModal } from '../components/usuarios/ResetPasswordModal';
+import { UsuarioMetricasModal } from '../components/usuarios/UsuarioMetricasModal';
 import { Button, Modal, ConfirmModal } from '../components/ui';
 import { Usuario } from '../types/usuario.types';
 import { cacheService } from '../cache/cache.service';
@@ -22,6 +23,8 @@ function UsuariosPage() {
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const [rolTarget, setRolTarget] = useState<Usuario | null>(null);
   const [resetTarget, setResetTarget] = useState<Usuario | null>(null);
+  const [metricasTarget, setMetricasTarget] = useState<Usuario | null>(null);
+  const [isMetricasOpen, setIsMetricasOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [isRolModalOpen, setIsRolModalOpen] = useState(false);
@@ -63,6 +66,11 @@ function UsuariosPage() {
   const handleResetPassword = (usuario: Usuario) => {
     setResetTarget(usuario);
     setIsResetPasswordOpen(true);
+  };
+
+  const handleVerMetricas = (usuario: Usuario) => {
+    setMetricasTarget(usuario);
+    setIsMetricasOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
@@ -139,6 +147,7 @@ function UsuariosPage() {
               onCambiarRol={handleCambiarRol}
               onEliminar={handleEliminar}
               onResetPassword={handleResetPassword}
+              onMetricas={handleVerMetricas}
             />
           </div>
 
@@ -152,6 +161,7 @@ function UsuariosPage() {
               onCambiarRol={handleCambiarRol}
               onEliminar={handleEliminar}
               onResetPassword={handleResetPassword}
+              onMetricas={handleVerMetricas}
             />
           </div>
 
@@ -196,6 +206,16 @@ function UsuariosPage() {
             onClose={() => {
               setIsResetPasswordOpen(false);
               setResetTarget(null);
+            }}
+          />
+
+          {/* Modal de métricas mensuales */}
+          <UsuarioMetricasModal
+            usuario={metricasTarget}
+            isOpen={isMetricasOpen}
+            onClose={() => {
+              setIsMetricasOpen(false);
+              setMetricasTarget(null);
             }}
           />
 
