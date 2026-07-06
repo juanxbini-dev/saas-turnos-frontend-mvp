@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { FinanzasFilters, FinanzasResponse, ComisionProfesional } from '../types/finanzas.types';
 import { finanzasService } from '../services/finanzas.service';
 import { useFetch } from '../hooks/useFetch';
@@ -44,7 +45,11 @@ export function FinanzasPage() {
     };
   });
 
-  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
+  // Permite llegar preseleccionado desde otras pantallas (ej: /finanzas?profesional=<id>)
+  const [searchParams] = useSearchParams();
+  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(
+    () => searchParams.get('profesional')
+  );
   const [selectedComision, setSelectedComision] = useState<ComisionProfesional | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editarPagoTurno, setEditarPagoTurno] = useState<TurnoConDetalle | null>(null);
@@ -105,9 +110,11 @@ export function FinanzasPage() {
     return null;
   }, [isAdmin, selectedProfesionalId, profesionales, perfilPropio]);
 
-  // Auto-seleccionar el primer profesional de la lista cuando carguen
+  // Auto-seleccionar el primer profesional cuando carguen (o si el preseleccionado no existe)
   useEffect(() => {
-    if (isAdmin && profesionales.length > 0 && !selectedProfesionalId) {
+    if (!isAdmin || profesionales.length === 0) return;
+    const existe = profesionales.some((p: any) => p.id === selectedProfesionalId);
+    if (!selectedProfesionalId || !existe) {
       setSelectedProfesionalId(profesionales[0].id);
     }
   }, [isAdmin, profesionales, selectedProfesionalId]);
