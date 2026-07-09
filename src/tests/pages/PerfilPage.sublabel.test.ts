@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { buildTurnosSublabel, buildClientesSublabel } from '../../pages/PerfilPage';
+import { buildTurnosSublabel, buildClientesSublabel, buildComisionSublabel } from '../../pages/PerfilPage';
 
 // El import de PerfilPage arrastra axiosInstance; mockearlo evita side effects de interceptores
 vi.mock('../../api/axiosInstance', () => ({
@@ -29,5 +29,23 @@ describe('buildClientesSublabel', () => {
 
   it('sin atendidos ni repetidores: muestra 0 explícito', () => {
     expect(buildClientesSublabel(0, 0)).toBe('0 ya atendidos · 0 repiten este mes');
+  });
+});
+
+describe('buildComisionSublabel', () => {
+  // El formato exacto de moneda depende de la versión de ICU (espacios, símbolo);
+  // se testea la estructura y los montos, no el string literal
+  it('explicita el criterio "de lo cobrado" y desglosa servicios/productos', () => {
+    const sublabel = buildComisionSublabel(120000, 35000);
+    expect(sublabel).toMatch(/^de lo cobrado: /);
+    expect(sublabel).toMatch(/120\.000\s*servicios/);
+    expect(sublabel).toMatch(/35\.000\s*productos/);
+    expect(sublabel).toContain(' · ');
+  });
+
+  it('con montos en cero: muestra $ 0 explícito en ambas partes', () => {
+    const sublabel = buildComisionSublabel(0, 0);
+    expect(sublabel).toMatch(/0\s*servicios/);
+    expect(sublabel).toMatch(/0\s*productos/);
   });
 });
