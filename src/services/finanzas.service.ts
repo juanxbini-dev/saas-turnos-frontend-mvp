@@ -11,6 +11,7 @@ export const finanzasService = {
     // Agregar filtros como query params
     params.append('fecha_desde', filters.fecha_desde);
     params.append('fecha_hasta', filters.fecha_hasta);
+    params.append('tipo', filters.tipo);
     params.append('metodo_pago', filters.metodo_pago);
     params.append('estado_comision', filters.estado_comision);
     params.append('ordenar_por', filters.ordenar_por);
@@ -34,6 +35,7 @@ export const finanzasService = {
     // Agregar filtros como query params
     params.append('fecha_desde', filters.fecha_desde);
     params.append('fecha_hasta', filters.fecha_hasta);
+    params.append('tipo', filters.tipo);
     params.append('metodo_pago', filters.metodo_pago);
     params.append('estado_comision', filters.estado_comision);
     params.append('ordenar_por', filters.ordenar_por);
