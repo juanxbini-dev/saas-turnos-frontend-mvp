@@ -51,9 +51,10 @@ export function buildTurnosSublabel(isAdmin: boolean, cobrados: number): string 
 
 // Sublabel de la card de clientes únicos: el valor principal cuenta clientes con
 // turnos agendados en el mes (incluye futuros); acá se contrasta con los que ya
-// fueron efectivamente atendidos (turnos completados)
-export function buildClientesSublabel(atendidos: number): string {
-  return `${atendidos} ya atendidos este mes`;
+// fueron efectivamente atendidos (turnos completados) y los que repiten
+// (2+ turnos agendados en el mes, misma base que el valor principal)
+export function buildClientesSublabel(atendidos: number, repetidores: number): string {
+  return `${atendidos} ya atendidos · ${repetidores} repiten este mes`;
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -182,6 +183,7 @@ function PerfilPage() {
   const [turnosCobradosCount, setTurnosCobradosCount] = useState<number>(0);
   const [clientesUnicosCount, setClientesUnicosCount] = useState<number>(0);
   const [clientesAtendidosCount, setClientesAtendidosCount] = useState<number>(0);
+  const [clientesRepetidoresCount, setClientesRepetidoresCount] = useState<number>(0);
   const [turnosHoy, setTurnosHoy] = useState<TurnoConDetalle[]>([]);
   const [topProductos, setTopProductos] = useState<{ nombre: string; cantidad: number; total: number }[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -235,6 +237,13 @@ function PerfilPage() {
         // Clientes efectivamente atendidos: solo turnos ya completados
         setClientesAtendidosCount(
           new Set(turnosMes.filter(t => t.estado === 'completado').map(t => t.cliente_id)).size
+        );
+
+        // Clientes que repiten: 2+ turnos agendados en el mes
+        const turnosPorCliente = new Map<string, number>();
+        turnosMes.forEach(t => turnosPorCliente.set(t.cliente_id, (turnosPorCliente.get(t.cliente_id) ?? 0) + 1));
+        setClientesRepetidoresCount(
+          Array.from(turnosPorCliente.values()).filter(n => n >= 2).length
         );
 
         // Turnos de hoy: siempre fijos al día actual sin importar el mes seleccionado
@@ -383,7 +392,7 @@ function PerfilPage() {
               icon={<Users size={22} />}
               label="Clientes únicos"
               value={clientesUnicosCount}
-              sublabel={buildClientesSublabel(clientesAtendidosCount)}
+              sublabel={buildClientesSublabel(clientesAtendidosCount, clientesRepetidoresCount)}
               color="purple"
               loading={loadingStats}
             />
