@@ -188,6 +188,7 @@ function PerfilPage() {
         periodo: 'mes',
         fecha_desde: rango.desde,
         fecha_hasta: rango.hasta,
+        tipo: 'todos',
         metodo_pago: 'todos',
         estado_comision: 'todos',
         ordenar_por: 'fecha',

@@ -4,7 +4,7 @@ import { formatCurrency, formatDate } from '../../utils/calculos.utils';
 import { Badge, EmptyState, Card, Pagination } from '../ui';
 import { Calendar, ShoppingBag, Package, Scissors, CheckCircle } from 'lucide-react';
 
-type TipoFiltro = 'todos' | 'turnos' | 'productos' | 'pendientes';
+export type TipoFiltro = 'todos' | 'turnos' | 'productos' | 'pendientes';
 
 interface FinanzasTableProps {
   items: EntradaFinanzas[];
@@ -15,7 +15,10 @@ interface FinanzasTableProps {
   sortOrder: FinanzasFilters['orden'];
   onRowClick: (comision: ComisionProfesional) => void;
   onCobrarPago: (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => Promise<void>;
-  // Paginación (solo se muestra en tab "todos")
+  // Tab activo: el filtrado lo hace el backend, acá solo se renderiza
+  tipoFiltro: TipoFiltro;
+  onTipoChange: (tipo: TipoFiltro) => void;
+  // Paginación (server-side, en todos los tabs)
   page: number;
   totalPages: number;
   total: number;
@@ -56,20 +59,14 @@ function toGrupoVenta(v: VentaGrupadaFinanzas): GrupoVenta {
   };
 }
 
-function buildEntradas(items: EntradaFinanzas[], tipo: TipoFiltro): Entrada[] {
-  return items
-    .filter(item => {
-      if (tipo === 'turnos')    return item.tipo === 'turno';
-      if (tipo === 'productos') return item.tipo === 'venta_producto';
-      if (tipo === 'pendientes') return item.metodo_pago === 'pendiente';
-      return true; // 'todos'
-    })
-    .map(item => {
-      if (item.tipo === 'turno') {
-        return { kind: 'servicio' as const, comision: item as ComisionProfesional };
-      }
-      return { kind: 'venta' as const, grupo: toGrupoVenta(item as VentaGrupadaFinanzas) };
-    });
+// Los items ya vienen filtrados por tab desde el backend; acá solo se mapean para render
+function buildEntradas(items: EntradaFinanzas[]): Entrada[] {
+  return items.map(item => {
+    if (item.tipo === 'turno') {
+      return { kind: 'servicio' as const, comision: item as ComisionProfesional };
+    }
+    return { kind: 'venta' as const, grupo: toGrupoVenta(item as VentaGrupadaFinanzas) };
+  });
 }
 
 const MetodoPagoBadge = ({ metodo }: { metodo: string }) => {
@@ -324,10 +321,8 @@ const TABS: { value: TipoFiltro; label: string }[] = [
 
 export const FinanzasTable: React.FC<FinanzasTableProps> = ({
   items, isLoading, isAdmin, onSort, sortField, sortOrder, onRowClick, onCobrarPago,
-  page, totalPages, total, limit, onPageChange,
+  tipoFiltro, onTipoChange, page, totalPages, total, limit, onPageChange,
 }) => {
-  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos');
-
   if (isLoading) {
     return (
       <Card>
@@ -340,7 +335,7 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
     );
   }
 
-  const entradas = buildEntradas(items ?? [], tipoFiltro);
+  const entradas = buildEntradas(items ?? []);
   const isPendientesTab = tipoFiltro === 'pendientes';
 
   const getSortIcon = (campo: FinanzasFilters['ordenar_por']) => {
@@ -357,7 +352,7 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
         {TABS.map(tab => (
           <button
             key={tab.value}
-            onClick={() => { setTipoFiltro(tab.value); if (page > 1) onPageChange(1); }}
+            onClick={() => onTipoChange(tab.value)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tipoFiltro === tab.value
                 ? tab.value === 'pendientes'
@@ -406,13 +401,11 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
                   <tbody className="bg-white divide-y divide-gray-100">
                     {entradas.map((e) => {
                       if (e.kind === 'servicio') {
-                        // En Pendientes: si el turno tiene también una fila de productos pendiente,
-                        // cobrar solo el servicio para no pisar el método de los productos
-                        const tieneProductoPendiente = isPendientesTab && entradas.some(
-                          o => o.kind === 'venta' && o.grupo.turno_id === e.comision.turno_id
-                        );
+                        // Si el turno tiene también productos pendientes, cobrar solo el servicio
+                        // para no pisar el método de los productos. El flag viene del backend
+                        // porque los productos pueden estar en otra página.
                         const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                          onCobrarPago(tieneProductoPendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
+                          onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
                         return <ServicioRow key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
                       }
                       // Productos asociados a un turno: solo actualizar venta_productos, no el turno
@@ -434,11 +427,8 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
           <div className="md:hidden space-y-3">
             {entradas.map((e) => {
               if (e.kind === 'servicio') {
-                const tieneProductoPendiente = isPendientesTab && entradas.some(
-                  o => o.kind === 'venta' && o.grupo.turno_id === e.comision.turno_id
-                );
                 const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                  onCobrarPago(tieneProductoPendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
+                  onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
                 return <ServicioCard key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
               }
               const getCobrar = (m: 'efectivo' | 'transferencia') =>
@@ -453,8 +443,8 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
         </>
       )}
 
-      {/* Paginación — solo en tab "todos" y cuando hay más de una página */}
-      {tipoFiltro === 'todos' && totalPages > 1 && (
+      {/* Paginación — en todos los tabs cuando hay más de una página */}
+      {totalPages > 1 && (
         <div className="mt-6 flex justify-center">
           <Pagination
             page={page}

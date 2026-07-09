@@ -36,6 +36,7 @@ export function FinanzasPage() {
       periodo: 'mes',
       fecha_desde: toLocalStr(firstDayOfMonth),
       fecha_hasta: toLocalStr(lastDayOfMonth),
+      tipo: 'todos',
       metodo_pago: 'todos',
       estado_comision: 'todos',
       ordenar_por: 'fecha',
@@ -142,6 +143,11 @@ export function FinanzasPage() {
     handleFiltersChange({ pagina });
   };
 
+  const handleTipoChange = (tipo: FinanzasFilters['tipo']) => {
+    // Cambiar de tab siempre vuelve a la primera página del nuevo universo
+    handleFiltersChange({ tipo, pagina: 1 });
+  };
+
   const handleCobrarPago = async (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => {
     await finanzasService.cobrarPago(tipo, id, metodoPago);
     revalidate();
@@ -216,6 +222,8 @@ export function FinanzasPage() {
         sortOrder={filters.orden}
         onRowClick={handleRowClick}
         onCobrarPago={handleCobrarPago}
+        tipoFiltro={filters.tipo}
+        onTipoChange={handleTipoChange}
         page={filters.pagina}
         totalPages={finanzasResponse?.total_paginas ?? 1}
         total={finanzasResponse?.total ?? 0}
