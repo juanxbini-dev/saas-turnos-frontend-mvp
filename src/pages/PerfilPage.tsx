@@ -57,6 +57,13 @@ export function buildClientesSublabel(atendidos: number, repetidores: number): s
   return `${atendidos} ya atendidos · ${repetidores} repiten este mes`;
 }
 
+// Sublabel de la card de comisión: el valor principal es el neto del profesional
+// sobre lo YA COBRADO del mes (excluye pendientes); acá se explicita ese criterio
+// y el desglose servicios/productos que trae el mismo summary
+export function buildComisionSublabel(netoServicios: number, netoProductos: number): string {
+  return `de lo cobrado: ${formatMoney(netoServicios)} servicios · ${formatMoney(netoProductos)} productos`;
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 interface StatCardProps {
@@ -179,6 +186,7 @@ function PerfilPage() {
 
   const [profile, setProfile] = useState<Usuario | null>(null);
   const [comisionMes, setComisionMes] = useState<number>(0);
+  const [comisionDesglose, setComisionDesglose] = useState<{ servicios: number; productos: number }>({ servicios: 0, productos: 0 });
   const [turnosMesCount, setTurnosMesCount] = useState<number>(0);
   const [turnosCobradosCount, setTurnosCobradosCount] = useState<number>(0);
   const [clientesUnicosCount, setClientesUnicosCount] = useState<number>(0);
@@ -220,8 +228,12 @@ function PerfilPage() {
       turnoService.getTurnos()
     ])
       .then(([finanzasRes, allTurnos]) => {
-        // Comisión del mes seleccionado
+        // Comisión del mes seleccionado (neto sobre lo ya cobrado)
         setComisionMes(finanzasRes.summary.total_neto_profesional);
+        setComisionDesglose({
+          servicios: finanzasRes.summary.total_neto_profesional_servicios,
+          productos: finanzasRes.summary.total_neto_profesional_productos,
+        });
 
         // Turnos cobrados: mismo número que "Servicios" en Finanzas
         setTurnosCobradosCount(finanzasRes.summary.cantidad_turnos);
@@ -384,7 +396,7 @@ function PerfilPage() {
               icon={<DollarSign size={22} />}
               label="Comisión generada"
               value={formatMoney(comisionMes)}
-              sublabel="neto al profesional"
+              sublabel={buildComisionSublabel(comisionDesglose.servicios, comisionDesglose.productos)}
               color="green"
               loading={loadingStats}
             />
