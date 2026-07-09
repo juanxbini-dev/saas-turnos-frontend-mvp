@@ -57,6 +57,8 @@ export interface ComisionProfesional {
   cliente_nombre: string;
   servicio_nombre: string;
   profesional_nombre?: string;
+  // El turno tiene productos con pago pendiente (calculado por el backend sobre todos los datos, no la página visible)
+  tiene_producto_pendiente?: boolean;
 }
 
 export type EntradaFinanzas = ComisionProfesional | VentaGrupadaFinanzas;
@@ -82,6 +84,8 @@ export interface FinanzasFilters {
   periodo: 'dia' | 'semana' | 'mes' | 'anio' | 'custom';
   fecha_desde: string;
   fecha_hasta: string;
+  // Tab activo del listado; 'pendientes' pisa metodo_pago en el backend
+  tipo: 'todos' | 'turnos' | 'productos' | 'pendientes';
   metodo_pago: 'todos' | 'efectivo' | 'transferencia' | 'pendiente';
   estado_comision: 'todos' | 'pendiente' | 'pagada' | 'cancelada';
   ordenar_por: 'fecha' | 'total_venta' | 'total_neto_profesional';

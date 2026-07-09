@@ -200,6 +200,8 @@ export const FinanzasFiltersComponent: React.FC<FinanzasFiltersComponentProps> =
                 value={filters.metodo_pago}
                 onChange={handleMetodoPago}
                 options={metodosPago}
+                disabled={filters.tipo === 'pendientes'}
+                help={filters.tipo === 'pendientes' ? 'El tab Pendientes ya filtra por método pendiente' : undefined}
               />
               <Select
                 label="Ordenar por"
