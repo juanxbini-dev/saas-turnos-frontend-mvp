@@ -23,11 +23,11 @@ describe('buildTurnosSublabel', () => {
 });
 
 describe('buildClientesSublabel', () => {
-  it('contrasta clientes con turnos vs ya atendidos, igual para staff y admin', () => {
-    expect(buildClientesSublabel(9)).toBe('9 ya atendidos este mes');
+  it('contrasta atendidos y repetidores, igual para staff y admin', () => {
+    expect(buildClientesSublabel(9, 4)).toBe('9 ya atendidos · 4 repiten este mes');
   });
 
-  it('sin atendidos: muestra 0 explícito', () => {
-    expect(buildClientesSublabel(0)).toBe('0 ya atendidos este mes');
+  it('sin atendidos ni repetidores: muestra 0 explícito', () => {
+    expect(buildClientesSublabel(0, 0)).toBe('0 ya atendidos · 0 repiten este mes');
   });
 });
