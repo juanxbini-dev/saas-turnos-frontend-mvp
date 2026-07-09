@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { buildTurnosSublabel } from '../../pages/PerfilPage';
+import { buildTurnosSublabel, buildClientesSublabel } from '../../pages/PerfilPage';
 
 // El import de PerfilPage arrastra axiosInstance; mockearlo evita side effects de interceptores
 vi.mock('../../api/axiosInstance', () => ({
@@ -19,5 +19,15 @@ describe('buildTurnosSublabel', () => {
     // El conteo de agendados del admin es de toda la empresa; sus finanzas son propias.
     // Mostrar "sus" cobrados junto a un total de empresa sería comparar peras con manzanas.
     expect(buildTurnosSublabel(true, 68)).toBe('agendados este mes (toda la empresa)');
+  });
+});
+
+describe('buildClientesSublabel', () => {
+  it('contrasta clientes con turnos vs ya atendidos, igual para staff y admin', () => {
+    expect(buildClientesSublabel(9)).toBe('9 ya atendidos este mes');
+  });
+
+  it('sin atendidos: muestra 0 explícito', () => {
+    expect(buildClientesSublabel(0)).toBe('0 ya atendidos este mes');
   });
 });

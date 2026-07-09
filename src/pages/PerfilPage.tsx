@@ -49,6 +49,13 @@ export function buildTurnosSublabel(isAdmin: boolean, cobrados: number): string 
   return `${cobrados} cobrados este mes · detalle en Finanzas`;
 }
 
+// Sublabel de la card de clientes únicos: el valor principal cuenta clientes con
+// turnos agendados en el mes (incluye futuros); acá se contrasta con los que ya
+// fueron efectivamente atendidos (turnos completados)
+export function buildClientesSublabel(atendidos: number): string {
+  return `${atendidos} ya atendidos este mes`;
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 interface StatCardProps {
@@ -174,6 +181,7 @@ function PerfilPage() {
   const [turnosMesCount, setTurnosMesCount] = useState<number>(0);
   const [turnosCobradosCount, setTurnosCobradosCount] = useState<number>(0);
   const [clientesUnicosCount, setClientesUnicosCount] = useState<number>(0);
+  const [clientesAtendidosCount, setClientesAtendidosCount] = useState<number>(0);
   const [turnosHoy, setTurnosHoy] = useState<TurnoConDetalle[]>([]);
   const [topProductos, setTopProductos] = useState<{ nombre: string; cantidad: number; total: number }[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -223,6 +231,11 @@ function PerfilPage() {
         });
         setTurnosMesCount(turnosMes.length);
         setClientesUnicosCount(new Set(turnosMes.map(t => t.cliente_id)).size);
+
+        // Clientes efectivamente atendidos: solo turnos ya completados
+        setClientesAtendidosCount(
+          new Set(turnosMes.filter(t => t.estado === 'completado').map(t => t.cliente_id)).size
+        );
 
         // Turnos de hoy: siempre fijos al día actual sin importar el mes seleccionado
         const proximos = allTurnos
@@ -370,7 +383,7 @@ function PerfilPage() {
               icon={<Users size={22} />}
               label="Clientes únicos"
               value={clientesUnicosCount}
-              sublabel="atendidos este mes"
+              sublabel={buildClientesSublabel(clientesAtendidosCount)}
               color="purple"
               loading={loadingStats}
             />
