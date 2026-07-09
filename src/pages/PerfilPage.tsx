@@ -40,6 +40,15 @@ function formatHora(hora: string): string {
   return hora.slice(0, 5); // HH:MM
 }
 
+// Sublabel de la card de turnos. Los agendados incluyen turnos sin finalizar o con
+// cobro pendiente, por eso se contrasta con los cobrados (= "Servicios" en Finanzas).
+// Para un admin el conteo de agendados es de toda la empresa mientras que sus
+// finanzas son propias: los números no son comparables y no se muestra el contraste.
+export function buildTurnosSublabel(isAdmin: boolean, cobrados: number): string {
+  if (isAdmin) return 'agendados este mes (toda la empresa)';
+  return `${cobrados} cobrados este mes · detalle en Finanzas`;
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 interface StatCardProps {
@@ -152,6 +161,7 @@ function InlineEditNombre({ userId, nombre, onUpdate }: InlineEditNombreProps) {
 
 function PerfilPage() {
   const { state } = useAuth();
+  const isAdmin = state.roles.includes('admin');
   const toast = useToast();
   // ── Estado de mes compartido (resumen + productos) ──
   const [mesSeleccionado, setMesSeleccionado] = useState<{ year: number; month: number }>(() => {
@@ -162,6 +172,7 @@ function PerfilPage() {
   const [profile, setProfile] = useState<Usuario | null>(null);
   const [comisionMes, setComisionMes] = useState<number>(0);
   const [turnosMesCount, setTurnosMesCount] = useState<number>(0);
+  const [turnosCobradosCount, setTurnosCobradosCount] = useState<number>(0);
   const [clientesUnicosCount, setClientesUnicosCount] = useState<number>(0);
   const [turnosHoy, setTurnosHoy] = useState<TurnoConDetalle[]>([]);
   const [topProductos, setTopProductos] = useState<{ nombre: string; cantidad: number; total: number }[]>([]);
@@ -201,6 +212,9 @@ function PerfilPage() {
       .then(([finanzasRes, allTurnos]) => {
         // Comisión del mes seleccionado
         setComisionMes(finanzasRes.summary.total_neto_profesional);
+
+        // Turnos cobrados: mismo número que "Servicios" en Finanzas
+        setTurnosCobradosCount(finanzasRes.summary.cantidad_turnos);
 
         // Turnos y clientes únicos del mes seleccionado
         const turnosMes = allTurnos.filter(t => {
@@ -338,9 +352,9 @@ function PerfilPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatCard
               icon={<CalendarDays size={22} />}
-              label="Turnos"
+              label="Turnos agendados"
               value={turnosMesCount}
-              sublabel="realizados este mes"
+              sublabel={buildTurnosSublabel(isAdmin, turnosCobradosCount)}
               color="blue"
               loading={loadingStats}
             />
