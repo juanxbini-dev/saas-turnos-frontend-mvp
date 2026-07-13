@@ -28,7 +28,8 @@ export const ConfiguracionProductosTab: React.FC<ConfiguracionProductosTabProps>
   const esManual = (p: Producto) =>
     !!(p.precio_efectivo_manual || p.precio_transferencia_manual || p.precio_tarjeta_manual);
   const manualesConCosto = productos.filter(p => esManual(p) && p.costo != null).length;
-  const manualesSinCosto = productos.filter(p => esManual(p) && p.costo == null).length;
+  const productosSinCosto = productos.filter(p => esManual(p) && p.costo == null);
+  const manualesSinCosto = productosSinCosto.length;
 
   const handleSincronizarTodos = async () => {
     setSyncing(true);
@@ -190,6 +191,20 @@ export const ConfiguracionProductosTab: React.FC<ConfiguracionProductosTabProps>
                 <span className="text-red-600"> ({manualesSinCosto} no se puede(n) emparejar por no tener costo cargado)</span>
               )}.
             </p>
+            {manualesSinCosto > 0 && (
+              <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                <p className="text-xs font-semibold text-red-700 mb-1.5">Sin costo cargado (editá el producto y cargale el costo para poder emparejarlo):</p>
+                <ul className="space-y-0.5">
+                  {productosSinCosto.map(p => (
+                    <li key={p.id} className="text-sm text-red-800 flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-red-400 shrink-0" />
+                      {p.nombre}
+                      {p.marca_nombre && <span className="text-xs text-red-400">({p.marca_nombre})</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <Button
               type="button"
               variant="outline"
