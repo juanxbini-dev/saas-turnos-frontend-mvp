@@ -14,7 +14,7 @@ interface FinanzasTableProps {
   sortField: FinanzasFilters['ordenar_por'];
   sortOrder: FinanzasFilters['orden'];
   onRowClick: (comision: ComisionProfesional) => void;
-  onCobrarPago: (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => Promise<void>;
+  onCobrarPago: (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia' | 'tarjeta') => Promise<void>;
   // Tab activo: el filtrado lo hace el backend, acá solo se renderiza
   tipoFiltro: TipoFiltro;
   onTipoChange: (tipo: TipoFiltro) => void;
@@ -73,6 +73,7 @@ const MetodoPagoBadge = ({ metodo }: { metodo: string }) => {
   const map = {
     efectivo: { color: 'green', label: 'Efectivo' },
     transferencia: { color: 'blue', label: 'Transferencia' },
+    tarjeta: { color: 'purple', label: 'Tarjeta' },
     pendiente: { color: 'yellow', label: 'Pendiente' },
   };
   const b = map[metodo as keyof typeof map] || { color: 'gray', label: metodo };
@@ -81,11 +82,14 @@ const MetodoPagoBadge = ({ metodo }: { metodo: string }) => {
 
 // ─── Botón Cobrar inline ────────────────────────────────────────────────────
 
-function CobrarButton({ onCobrar }: { onCobrar: (m: 'efectivo' | 'transferencia') => void }) {
+type MetodoCobro = 'efectivo' | 'transferencia' | 'tarjeta';
+
+// conTarjeta: solo los cobros de productos admiten tarjeta (el servicio del turno no)
+function CobrarButton({ onCobrar, conTarjeta = false }: { onCobrar: (m: MetodoCobro) => void; conTarjeta?: boolean }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handle = async (m: 'efectivo' | 'transferencia') => {
+  const handle = async (m: MetodoCobro) => {
     setLoading(true);
     try { await onCobrar(m); } finally { setLoading(false); setOpen(false); }
   };
@@ -117,6 +121,15 @@ function CobrarButton({ onCobrar }: { onCobrar: (m: 'efectivo' | 'transferencia'
       >
         Transf.
       </button>
+      {conTarjeta && (
+        <button
+          onClick={() => handle('tarjeta')}
+          disabled={loading}
+          className="text-xs bg-purple-100 text-purple-800 hover:bg-purple-200 px-2 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+        >
+          Tarjeta
+        </button>
+      )}
       <button
         onClick={() => setOpen(false)}
         className="text-xs text-gray-400 hover:text-gray-600 px-1"
@@ -133,7 +146,7 @@ const ServicioRow = ({
   comision, isAdmin, isPendientesTab, onClick, onCobrar,
 }: {
   comision: ComisionProfesional; isAdmin: boolean; isPendientesTab: boolean;
-  onClick: () => void; onCobrar: (m: 'efectivo' | 'transferencia') => void;
+  onClick: () => void; onCobrar: (m: MetodoCobro) => void;
 }) => (
   <tr className="hover:bg-blue-50/40 cursor-pointer border-b" onClick={onClick}>
     <td className="px-4 py-3">
@@ -167,7 +180,7 @@ const VentaRow = ({
   grupo, isAdmin, isPendientesTab, onCobrar,
 }: {
   grupo: GrupoVenta; isAdmin: boolean; isPendientesTab: boolean;
-  onCobrar: (m: 'efectivo' | 'transferencia') => void;
+  onCobrar: (m: MetodoCobro) => void;
 }) => {
   const esDesdeTurno = grupo.turno_id !== null;
   const productosLabel = grupo.items.map(i => `${i.nombre_producto} ×${i.cantidad}`).join(', ');
@@ -192,11 +205,11 @@ const VentaRow = ({
       </td>
       {isAdmin && <td className="px-4 py-3 text-sm text-gray-700">{grupo.vendedor_nombre}</td>}
       <td className="px-4 py-3 text-sm text-gray-900">{grupo.cliente_nombre || <span className="text-gray-400 italic">Sin cliente</span>}</td>
-      <td className="pxadd py-3 text-sm text-gray-700 max-w-xs truncate" title={productosLabel}>{productosLabel}</td>
+      <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title={productosLabel}>{productosLabel}</td>
       <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(grupo.total)}</td>
       <td className="px-4 py-3">
         {isPendientesTab
-          ? <CobrarButton onCobrar={onCobrar} />
+          ? <CobrarButton onCobrar={onCobrar} conTarjeta />
           : <MetodoPagoBadge metodo={grupo.metodo_pago} />
         }
       </td>
@@ -212,7 +225,7 @@ const ServicioCard = ({
   comision, isAdmin, isPendientesTab, onClick, onCobrar,
 }: {
   comision: ComisionProfesional; isAdmin: boolean; isPendientesTab: boolean;
-  onClick: () => void; onCobrar: (m: 'efectivo' | 'transferencia') => void;
+  onClick: () => void; onCobrar: (m: MetodoCobro) => void;
 }) => (
   <div className="bg-white border-l-4 border-l-blue-500 rounded-xl shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
     <div className="flex items-start justify-between mb-2">
@@ -259,7 +272,7 @@ const VentaCard = ({
   grupo, isAdmin, isPendientesTab, onCobrar,
 }: {
   grupo: GrupoVenta; isAdmin: boolean; isPendientesTab: boolean;
-  onCobrar: (m: 'efectivo' | 'transferencia') => void;
+  onCobrar: (m: MetodoCobro) => void;
 }) => {
   const esDesdeTurno = grupo.turno_id !== null;
   return (
@@ -279,7 +292,7 @@ const VentaCard = ({
           }
         </div>
         {isPendientesTab
-          ? <CobrarButton onCobrar={onCobrar} />
+          ? <CobrarButton onCobrar={onCobrar} conTarjeta />
           : <MetodoPagoBadge metodo={grupo.metodo_pago} />
         }
       </div>
@@ -404,12 +417,12 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
                         // Si el turno tiene también productos pendientes, cobrar solo el servicio
                         // para no pisar el método de los productos. El flag viene del backend
                         // porque los productos pueden estar en otra página.
-                        const getCobrar = (m: 'efectivo' | 'transferencia') =>
+                        const getCobrar = (m: MetodoCobro) =>
                           onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
                         return <ServicioRow key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
                       }
                       // Productos asociados a un turno: solo actualizar venta_productos, no el turno
-                      const getCobrar = (m: 'efectivo' | 'transferencia') =>
+                      const getCobrar = (m: MetodoCobro) =>
                         onCobrarPago(
                           e.grupo.turno_id ? 'venta_turno' : 'venta',
                           e.grupo.turno_id ?? e.grupo.grupo_id,
@@ -427,11 +440,11 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
           <div className="md:hidden space-y-3">
             {entradas.map((e) => {
               if (e.kind === 'servicio') {
-                const getCobrar = (m: 'efectivo' | 'transferencia') =>
+                const getCobrar = (m: MetodoCobro) =>
                   onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
                 return <ServicioCard key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
               }
-              const getCobrar = (m: 'efectivo' | 'transferencia') =>
+              const getCobrar = (m: MetodoCobro) =>
                 onCobrarPago(
                   e.grupo.turno_id ? 'venta_turno' : 'venta',
                   e.grupo.turno_id ?? e.grupo.grupo_id,

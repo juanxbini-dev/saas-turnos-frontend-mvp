@@ -15,6 +15,7 @@ interface ProductoConPrecios {
   cantidad: number;
   precio_efectivo: number | null;
   precio_transferencia: number | null;
+  precio_tarjeta: number | null;
 }
 
 interface CobrarTurnoModalProps {
@@ -24,22 +25,34 @@ interface CobrarTurnoModalProps {
   onSuccess: () => void;
 }
 
-type MetodoPagoEfectivo = 'efectivo' | 'transferencia';
+type MetodoPagoProducto = 'efectivo' | 'transferencia' | 'tarjeta';
 
+const METODO_LABELS: Record<MetodoPagoProducto, string> = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  tarjeta: 'Tarjeta',
+};
+
+// conTarjeta: solo el cobro de productos admite tarjeta (el servicio del turno no)
 function MetodoSelector({
   label,
   value,
   onChange,
+  conTarjeta = false,
 }: {
   label: string;
-  value: MetodoPagoEfectivo | null;
-  onChange: (v: MetodoPagoEfectivo) => void;
+  value: MetodoPagoProducto | null;
+  onChange: (v: MetodoPagoProducto) => void;
+  conTarjeta?: boolean;
 }) {
+  const opciones: MetodoPagoProducto[] = conTarjeta
+    ? ['efectivo', 'transferencia', 'tarjeta']
+    : ['efectivo', 'transferencia'];
   return (
     <div>
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{label}</p>
       <div className="flex gap-2">
-        {(['efectivo', 'transferencia'] as MetodoPagoEfectivo[]).map((m) => (
+        {opciones.map((m) => (
           <button
             key={m}
             type="button"
@@ -50,7 +63,7 @@ function MetodoSelector({
                 : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
             }`}
           >
-            {m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
+            {METODO_LABELS[m]}
           </button>
         ))}
       </div>
@@ -61,8 +74,9 @@ function MetodoSelector({
 export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTurnoModalProps) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [metodoPagoServicio, setMetodoPagoServicio] = useState<MetodoPagoEfectivo | null>(null);
-  const [metodoPagoProductos, setMetodoPagoProductos] = useState<MetodoPagoEfectivo | null>(null);
+  // El selector del servicio no ofrece tarjeta (conTarjeta=false), pero comparte el tipo
+  const [metodoPagoServicio, setMetodoPagoServicio] = useState<MetodoPagoProducto | null>(null);
+  const [metodoPagoProductos, setMetodoPagoProductos] = useState<MetodoPagoProducto | null>(null);
   const [productosDetalle, setProductosDetalle] = useState<ProductoConPrecios[]>([]);
 
   const tieneProductos = Number(turno.total_productos ?? 0) > 0;
@@ -87,7 +101,9 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
         prod = productosDetalle.reduce((sum, p) => {
           const precio = metodoPagoProductos === 'transferencia'
             ? Number(p.precio_transferencia ?? p.precio_efectivo ?? 0)
-            : Number(p.precio_efectivo ?? 0);
+            : metodoPagoProductos === 'tarjeta'
+              ? Number(p.precio_tarjeta ?? p.precio_efectivo ?? 0)
+              : Number(p.precio_efectivo ?? 0);
           return sum + precio * p.cantidad;
         }, 0);
       } else {
@@ -187,6 +203,7 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
             label="Método de pago — Productos"
             value={metodoPagoProductos}
             onChange={setMetodoPagoProductos}
+            conTarjeta
           />
         )}
 

@@ -136,11 +136,13 @@ export interface VentaProductoData {
   cantidad: number;
   precio_unitario: number;
   precio_total: number;
-  metodo_pago?: 'efectivo' | 'transferencia';
+  // 'tarjeta' solo aplica a productos, nunca al servicio del turno
+  metodo_pago?: 'efectivo' | 'transferencia' | 'tarjeta';
   es_venta_costo?: boolean;
   // Precios guardados al agregar — permiten recalcular sin depender del catálogo
   _precio_efectivo?: number;
   _precio_transferencia?: number;
+  _precio_tarjeta?: number;
   _precio_costo?: number;
 }
 

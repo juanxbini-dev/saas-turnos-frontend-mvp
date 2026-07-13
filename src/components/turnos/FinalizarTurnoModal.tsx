@@ -74,6 +74,7 @@ export function FinalizarTurnoModal({
             metodo_pago: p.metodo_pago,
             _precio_efectivo: p.precio_efectivo,
             _precio_transferencia: p.precio_transferencia,
+            _precio_tarjeta: p.precio_tarjeta,
           }));
           setProductos(prods);
         })
@@ -83,12 +84,14 @@ export function FinalizarTurnoModal({
   }, [isOpen, mode, turno]);
 
   // Cambiar método de pago de un producto y recalcular su precio
-  const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia') => {
+  const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia' | 'tarjeta') => {
     setProductos(prev => prev.map(p => {
       if (p.id !== id || p.es_venta_costo) return p;
       const nuevoPrecio = metodo === 'transferencia'
         ? (p._precio_transferencia ?? p.precio_unitario)
-        : (p._precio_efectivo ?? p.precio_unitario);
+        : metodo === 'tarjeta'
+          ? (p._precio_tarjeta ?? p.precio_unitario)
+          : (p._precio_efectivo ?? p.precio_unitario);
       return { ...p, metodo_pago: metodo, precio_unitario: nuevoPrecio, precio_total: nuevoPrecio * p.cantidad };
     }));
   };
@@ -147,6 +150,7 @@ export function FinalizarTurnoModal({
       const metodoProd = metodoPago as 'efectivo' | 'transferencia' | 'pendiente';
       const precioEfectivo = Number(selectedCatalogProducto.precio_efectivo) || 0;
       const precioTransferencia = Number(selectedCatalogProducto.precio_transferencia) || 0;
+      const precioTarjeta = Number(selectedCatalogProducto.precio_tarjeta) || 0;
       const precioCosto = Number(selectedCatalogProducto.costo) || 0;
       const precioUnitario = nuevaEsVentaCosto
         ? precioCosto
@@ -162,6 +166,7 @@ export function FinalizarTurnoModal({
         es_venta_costo: nuevaEsVentaCosto,
         _precio_efectivo: precioEfectivo,
         _precio_transferencia: precioTransferencia,
+        _precio_tarjeta: precioTarjeta,
         _precio_costo: precioCosto,
       };
       setProductos([...productos, producto]);
@@ -358,7 +363,7 @@ export function FinalizarTurnoModal({
                     </div>
                   </div>
                   <div className="flex gap-1 flex-wrap">
-                    {!producto.es_venta_costo && (['efectivo', 'transferencia'] as const).map(m => (
+                    {!producto.es_venta_costo && (['efectivo', 'transferencia', 'tarjeta'] as const).map(m => (
                       <button
                         key={m}
                         type="button"
@@ -369,7 +374,7 @@ export function FinalizarTurnoModal({
                             : 'border-gray-200 text-gray-500 hover:border-blue-300'
                         }`}
                       >
-                        {m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
+                        {m === 'efectivo' ? 'Efectivo' : m === 'transferencia' ? 'Transferencia' : 'Tarjeta'}
                       </button>
                     ))}
                     <button
