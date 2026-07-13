@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Percent, Banknote, Landmark, CreditCard, Info, RefreshCw } from 'lucide-react';
+import { Percent, Banknote, Landmark, CreditCard, Info, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Button, Input, Spinner, ConfirmModal } from '../ui';
 import { productosService } from '../../services/productos.service';
 import { Producto } from '../../types/producto.types';
@@ -23,7 +23,7 @@ export const ConfiguracionProductosTab: React.FC<ConfiguracionProductosTabProps>
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
-  const [form, setForm] = useState({ pct_efectivo: '0', pct_transferencia: '0', pct_tarjeta: '0' });
+  const [form, setForm] = useState({ pct_efectivo: '0', pct_transferencia: '0', pct_tarjeta: '0', stock_minimo: '3' });
 
   const esManual = (p: Producto) =>
     !!(p.precio_efectivo_manual || p.precio_transferencia_manual || p.precio_tarjeta_manual);
@@ -55,6 +55,7 @@ export const ConfiguracionProductosTab: React.FC<ConfiguracionProductosTabProps>
           pct_efectivo: String(config.pct_efectivo ?? 0),
           pct_transferencia: String(config.pct_transferencia ?? 0),
           pct_tarjeta: String(config.pct_tarjeta ?? 0),
+          stock_minimo: String(config.stock_minimo ?? 3),
         });
       })
       .catch(() => toast.error('Error al cargar la configuración'))
@@ -72,9 +73,14 @@ export const ConfiguracionProductosTab: React.FC<ConfiguracionProductosTabProps>
       toast.error('Los porcentajes deben ser números mayores o iguales a 0');
       return;
     }
+    const stockMinimo = parseInt(form.stock_minimo, 10);
+    if (Number.isNaN(stockMinimo) || stockMinimo < 0) {
+      toast.error('El aviso de bajo stock debe ser un número entero mayor o igual a 0');
+      return;
+    }
     setSaving(true);
     try {
-      await productosService.updateConfiguracion(valores);
+      await productosService.updateConfiguracion({ ...valores, stock_minimo: stockMinimo });
       toast.success('Configuración guardada');
       onSaved();
     } catch (err: any) {
@@ -135,6 +141,27 @@ export const ConfiguracionProductosTab: React.FC<ConfiguracionProductosTabProps>
               </p>
             </div>
           ))}
+        </div>
+
+        <div className="pt-2 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500" />
+            <h2 className="font-semibold text-gray-900">Aviso de bajo stock</h2>
+          </div>
+          <div className="sm:w-56">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Avisar cuando el stock sea ≤ a</label>
+            <Input
+              type="number"
+              min="0"
+              step="1"
+              value={form.stock_minimo}
+              onChange={e => setForm(f => ({ ...f, stock_minimo: e.target.value }))}
+              required
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Los productos con stock igual o menor a este número se marcan en rojo y suman a la alerta de bajo stock.
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end">

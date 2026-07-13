@@ -50,6 +50,8 @@ export interface ConfiguracionProductos {
   pct_efectivo: number;
   pct_transferencia: number;
   pct_tarjeta: number;
+  // Umbral de alerta: stock <= stock_minimo se considera bajo stock
+  stock_minimo: number;
   updated_at?: string;
 }
 
@@ -57,6 +59,7 @@ export interface UpdateConfiguracionProductosData {
   pct_efectivo: number;
   pct_transferencia: number;
   pct_tarjeta: number;
+  stock_minimo: number;
 }
 
 export interface ProductoVentaFinanzas {

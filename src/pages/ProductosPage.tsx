@@ -368,7 +368,9 @@ function ProductosPage() {
 
   const registroTotalPages = registroData ? Math.max(1, Math.ceil(registroData.total / 50)) : 1;
 
-  const bajoStock = productos?.filter(p => p.stock <= 3 && p.activo) || [];
+  // Umbral de bajo stock configurable (Productos → Configuración)
+  const stockMinimo = configPrecios?.stock_minimo ?? 3;
+  const bajoStock = productos?.filter(p => p.stock <= stockMinimo && p.activo) || [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -504,7 +506,7 @@ function ProductosPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span className={`inline-flex items-center justify-center w-10 h-7 rounded-full text-sm font-bold ${
-                              p.stock <= 3 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                              p.stock <= stockMinimo ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                             }`}>
                               {p.stock}
                             </span>
@@ -787,7 +789,7 @@ function ProductosPage() {
                                       <tr key={p.id} className="border-t border-gray-100">
                                         <td className="py-2 pr-4 font-medium text-gray-800">{p.nombre}</td>
                                         <td className="py-2 pr-4 text-center">
-                                          <span className={`font-semibold ${p.stock <= 3 ? 'text-red-600' : 'text-gray-700'}`}>
+                                          <span className={`font-semibold ${p.stock <= stockMinimo ? 'text-red-600' : 'text-gray-700'}`}>
                                             {p.stock}
                                           </span>
                                         </td>
