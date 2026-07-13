@@ -25,7 +25,7 @@ interface VenderModalProps {
   onVentaCreada: () => void;
 }
 
-type MetodoPago = 'efectivo' | 'transferencia' | 'pendiente';
+type MetodoPago = 'efectivo' | 'transferencia' | 'tarjeta' | 'pendiente';
 
 export const VenderModal: React.FC<VenderModalProps> = ({
   vendedorId,
@@ -159,6 +159,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   const getPrecioUnitario = (producto: Producto, esVentaCosto = false): number => {
     if (esVentaCosto) return Number(producto.costo) || 0;
     if (metodoPago === 'transferencia') return Number(producto.precio_transferencia) || 0;
+    if (metodoPago === 'tarjeta') return Number(producto.precio_tarjeta) || 0;
     return Number(producto.precio_efectivo) || 0;
   };
 
@@ -215,7 +216,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
           <section>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">Método de pago</label>
             <div className="flex gap-2">
-              {(['efectivo', 'transferencia', 'pendiente'] as MetodoPago[]).map(m => (
+              {(['efectivo', 'transferencia', 'tarjeta', 'pendiente'] as MetodoPago[]).map(m => (
                 <button
                   key={m}
                   type="button"

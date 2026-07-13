@@ -10,6 +10,7 @@ import { Button, Badge, Spinner, ConfirmModal, Card } from '../components/ui';
 import { ProductoModal } from '../components/productos/ProductoModal';
 import { AgregarStockModal } from '../components/productos/AgregarStockModal';
 import { MarcaModal } from '../components/productos/MarcaModal';
+import { ConfiguracionProductosTab } from '../components/productos/ConfiguracionProductosTab';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,7 +23,7 @@ function ProductosPage() {
 
   // Tabs disponibles según rol
   const availableTabs = isAdmin
-    ? (['catalogo', 'marcas', 'estadisticas', 'ventas', 'por-profesional'] as const)
+    ? (['catalogo', 'marcas', 'estadisticas', 'ventas', 'por-profesional', 'configuracion'] as const)
     : (['ventas'] as const);
   type Tab = typeof availableTabs[number];
 
@@ -41,6 +42,7 @@ function ProductosPage() {
     estadisticas: 'Estadísticas',
     ventas: 'Ventas',
     'por-profesional': 'Por profesional',
+    configuracion: 'Configuración',
   };
 
   // Catálogo state
@@ -409,7 +411,7 @@ function ProductosPage() {
                       <tr className="bg-gray-50 border-b">
                         <th className="text-left px-4 py-3 font-medium text-gray-700">Nombre</th>
                         <th className="text-left px-4 py-3 font-medium text-gray-700">Marca</th>
-                        <th className="text-right px-4 py-3 font-medium text-gray-700">Ef. / Transf.</th>
+                        <th className="text-right px-4 py-3 font-medium text-gray-700">Ef. / Transf. / Tarj.</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Stock</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Estado</th>
                         {isAdmin && <th className="text-right px-4 py-3 font-medium text-gray-700">Acciones</th>}
@@ -432,6 +434,8 @@ function ProductosPage() {
                             <span className="font-semibold">${Number(p.precio_efectivo || 0).toLocaleString('es-AR')}</span>
                             <span className="text-gray-400 mx-1">/</span>
                             <span className="font-semibold">${Number(p.precio_transferencia || 0).toLocaleString('es-AR')}</span>
+                            <span className="text-gray-400 mx-1">/</span>
+                            <span className="font-semibold">${Number(p.precio_tarjeta || 0).toLocaleString('es-AR')}</span>
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span className={`inline-flex items-center justify-center w-10 h-7 rounded-full text-sm font-bold ${
@@ -507,6 +511,7 @@ function ProductosPage() {
                           <div className="text-right shrink-0">
                             <p className="text-xs text-gray-500">Ef. <span className="font-semibold text-gray-900">${Number(p.precio_efectivo || 0).toLocaleString('es-AR')}</span></p>
                             <p className="text-xs text-gray-500">Tr. <span className="font-semibold text-gray-900">${Number(p.precio_transferencia || 0).toLocaleString('es-AR')}</span></p>
+                            <p className="text-xs text-gray-500">Tj. <span className="font-semibold text-gray-900">${Number(p.precio_tarjeta || 0).toLocaleString('es-AR')}</span></p>
                           </div>
                         </div>
                         <div className="mt-2 flex items-center gap-2">
@@ -1150,6 +1155,7 @@ function ProductosPage() {
                                         >
                                           <option value="efectivo">Efectivo</option>
                                           <option value="transferencia">Transferencia</option>
+                                          <option value="tarjeta">Tarjeta</option>
                                           <option value="pendiente">Pendiente</option>
                                         </select>
                                       </div>
@@ -1299,6 +1305,11 @@ function ProductosPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* TAB: CONFIGURACIÓN */}
+        {activeTab === 'configuracion' && isAdmin && (
+          <ConfiguracionProductosTab onSaved={refresh} />
         )}
 
       </main>
