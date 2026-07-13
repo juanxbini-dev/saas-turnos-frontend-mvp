@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Percent, Banknote, Landmark, CreditCard, Info } from 'lucide-react';
-import { Button, Input, Spinner } from '../ui';
+import { Percent, Banknote, Landmark, CreditCard, Info, RefreshCw } from 'lucide-react';
+import { Button, Input, Spinner, ConfirmModal } from '../ui';
 import { productosService } from '../../services/productos.service';
+import { Producto } from '../../types/producto.types';
 import { useToast } from '../../hooks/useToast';
 
 interface ConfiguracionProductosTabProps {
-  // Se llama tras guardar: los precios derivados del catálogo cambian y hay que revalidar
+  productos: Producto[];
+  // Se llama tras guardar/sincronizar: los precios derivados del catálogo cambian y hay que revalidar
   onSaved: () => void;
 }
 
@@ -15,11 +17,36 @@ const calcularEjemplo = (costo: number, pct: string): string => {
   return `$${Math.round(costo * (1 + p / 100)).toLocaleString('es-AR')}`;
 };
 
-export const ConfiguracionProductosTab: React.FC<ConfiguracionProductosTabProps> = ({ onSaved }) => {
+export const ConfiguracionProductosTab: React.FC<ConfiguracionProductosTabProps> = ({ productos, onSaved }) => {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
   const [form, setForm] = useState({ pct_efectivo: '0', pct_transferencia: '0', pct_tarjeta: '0' });
+
+  const esManual = (p: Producto) =>
+    !!(p.precio_efectivo_manual || p.precio_transferencia_manual || p.precio_tarjeta_manual);
+  const manualesConCosto = productos.filter(p => esManual(p) && p.costo != null).length;
+  const manualesSinCosto = productos.filter(p => esManual(p) && p.costo == null).length;
+
+  const handleSincronizarTodos = async () => {
+    setSyncing(true);
+    try {
+      const result = await productosService.sincronizarPrecios();
+      const partes = [`${result.actualizados} producto(s) emparejado(s) con la configuración`];
+      if (result.omitidos_sin_costo > 0) {
+        partes.push(`${result.omitidos_sin_costo} omitido(s) por no tener costo cargado`);
+      }
+      toast.success(partes.join(' · '));
+      setSyncConfirmOpen(false);
+      onSaved();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Error al sincronizar los precios');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     productosService.getConfiguracion()
@@ -116,6 +143,47 @@ export const ConfiguracionProductosTab: React.FC<ConfiguracionProductosTabProps>
           </Button>
         </div>
       </form>
+
+      {/* Sincronización masiva de precios manuales */}
+      <div className="bg-white rounded-xl border p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="w-5 h-5 text-orange-500" />
+          <h2 className="font-semibold text-gray-900">Emparejar productos con la configuración</h2>
+        </div>
+        {manualesConCosto === 0 && manualesSinCosto === 0 ? (
+          <p className="text-sm text-gray-500">
+            Todos los productos ya usan los precios automáticos de la configuración. 👌
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-gray-600">
+              Hay <strong>{manualesConCosto + manualesSinCosto} producto(s)</strong> con precios cargados a mano.
+              Esta acción borra esos precios manuales para que vuelvan a calcularse automáticamente desde el costo
+              {manualesSinCosto > 0 && (
+                <span className="text-red-600"> ({manualesSinCosto} no se puede(n) emparejar por no tener costo cargado)</span>
+              )}.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSyncConfirmOpen(true)}
+              disabled={syncing || manualesConCosto === 0}
+            >
+              {syncing ? 'Sincronizando...' : `Emparejar ${manualesConCosto} producto(s)`}
+            </Button>
+          </>
+        )}
+      </div>
+
+      <ConfirmModal
+        isOpen={syncConfirmOpen}
+        onClose={() => setSyncConfirmOpen(false)}
+        onConfirm={handleSincronizarTodos}
+        title="Emparejar todos los productos"
+        message={`Se van a borrar los precios manuales de <strong>${manualesConCosto} producto(s)</strong> y pasarán a calcularse automáticamente desde el costo según esta configuración.<br/><br/>Esta acción no se puede deshacer (los valores manuales se pierden). ¿Continuar?`}
+        confirmText="Emparejar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

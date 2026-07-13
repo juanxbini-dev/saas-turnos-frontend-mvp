@@ -17,6 +17,12 @@ export const productosService = {
     return res.data.data;
   },
 
+  // Borra los precios manuales de todos los productos con costo (vuelven al automático)
+  async sincronizarPrecios(): Promise<{ actualizados: number; omitidos_sin_costo: number }> {
+    const res = await axiosInstance.post('/api/productos/sincronizar-precios');
+    return res.data.data;
+  },
+
   async getStats(): Promise<ProductosStats> {
     const res = await axiosInstance.get('/api/productos/stats');
     return res.data.data;
