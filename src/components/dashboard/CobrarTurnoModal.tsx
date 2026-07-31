@@ -15,6 +15,7 @@ interface ProductoConPrecios {
   cantidad: number;
   precio_efectivo: number | null;
   precio_transferencia: number | null;
+  precio_tarjeta: number | null;
 }
 
 interface CobrarTurnoModalProps {
@@ -24,22 +25,36 @@ interface CobrarTurnoModalProps {
   onSuccess: () => void;
 }
 
-type MetodoPagoEfectivo = 'efectivo' | 'transferencia';
+type MetodoPagoProducto = 'efectivo' | 'transferencia' | 'tarjeta' | 'canje';
 
+const METODO_LABELS: Record<MetodoPagoProducto, string> = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  tarjeta: 'Tarjeta',
+  canje: 'Canje',
+};
+
+// conTarjeta: solo el cobro de productos admite tarjeta (el servicio del turno no).
+// 'canje' aplica a ambos: es gratis, aporta $0 al total.
 function MetodoSelector({
   label,
   value,
   onChange,
+  conTarjeta = false,
 }: {
   label: string;
-  value: MetodoPagoEfectivo | null;
-  onChange: (v: MetodoPagoEfectivo) => void;
+  value: MetodoPagoProducto | null;
+  onChange: (v: MetodoPagoProducto) => void;
+  conTarjeta?: boolean;
 }) {
+  const opciones: MetodoPagoProducto[] = conTarjeta
+    ? ['efectivo', 'transferencia', 'tarjeta', 'canje']
+    : ['efectivo', 'transferencia', 'canje'];
   return (
     <div>
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{label}</p>
       <div className="flex gap-2">
-        {(['efectivo', 'transferencia'] as MetodoPagoEfectivo[]).map((m) => (
+        {opciones.map((m) => (
           <button
             key={m}
             type="button"
@@ -50,7 +65,7 @@ function MetodoSelector({
                 : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
             }`}
           >
-            {m === 'efectivo' ? 'Efectivo' : 'Transferencia'}
+            {METODO_LABELS[m]}
           </button>
         ))}
       </div>
@@ -61,9 +76,13 @@ function MetodoSelector({
 export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTurnoModalProps) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [metodoPagoServicio, setMetodoPagoServicio] = useState<MetodoPagoEfectivo | null>(null);
-  const [metodoPagoProductos, setMetodoPagoProductos] = useState<MetodoPagoEfectivo | null>(null);
+  // El selector del servicio no ofrece tarjeta (conTarjeta=false), pero comparte el tipo
+  const [metodoPagoServicio, setMetodoPagoServicio] = useState<MetodoPagoProducto | null>(null);
+  const [metodoPagoProductos, setMetodoPagoProductos] = useState<MetodoPagoProducto | null>(null);
   const [productosDetalle, setProductosDetalle] = useState<ProductoConPrecios[]>([]);
+  // Un solo detalle de canje por turno (aplica a servicio y/o productos en canje)
+  const [canjeDetalle, setCanjeDetalle] = useState('');
+  const [canjeDetalleError, setCanjeDetalleError] = useState<string | null>(null);
 
   const tieneProductos = Number(turno.total_productos ?? 0) > 0;
 
@@ -75,19 +94,25 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
       .catch(() => setProductosDetalle([]));
   }, [isOpen, turno.id, tieneProductos]);
 
-  // Calcular totales reactivos según método elegido
+  // Calcular totales reactivos según método elegido ('canje' = gratis, aporta $0)
   const { totalServicio, totalProductos, descuentoMonto, totalFinal } = useMemo(() => {
-    const svc = Number(turno.precio ?? turno.servicio_precio ?? 0);
+    const svc = metodoPagoServicio === 'canje'
+      ? 0
+      : Number(turno.precio ?? turno.servicio_precio ?? 0);
     const descuento = Number(turno.descuento_porcentaje ?? 0);
 
     let prod = 0;
     if (tieneProductos) {
-      if (productosDetalle.length > 0 && metodoPagoProductos) {
+      if (metodoPagoProductos === 'canje') {
+        prod = 0;
+      } else if (productosDetalle.length > 0 && metodoPagoProductos) {
         // Recalcular con el precio del método elegido
         prod = productosDetalle.reduce((sum, p) => {
           const precio = metodoPagoProductos === 'transferencia'
             ? Number(p.precio_transferencia ?? p.precio_efectivo ?? 0)
-            : Number(p.precio_efectivo ?? 0);
+            : metodoPagoProductos === 'tarjeta'
+              ? Number(p.precio_tarjeta ?? p.precio_efectivo ?? 0)
+              : Number(p.precio_efectivo ?? 0);
           return sum + precio * p.cantidad;
         }, 0);
       } else {
@@ -104,19 +129,27 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
       descuentoMonto: descMonto,
       totalFinal: sub - descMonto,
     };
-  }, [turno, tieneProductos, productosDetalle, metodoPagoProductos]);
+  }, [turno, tieneProductos, productosDetalle, metodoPagoServicio, metodoPagoProductos]);
 
   const canSave = metodoPagoServicio !== null && (!tieneProductos || metodoPagoProductos !== null);
 
+  // Hay canje si el servicio o los productos van en canje
+  const hayCanje = metodoPagoServicio === 'canje' || (tieneProductos && metodoPagoProductos === 'canje');
+
   const handleCobrar = async () => {
     if (!metodoPagoServicio) return;
+    if (hayCanje && !canjeDetalle.trim()) {
+      setCanjeDetalleError('Ingresá el detalle del canje');
+      return;
+    }
     setLoading(true);
     try {
       await finanzasService.cobrarPago(
         'turno',
         turno.id,
         metodoPagoServicio,
-        tieneProductos && metodoPagoProductos ? metodoPagoProductos : undefined
+        tieneProductos && metodoPagoProductos ? metodoPagoProductos : undefined,
+        hayCanje ? canjeDetalle.trim() : undefined
       );
       toast.success('Cobro registrado correctamente');
       onSuccess();
@@ -132,6 +165,8 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
     setMetodoPagoServicio(null);
     setMetodoPagoProductos(null);
     setProductosDetalle([]);
+    setCanjeDetalle('');
+    setCanjeDetalleError(null);
     onClose();
   };
 
@@ -187,7 +222,30 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
             label="Método de pago — Productos"
             value={metodoPagoProductos}
             onChange={setMetodoPagoProductos}
+            conTarjeta
           />
+        )}
+
+        {/* Detalle del canje — un solo detalle por turno (servicio y/o productos en canje) */}
+        {hayCanje && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              Detalle del canje <span className="text-red-500 normal-case">*</span>
+            </label>
+            <textarea
+              rows={2}
+              maxLength={500}
+              value={canjeDetalle}
+              onChange={(e) => { setCanjeDetalle(e.target.value); if (canjeDetalleError) setCanjeDetalleError(null); }}
+              placeholder="¿Qué se recibió a cambio? / motivo"
+              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
+                canjeDetalleError ? 'border-red-400' : 'border-gray-300'
+              }`}
+            />
+            {canjeDetalleError && (
+              <p className="text-xs text-red-600 mt-1">{canjeDetalleError}</p>
+            )}
+          </div>
         )}
 
         {/* Acciones */}

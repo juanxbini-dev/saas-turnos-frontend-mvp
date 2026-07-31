@@ -1,6 +1,6 @@
 import React from 'react';
 import { Table, Button, Badge, Avatar } from '../ui';
-import { Trash2 } from 'lucide-react';
+import { Trash2, BarChart3 } from 'lucide-react';
 import { Usuario } from '../../types/usuario.types';
 
 interface UsuariosTablaProps {
@@ -11,6 +11,7 @@ interface UsuariosTablaProps {
   onCambiarRol: (usuario: Usuario) => void;
   onEliminar: (usuario: Usuario) => void;
   onResetPassword?: (usuario: Usuario) => void;
+  onMetricas?: (usuario: Usuario) => void;
 }
 
 export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
@@ -20,7 +21,8 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
   onEdit,
   onCambiarRol,
   onEliminar,
-  onResetPassword
+  onResetPassword,
+  onMetricas
 }) => {
   const columns: Array<any> = [
     {
@@ -105,6 +107,16 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
         if (!usuario) return null;
         return (
           <div className="flex space-x-2">
+            {onMetricas && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onMetricas(usuario)}
+              >
+                <BarChart3 className="w-3 h-3 mr-1" />
+                Métricas
+              </Button>
+            )}
             <Button
               variant="primary"
               size="sm"
@@ -134,7 +146,7 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
               onClick={() => onEliminar(usuario)}
             >
               <Trash2 className="w-3 h-3 mr-1" />
-              Eliminar
+              Deshabilitar
             </Button>
           </div>
         );

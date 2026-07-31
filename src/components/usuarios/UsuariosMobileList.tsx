@@ -10,6 +10,7 @@ interface UsuariosMobileListProps {
   onCambiarRol: (usuario: Usuario) => void;
   onEliminar: (usuario: Usuario) => void;
   onResetPassword?: (usuario: Usuario) => void;
+  onMetricas?: (usuario: Usuario) => void;
 }
 
 export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
@@ -19,7 +20,8 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
   onEdit,
   onCambiarRol,
   onEliminar,
-  onResetPassword
+  onResetPassword,
+  onMetricas
 }) => {
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
 
@@ -111,6 +113,14 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
 
             {expandedActions.has(usuario.id) && (
               <div className="mt-2 flex flex-col gap-0.5">
+                {onMetricas && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onMetricas(usuario); }}
+                    className="text-left text-sm text-green-600 hover:text-green-800 py-1.5 font-medium"
+                  >
+                    📊 Ver métricas
+                  </button>
+                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); onEdit(usuario); }}
                   className="text-left text-sm text-gray-700 hover:text-gray-900 py-1.5 font-medium"
@@ -135,7 +145,7 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
                   onClick={(e) => { e.stopPropagation(); onEliminar(usuario); }}
                   className="text-left text-sm py-1.5 font-medium text-red-500 hover:text-red-700"
                 >
-                  🗑 Eliminar cuenta
+                  🚫 Deshabilitar cuenta
                 </button>
               </div>
             )}

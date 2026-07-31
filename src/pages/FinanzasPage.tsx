@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { FinanzasFilters, FinanzasResponse, ComisionProfesional } from '../types/finanzas.types';
 import { finanzasService } from '../services/finanzas.service';
 import { useFetch } from '../hooks/useFetch';
@@ -45,7 +46,11 @@ export function FinanzasPage() {
     };
   });
 
-  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(null);
+  // Permite llegar preseleccionado desde otras pantallas (ej: /finanzas?profesional=<id>)
+  const [searchParams] = useSearchParams();
+  const [selectedProfesionalId, setSelectedProfesionalId] = useState<string | null>(
+    () => searchParams.get('profesional')
+  );
   const [selectedComision, setSelectedComision] = useState<ComisionProfesional | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editarPagoTurno, setEditarPagoTurno] = useState<TurnoConDetalle | null>(null);
@@ -106,9 +111,11 @@ export function FinanzasPage() {
     return null;
   }, [isAdmin, selectedProfesionalId, profesionales, perfilPropio]);
 
-  // Auto-seleccionar el primer profesional de la lista cuando carguen
+  // Auto-seleccionar el primer profesional cuando carguen (o si el preseleccionado no existe)
   useEffect(() => {
-    if (isAdmin && profesionales.length > 0 && !selectedProfesionalId) {
+    if (!isAdmin || profesionales.length === 0) return;
+    const existe = profesionales.some((p: any) => p.id === selectedProfesionalId);
+    if (!selectedProfesionalId || !existe) {
       setSelectedProfesionalId(profesionales[0].id);
     }
   }, [isAdmin, profesionales, selectedProfesionalId]);
@@ -141,8 +148,8 @@ export function FinanzasPage() {
     handleFiltersChange({ tipo, pagina: 1 });
   };
 
-  const handleCobrarPago = async (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => {
-    await finanzasService.cobrarPago(tipo, id, metodoPago);
+  const handleCobrarPago = async (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje', canjeDetalle?: string) => {
+    await finanzasService.cobrarPago(tipo, id, metodoPago, undefined, canjeDetalle);
     revalidate();
   };
 
@@ -200,6 +207,7 @@ export function FinanzasPage() {
           total_comision_empresa: 0, total_comision_empresa_servicios: 0, total_comision_empresa_productos: 0,
           total_neto_profesional: 0, total_neto_profesional_servicios: 0, total_neto_profesional_productos: 0,
           total_descuentos: 0, cantidad_turnos: 0, cantidad_productos_vendidos: 0, promedio_por_turno: 0, total_pendiente: 0,
+          cantidad_canjes_servicios: 0, cantidad_canjes_productos: 0,
         }}
         isLoading={loadingFinanzas}
         comisionProfesional={comisionProfesional}

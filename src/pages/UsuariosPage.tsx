@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { UserPlus } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { UserPlus, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFetch } from '../hooks/useFetch';
 import { usuarioService } from '../services/usuario.service';
@@ -9,6 +9,7 @@ import { UsuariosMobileList } from '../components/usuarios/UsuariosMobileList';
 import { EditarUsuarioModal } from '../components/usuarios/EditarUsuarioModal';
 import { CambiarRolModal } from '../components/usuarios/CambiarRolModal';
 import { ResetPasswordModal } from '../components/usuarios/ResetPasswordModal';
+import { UsuarioMetricasModal } from '../components/usuarios/UsuarioMetricasModal';
 import { Button, Modal, ConfirmModal } from '../components/ui';
 import { Usuario } from '../types/usuario.types';
 import { cacheService } from '../cache/cache.service';
@@ -22,6 +23,8 @@ function UsuariosPage() {
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const [rolTarget, setRolTarget] = useState<Usuario | null>(null);
   const [resetTarget, setResetTarget] = useState<Usuario | null>(null);
+  const [metricasTarget, setMetricasTarget] = useState<Usuario | null>(null);
+  const [isMetricasOpen, setIsMetricasOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCrearModalOpen, setIsCrearModalOpen] = useState(false);
   const [isRolModalOpen, setIsRolModalOpen] = useState(false);
@@ -30,6 +33,8 @@ function UsuariosPage() {
     isOpen: false,
     usuario: null
   });
+  const [showDeshabilitados, setShowDeshabilitados] = useState(false);
+  const [reactivandoId, setReactivandoId] = useState<string | null>(null);
 
   // Obtener usuarios con caché
   const {
@@ -45,6 +50,11 @@ function UsuariosPage() {
       revalidateOnFocus: true
     }
   );
+
+  // Los deshabilitados no se mezclan con la tabla principal: van a una
+  // sección plegada abajo, para no ensuciar la vista del día a día
+  const usuariosActivos = useMemo(() => (usuarios || []).filter(u => u.activo), [usuarios]);
+  const usuariosDeshabilitados = useMemo(() => (usuarios || []).filter(u => !u.activo), [usuarios]);
 
   const handleEdit = (usuario: Usuario) => {
     setSelectedUsuario(usuario);
@@ -65,6 +75,11 @@ function UsuariosPage() {
     setIsResetPasswordOpen(true);
   };
 
+  const handleVerMetricas = (usuario: Usuario) => {
+    setMetricasTarget(usuario);
+    setIsMetricasOpen(true);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deleteModal.usuario) return;
     try {
@@ -73,8 +88,22 @@ function UsuariosPage() {
       revalidate();
       setDeleteModal({ isOpen: false, usuario: null });
     } catch (error: any) {
-      console.error('Error al eliminar usuario:', error);
-      alert(error.response?.data?.message || error.message || 'Error al eliminar el usuario');
+      console.error('Error al deshabilitar usuario:', error);
+      alert(error.response?.data?.message || error.message || 'Error al deshabilitar el usuario');
+    }
+  };
+
+  const handleReactivar = async (usuario: Usuario) => {
+    setReactivandoId(usuario.id);
+    try {
+      await usuarioService.reactivarUsuario(usuario.id);
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.USUARIOS));
+      revalidate();
+    } catch (error: any) {
+      console.error('Error al rehabilitar usuario:', error);
+      alert(error.response?.data?.message || error.message || 'Error al rehabilitar el usuario');
+    } finally {
+      setReactivandoId(null);
     }
   };
 
@@ -132,28 +161,68 @@ function UsuariosPage() {
           {/* Tabla de usuarios - Desktop */}
           <div className="hidden lg:block">
             <UsuariosTabla
-              usuarios={usuarios || []}
+              usuarios={usuariosActivos}
               loading={loading}
               isSuperAdmin={isSuperAdmin}
               onEdit={handleEdit}
               onCambiarRol={handleCambiarRol}
               onEliminar={handleEliminar}
               onResetPassword={handleResetPassword}
+              onMetricas={handleVerMetricas}
             />
           </div>
 
           {/* Lista móvil */}
           <div className="lg:hidden">
             <UsuariosMobileList
-              usuarios={usuarios || []}
+              usuarios={usuariosActivos}
               loading={loading}
               isSuperAdmin={isSuperAdmin}
               onEdit={handleEdit}
               onCambiarRol={handleCambiarRol}
               onEliminar={handleEliminar}
               onResetPassword={handleResetPassword}
+              onMetricas={handleVerMetricas}
             />
           </div>
+
+          {/* Deshabilitados: sección discreta, plegada por defecto */}
+          {usuariosDeshabilitados.length > 0 && (
+            <div className="mt-8">
+              <button
+                type="button"
+                onClick={() => setShowDeshabilitados(v => !v)}
+                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {showDeshabilitados ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                Usuarios deshabilitados ({usuariosDeshabilitados.length})
+              </button>
+
+              {showDeshabilitados && (
+                <div className="mt-3 bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
+                  {usuariosDeshabilitados.map(usuario => (
+                    <div key={usuario.id} className="flex items-center justify-between px-4 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-sm text-gray-500 truncate">
+                          {usuario.nombre} <span className="text-gray-400">@{usuario.username}</span>
+                        </p>
+                        <p className="text-xs text-gray-400 truncate">{usuario.email}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleReactivar(usuario)}
+                        disabled={reactivandoId === usuario.id}
+                        className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50 shrink-0 ml-4"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        {reactivandoId === usuario.id ? 'Rehabilitando…' : 'Rehabilitar'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Modales */}
           <EditarUsuarioModal
@@ -199,14 +268,24 @@ function UsuariosPage() {
             }}
           />
 
-          {/* Modal de confirmación para eliminar usuario */}
+          {/* Modal de métricas mensuales */}
+          <UsuarioMetricasModal
+            usuario={metricasTarget}
+            isOpen={isMetricasOpen}
+            onClose={() => {
+              setIsMetricasOpen(false);
+              setMetricasTarget(null);
+            }}
+          />
+
+          {/* Modal de confirmación para deshabilitar usuario */}
           <ConfirmModal
             isOpen={deleteModal.isOpen}
             onClose={() => setDeleteModal({ isOpen: false, usuario: null })}
             onConfirm={handleDeleteConfirm}
-            title="Eliminar usuario"
-            message={`⚠️ Advertencia: Esta acción es irreversible.\n\n¿Estás seguro de que querés eliminar al usuario "${deleteModal.usuario?.nombre}" (@${deleteModal.usuario?.username})? Se perderán todos sus datos permanentemente.`}
-            confirmText="Eliminar"
+            title="Deshabilitar usuario"
+            message={`¿Deshabilitar al usuario "${deleteModal.usuario?.nombre}" (@${deleteModal.usuario?.username})?\n\nNo va a poder iniciar sesión ni aparecer en la página de reservas. Sus turnos y ventas históricos se conservan, y podés rehabilitarlo cuando quieras desde la lista de deshabilitados.`}
+            confirmText="Deshabilitar"
             variant="danger"
           />
         </div>

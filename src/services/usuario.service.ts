@@ -26,8 +26,14 @@ export const usuarioService = {
     return response.data.data;
   },
 
+  // "Eliminar" = deshabilitar (soft-delete): el backend marca activo=false
   async deleteUsuario(id: string): Promise<void> {
     await axiosInstance.delete(`/api/usuarios/${id}`);
+  },
+
+  async reactivarUsuario(id: string): Promise<Usuario> {
+    const response = await axiosInstance.patch(`/api/usuarios/${id}/reactivar`);
+    return response.data.data;
   },
 
   async uploadAvatarAdmin(id: string, file: File): Promise<Usuario> {

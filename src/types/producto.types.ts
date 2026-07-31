@@ -3,8 +3,14 @@ export interface Producto {
   empresa_id: string;
   nombre: string;
   descripcion: string | null;
+  // El backend devuelve el precio efectivo (derivado de la config o override manual).
+  // Los flags *_manual indican si el precio es un override cargado a mano.
   precio_efectivo: number | null;
   precio_transferencia: number | null;
+  precio_tarjeta: number | null;
+  precio_efectivo_manual?: boolean;
+  precio_transferencia_manual?: boolean;
+  precio_tarjeta_manual?: boolean;
   costo: number | null;
   stock: number;
   activo: boolean;
@@ -14,12 +20,14 @@ export interface Producto {
   updated_at: string;
 }
 
+// Precio null = usar el derivado de la configuración general
 export interface CreateProductoData {
   nombre: string;
   descripcion?: string;
-  precio_efectivo: number;
-  precio_transferencia: number;
-  costo?: number | null;
+  precio_efectivo?: number | null;
+  precio_transferencia?: number | null;
+  precio_tarjeta?: number | null;
+  costo: number;
   stock: number;
   marca_id?: string | null;
 }
@@ -27,11 +35,31 @@ export interface CreateProductoData {
 export interface UpdateProductoData {
   nombre?: string;
   descripcion?: string;
-  precio_efectivo?: number;
-  precio_transferencia?: number;
-  costo?: number | null;
+  precio_efectivo?: number | null;
+  precio_transferencia?: number | null;
+  precio_tarjeta?: number | null;
+  costo?: number;
+  stock?: number;
   activo?: boolean;
   marca_id?: string | null;
+}
+
+// Porcentajes de ganancia sobre el costo por método de pago (config por empresa)
+export interface ConfiguracionProductos {
+  empresa_id: string;
+  pct_efectivo: number;
+  pct_transferencia: number;
+  pct_tarjeta: number;
+  // Umbral de alerta: stock <= stock_minimo se considera bajo stock
+  stock_minimo: number;
+  updated_at?: string;
+}
+
+export interface UpdateConfiguracionProductosData {
+  pct_efectivo: number;
+  pct_transferencia: number;
+  pct_tarjeta: number;
+  stock_minimo: number;
 }
 
 export interface ProductoVentaFinanzas {
@@ -40,10 +68,12 @@ export interface ProductoVentaFinanzas {
   precio_efectivo: number | null;
   precio_transferencia: number | null;
   costo: number | null;
+  // total_unidades excluye los canjes (unidades regaladas, importe $0)
   total_unidades: number;
   unidades_efectivo: number;
   unidades_transferencia: number;
   unidades_pendiente: number;
+  unidades_canje: number;
   total_efectivo: number;
   total_transferencia: number;
   total_pendiente: number;
@@ -83,7 +113,9 @@ export interface VentaItemInput {
 export interface CreateVentaData {
   cliente_id?: string | null;
   vendedor_id: string;
-  metodo_pago: 'efectivo' | 'transferencia' | 'pendiente';
+  metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta' | 'pendiente' | 'canje';
+  // Detalle del canje: requerido cuando metodo_pago = 'canje' (un solo detalle por venta)
+  canje_detalle?: string;
   notas?: string;
   fecha_venta?: string;
   items: {

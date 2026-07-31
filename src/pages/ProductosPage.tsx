@@ -1,15 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power, Trash2, Tag, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Package, Plus, AlertTriangle, TrendingUp, Users, Edit2, PlusCircle, Power, Trash2, Tag, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, RefreshCw } from 'lucide-react';
 import { productosService, getRegistroVentas, updateVentaProducto, deleteVentaProducto, getResumenVentas, ResumenTotalesVentas, ResumenProfesional, ResumenProducto } from '../services/productos.service';
 import { marcasService } from '../services/marcas.service';
 import { usuarioService } from '../services/usuario.service';
-import { Producto } from '../types/producto.types';
+import { Producto, ConfiguracionProductos } from '../types/producto.types';
 import { MarcaConProductos } from '../types/marca.types';
 import { useFetch } from '../hooks/useFetch';
 import { Button, Badge, Spinner, ConfirmModal, Card } from '../components/ui';
 import { ProductoModal } from '../components/productos/ProductoModal';
 import { AgregarStockModal } from '../components/productos/AgregarStockModal';
 import { MarcaModal } from '../components/productos/MarcaModal';
+import { ConfiguracionProductosTab } from '../components/productos/ConfiguracionProductosTab';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,7 +23,7 @@ function ProductosPage() {
 
   // Tabs disponibles según rol
   const availableTabs = isAdmin
-    ? (['catalogo', 'marcas', 'estadisticas', 'ventas', 'por-profesional'] as const)
+    ? (['catalogo', 'marcas', 'estadisticas', 'ventas', 'por-profesional', 'configuracion'] as const)
     : (['ventas'] as const);
   type Tab = typeof availableTabs[number];
 
@@ -41,12 +42,14 @@ function ProductosPage() {
     estadisticas: 'Estadísticas',
     ventas: 'Ventas',
     'por-profesional': 'Por profesional',
+    configuracion: 'Configuración',
   };
 
   // Catálogo state
   const [productoModal, setProductoModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
   const [stockModal, setStockModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; producto?: Producto }>({ open: false });
+  const [syncConfirm, setSyncConfirm] = useState<{ open: boolean; producto?: Producto }>({ open: false });
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState('');
   const [filtroMarca, setFiltroMarca] = useState('');
@@ -79,7 +82,9 @@ function ProductosPage() {
     precio_unitario: number;
     precio_total: number;
     metodo_pago: string;
+    canje_detalle: string;
   } | null>(null);
+  const [editCanjeError, setEditCanjeError] = useState<string | null>(null);
 
   // Resumen ventas (cards + por profesional)
   const [resumenFechaDesde, setResumenFechaDesde] = useState(primerDiaMes);
@@ -157,6 +162,55 @@ function ProductosPage() {
     () => usuarioService.getUsuarios(),
     { ttl: 300 }
   );
+
+  const { data: configPrecios, revalidate: revalidateConfig } = useFetch(
+    isAdmin ? 'productos:configuracion' : null,
+    () => productosService.getConfiguracion(),
+    { ttl: 300 }
+  );
+
+  // ── Helpers de precios manuales vs derivados de la configuración ──
+  const PRECIO_LABELS = { efectivo: 'Efectivo', transferencia: 'Transferencia', tarjeta: 'Tarjeta' } as const;
+
+  const preciosManuales = (p: Producto): Array<keyof typeof PRECIO_LABELS> => {
+    const manuales: Array<keyof typeof PRECIO_LABELS> = [];
+    if (p.precio_efectivo_manual) manuales.push('efectivo');
+    if (p.precio_transferencia_manual) manuales.push('transferencia');
+    if (p.precio_tarjeta_manual) manuales.push('tarjeta');
+    return manuales;
+  };
+
+  const precioDerivado = (costo: number, pct: number): number =>
+    Math.round(costo * (1 + pct / 100) * 100) / 100;
+
+  const sincronizarMensaje = (p: Producto, config: ConfiguracionProductos): string => {
+    const costo = Number(p.costo);
+    const pcts = { efectivo: config.pct_efectivo, transferencia: config.pct_transferencia, tarjeta: config.pct_tarjeta };
+    const precios = { efectivo: p.precio_efectivo, transferencia: p.precio_transferencia, tarjeta: p.precio_tarjeta };
+    const lineas = preciosManuales(p).map(k => {
+      const actual = Number(precios[k] ?? 0).toLocaleString('es-AR');
+      const auto = precioDerivado(costo, pcts[k]).toLocaleString('es-AR');
+      return `${PRECIO_LABELS[k]}: $${actual} (manual) → <strong>$${auto}</strong> (auto)`;
+    });
+    return `<strong>${p.nombre}</strong> va a pasar a usar los precios de la configuración general:<br/><br/>${lineas.join('<br/>')}<br/><br/>Si después cambiás los porcentajes, estos precios se actualizan solos.`;
+  };
+
+  const handleSincronizarProducto = async () => {
+    const p = syncConfirm.producto;
+    if (!p) return;
+    try {
+      const data: Record<string, null> = {};
+      if (p.precio_efectivo_manual) data.precio_efectivo = null;
+      if (p.precio_transferencia_manual) data.precio_transferencia = null;
+      if (p.precio_tarjeta_manual) data.precio_tarjeta = null;
+      await productosService.updateProducto(p.id, data);
+      toast.success(`"${p.nombre}" ahora usa los precios de la configuración`);
+      setSyncConfirm({ open: false });
+      refresh();
+    } catch {
+      toast.error('Error al actualizar el producto');
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'ventas' || activeTab === 'por-profesional') {
@@ -279,6 +333,7 @@ function ProductosPage() {
 
   const handleEditarVenta = (row: any) => {
     setEditingVentaId(row.id);
+    setEditCanjeError(null);
     setEditForm({
       vendedor_id: row.vendedor_id || '',
       fecha_venta: row.fecha_venta ? row.fecha_venta.split('T')[0] : '',
@@ -287,16 +342,26 @@ function ProductosPage() {
       precio_unitario: Number(row.precio_unitario) || 0,
       precio_total: Number(row.precio_total) || 0,
       metodo_pago: row.metodo_pago || 'efectivo',
+      canje_detalle: row.canje_detalle || '',
     });
   };
 
   const handleGuardarEdicion = async () => {
     if (!editingVentaId || !editForm) return;
+    // Canje requiere detalle (qué se recibió a cambio / motivo)
+    if (editForm.metodo_pago === 'canje' && !editForm.canje_detalle.trim()) {
+      setEditCanjeError('Ingresá el detalle del canje');
+      return;
+    }
     try {
-      await updateVentaProducto(editingVentaId, editForm);
+      await updateVentaProducto(editingVentaId, {
+        ...editForm,
+        canje_detalle: editForm.metodo_pago === 'canje' ? editForm.canje_detalle.trim() : undefined,
+      });
       toast.success('Venta actualizada');
       setEditingVentaId(null);
       setEditForm(null);
+      setEditCanjeError(null);
       cargarRegistro(registroPage);
     } catch {
       toast.error('Error al actualizar la venta');
@@ -316,7 +381,9 @@ function ProductosPage() {
 
   const registroTotalPages = registroData ? Math.max(1, Math.ceil(registroData.total / 50)) : 1;
 
-  const bajoStock = productos?.filter(p => p.stock <= 3 && p.activo) || [];
+  // Umbral de bajo stock configurable (Productos → Configuración)
+  const stockMinimo = configPrecios?.stock_minimo ?? 3;
+  const bajoStock = productos?.filter(p => p.stock <= stockMinimo && p.activo) || [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -409,7 +476,7 @@ function ProductosPage() {
                       <tr className="bg-gray-50 border-b">
                         <th className="text-left px-4 py-3 font-medium text-gray-700">Nombre</th>
                         <th className="text-left px-4 py-3 font-medium text-gray-700">Marca</th>
-                        <th className="text-right px-4 py-3 font-medium text-gray-700">Ef. / Transf.</th>
+                        <th className="text-right px-4 py-3 font-medium text-gray-700">Ef. / Transf. / Tarj.</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Stock</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Estado</th>
                         {isAdmin && <th className="text-right px-4 py-3 font-medium text-gray-700">Acciones</th>}
@@ -432,10 +499,27 @@ function ProductosPage() {
                             <span className="font-semibold">${Number(p.precio_efectivo || 0).toLocaleString('es-AR')}</span>
                             <span className="text-gray-400 mx-1">/</span>
                             <span className="font-semibold">${Number(p.precio_transferencia || 0).toLocaleString('es-AR')}</span>
+                            <span className="text-gray-400 mx-1">/</span>
+                            <span className="font-semibold">${Number(p.precio_tarjeta || 0).toLocaleString('es-AR')}</span>
+                            {p.costo == null ? (
+                              <span
+                                className="block mt-1 ml-auto w-fit text-[11px] font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
+                                title="Sin costo cargado: no se pueden calcular precios automáticos"
+                              >
+                                Sin costo
+                              </span>
+                            ) : preciosManuales(p).length > 0 && (
+                              <span
+                                className="block mt-1 ml-auto w-fit text-[11px] font-semibold bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full"
+                                title={`Precio manual en: ${preciosManuales(p).map(k => PRECIO_LABELS[k].toLowerCase()).join(', ')}`}
+                              >
+                                Manual: {preciosManuales(p).map(k => PRECIO_LABELS[k].slice(0, 2).toLowerCase()).join('/')}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span className={`inline-flex items-center justify-center w-10 h-7 rounded-full text-sm font-bold ${
-                              p.stock <= 3 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                              p.stock <= stockMinimo ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                             }`}>
                               {p.stock}
                             </span>
@@ -448,6 +532,15 @@ function ProductosPage() {
                           {isAdmin && (
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-end gap-2">
+                                {p.costo != null && preciosManuales(p).length > 0 && (
+                                  <button
+                                    onClick={() => setSyncConfirm({ open: true, producto: p })}
+                                    title="Actualizar a la configuración general"
+                                    className="p-1.5 text-orange-500 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                                  >
+                                    <RefreshCw className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => setStockModal({ open: true, producto: p })}
                                   title="Agregar stock"
@@ -507,9 +600,10 @@ function ProductosPage() {
                           <div className="text-right shrink-0">
                             <p className="text-xs text-gray-500">Ef. <span className="font-semibold text-gray-900">${Number(p.precio_efectivo || 0).toLocaleString('es-AR')}</span></p>
                             <p className="text-xs text-gray-500">Tr. <span className="font-semibold text-gray-900">${Number(p.precio_transferencia || 0).toLocaleString('es-AR')}</span></p>
+                            <p className="text-xs text-gray-500">Tj. <span className="font-semibold text-gray-900">${Number(p.precio_tarjeta || 0).toLocaleString('es-AR')}</span></p>
                           </div>
                         </div>
-                        <div className="mt-2 flex items-center gap-2">
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${
                             p.stock <= 3 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                           }`}>
@@ -518,6 +612,15 @@ function ProductosPage() {
                           <Badge variant={p.activo ? 'success' : 'default'}>
                             {p.activo ? 'Activo' : 'Inactivo'}
                           </Badge>
+                          {p.costo == null ? (
+                            <span className="text-[11px] font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                              Sin costo
+                            </span>
+                          ) : preciosManuales(p).length > 0 && (
+                            <span className="text-[11px] font-semibold bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                              Manual: {preciosManuales(p).map(k => PRECIO_LABELS[k].toLowerCase()).join(', ')}
+                            </span>
+                          )}
                         </div>
                         {isAdmin && (
                           <div className="mt-3 pt-3 border-t border-gray-100">
@@ -530,6 +633,14 @@ function ProductosPage() {
                             </button>
                             {expandedActions.has(p.id) && (
                               <div className="mt-2 flex flex-col gap-0.5">
+                                {p.costo != null && preciosManuales(p).length > 0 && (
+                                  <button
+                                    onClick={() => setSyncConfirm({ open: true, producto: p })}
+                                    className="text-left text-sm text-orange-600 hover:text-orange-800 py-1.5 font-medium"
+                                  >
+                                    ↻ Actualizar a configuración
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => setStockModal({ open: true, producto: p })}
                                   className="text-left text-sm text-blue-600 hover:text-blue-800 py-1.5 font-medium"
@@ -691,7 +802,7 @@ function ProductosPage() {
                                       <tr key={p.id} className="border-t border-gray-100">
                                         <td className="py-2 pr-4 font-medium text-gray-800">{p.nombre}</td>
                                         <td className="py-2 pr-4 text-center">
-                                          <span className={`font-semibold ${p.stock <= 3 ? 'text-red-600' : 'text-gray-700'}`}>
+                                          <span className={`font-semibold ${p.stock <= stockMinimo ? 'text-red-600' : 'text-gray-700'}`}>
                                             {p.stock}
                                           </span>
                                         </td>
@@ -1125,11 +1236,12 @@ function ProductosPage() {
                                           type="number"
                                           min={0}
                                           value={editForm.precio_unitario}
+                                          disabled={editForm.metodo_pago === 'canje'}
                                           onChange={e => {
                                             const pu = Number(e.target.value);
                                             setEditForm(f => f ? { ...f, precio_unitario: pu, precio_total: pu * f.cantidad } : f);
                                           }}
-                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                                         />
                                       </div>
                                       <div>
@@ -1145,14 +1257,49 @@ function ProductosPage() {
                                         <label className="text-xs font-medium text-gray-600 block mb-1">Método de pago</label>
                                         <select
                                           value={editForm.metodo_pago}
-                                          onChange={e => setEditForm(f => f ? { ...f, metodo_pago: e.target.value } : f)}
+                                          onChange={e => {
+                                            const metodo = e.target.value;
+                                            // Canje = gratis: precio $0 (el backend también fuerza montos 0)
+                                            setEditForm(f => f
+                                              ? metodo === 'canje'
+                                                ? { ...f, metodo_pago: metodo, precio_unitario: 0, precio_total: 0 }
+                                                : { ...f, metodo_pago: metodo }
+                                              : f);
+                                          }}
                                           className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         >
                                           <option value="efectivo">Efectivo</option>
                                           <option value="transferencia">Transferencia</option>
+                                          <option value="tarjeta">Tarjeta</option>
                                           <option value="pendiente">Pendiente</option>
+                                          <option value="canje">Canje</option>
                                         </select>
                                       </div>
+                                      {/* Detalle del canje — requerido cuando el método es canje */}
+                                      {editForm.metodo_pago === 'canje' && (
+                                        <div className="col-span-2 sm:col-span-3">
+                                          <label className="text-xs font-medium text-gray-600 block mb-1">
+                                            Detalle del canje <span className="text-red-500">*</span>
+                                          </label>
+                                          <input
+                                            type="text"
+                                            maxLength={500}
+                                            value={editForm.canje_detalle}
+                                            onChange={e => {
+                                              const v = e.target.value;
+                                              setEditForm(f => f ? { ...f, canje_detalle: v } : f);
+                                              if (editCanjeError) setEditCanjeError(null);
+                                            }}
+                                            placeholder="¿Qué se recibió a cambio? / motivo"
+                                            className={`w-full rounded-lg border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                              editCanjeError ? 'border-red-400' : 'border-gray-300'
+                                            }`}
+                                          />
+                                          {editCanjeError && (
+                                            <p className="text-xs text-red-600 mt-1">{editCanjeError}</p>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex gap-2 mt-3">
                                       <button
@@ -1301,6 +1448,14 @@ function ProductosPage() {
           </div>
         )}
 
+        {/* TAB: CONFIGURACIÓN */}
+        {activeTab === 'configuracion' && isAdmin && (
+          <ConfiguracionProductosTab
+            productos={productos || []}
+            onSaved={() => { refresh(); revalidateConfig(); }}
+          />
+        )}
+
       </main>
 
       {/* Modales */}
@@ -1328,6 +1483,22 @@ function ProductosPage() {
           title="Eliminar producto"
           message={`¿Estás seguro que querés eliminar <strong>${deleteConfirm.producto?.nombre}</strong>? Esta acción no se puede deshacer.`}
           confirmText="Eliminar"
+          cancelText="Cancelar"
+        />
+      )}
+
+      {isAdmin && (
+        <ConfirmModal
+          isOpen={syncConfirm.open}
+          onClose={() => setSyncConfirm({ open: false })}
+          onConfirm={handleSincronizarProducto}
+          title="Actualizar a la configuración"
+          message={
+            syncConfirm.producto && configPrecios
+              ? sincronizarMensaje(syncConfirm.producto, configPrecios)
+              : ''
+          }
+          confirmText="Actualizar"
           cancelText="Cancelar"
         />
       )}
