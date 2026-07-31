@@ -25,7 +25,7 @@ interface VenderModalProps {
   onVentaCreada: () => void;
 }
 
-type MetodoPago = 'efectivo' | 'transferencia' | 'pendiente';
+type MetodoPago = 'efectivo' | 'transferencia' | 'tarjeta' | 'pendiente' | 'canje';
 
 export const VenderModal: React.FC<VenderModalProps> = ({
   vendedorId,
@@ -55,6 +55,9 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   // Pago
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('efectivo');
   const [notas, setNotas] = useState('');
+  // Un solo detalle de canje por venta
+  const [canjeDetalle, setCanjeDetalle] = useState('');
+  const [canjeDetalleError, setCanjeDetalleError] = useState<string | null>(null);
 
   // Fecha retroactiva
   const [esFechaRetroactiva, setEsFechaRetroactiva] = useState(false);
@@ -157,8 +160,10 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   };
 
   const getPrecioUnitario = (producto: Producto, esVentaCosto = false): number => {
+    if (metodoPago === 'canje') return 0; // canje = gratis, pisa incluso "al costo"
     if (esVentaCosto) return Number(producto.costo) || 0;
     if (metodoPago === 'transferencia') return Number(producto.precio_transferencia) || 0;
+    if (metodoPago === 'tarjeta') return Number(producto.precio_tarjeta) || 0;
     return Number(producto.precio_efectivo) || 0;
   };
 
@@ -169,19 +174,26 @@ export const VenderModal: React.FC<VenderModalProps> = ({
       toast.error('Agregá al menos un producto');
       return;
     }
+    if (metodoPago === 'canje' && !canjeDetalle.trim()) {
+      setCanjeDetalleError('Ingresá el detalle del canje');
+      toast.error('Ingresá el detalle del canje');
+      return;
+    }
     setLoading(true);
     try {
       await ventasService.createVenta({
         cliente_id: selectedCliente?.id || null,
         vendedor_id: vendedorId,
         metodo_pago: metodoPago,
+        canje_detalle: metodoPago === 'canje' ? canjeDetalle.trim() : undefined,
         notas: notas.trim() || undefined,
         ...(esFechaRetroactiva && fechaVenta ? { fecha_venta: fechaVenta } : {}),
         items: items.map(i => ({
           producto_id: i.producto.id,
           cantidad: i.cantidad,
           precio_unitario: getPrecioUnitario(i.producto, i.esVentaCosto),
-          ...(i.esVentaCosto ? { es_venta_costo: true, precio_costo: Number(i.producto.costo) || 0 } : {}),
+          // Con canje no se marca venta al costo: el ítem va gratis ($0)
+          ...(i.esVentaCosto && metodoPago !== 'canje' ? { es_venta_costo: true, precio_costo: Number(i.producto.costo) || 0 } : {}),
         })),
       });
       toast.success('Venta registrada');
@@ -215,7 +227,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
           <section>
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">Método de pago</label>
             <div className="flex gap-2">
-              {(['efectivo', 'transferencia', 'pendiente'] as MetodoPago[]).map(m => (
+              {(['efectivo', 'transferencia', 'tarjeta', 'pendiente', 'canje'] as MetodoPago[]).map(m => (
                 <button
                   key={m}
                   type="button"
@@ -230,6 +242,28 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                 </button>
               ))}
             </div>
+
+            {/* Detalle del canje — un solo detalle por venta */}
+            {metodoPago === 'canje' && (
+              <div className="mt-3">
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                  Detalle del canje <span className="text-red-500 normal-case">*</span>
+                </label>
+                <textarea
+                  rows={2}
+                  maxLength={500}
+                  value={canjeDetalle}
+                  onChange={e => { setCanjeDetalle(e.target.value); if (canjeDetalleError) setCanjeDetalleError(null); }}
+                  placeholder="¿Qué se recibió a cambio? / motivo"
+                  className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
+                    canjeDetalleError ? 'border-red-400' : 'border-gray-200'
+                  }`}
+                />
+                {canjeDetalleError && (
+                  <p className="text-xs text-red-600 mt-1">{canjeDetalleError}</p>
+                )}
+              </div>
+            )}
           </section>
 
           {/* Cliente */}
@@ -359,7 +393,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                         <div className="flex items-center gap-3">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">{item.producto.nombre}</p>
-                            {item.esVentaCosto ? (
+                            {item.esVentaCosto && metodoPago !== 'canje' ? (
                               tieneCosto ? (
                                 <p className="text-xs text-orange-600 font-medium">Precio costo: ${Number(item.producto.costo).toLocaleString('es-AR')} c/u</p>
                               ) : (
@@ -394,16 +428,18 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                        {/* Toggle al costo */}
-                        <label className="flex items-center gap-2 cursor-pointer w-fit">
-                          <input
-                            type="checkbox"
-                            checked={item.esVentaCosto}
-                            onChange={() => handleToggleVentaCosto(item.producto.id)}
-                            className="w-3.5 h-3.5 accent-orange-500"
-                          />
-                          <span className="text-xs text-gray-500 select-none">Al costo</span>
-                        </label>
+                        {/* Toggle al costo — no aplica a canje (ya es $0) */}
+                        {metodoPago !== 'canje' && (
+                          <label className="flex items-center gap-2 cursor-pointer w-fit">
+                            <input
+                              type="checkbox"
+                              checked={item.esVentaCosto}
+                              onChange={() => handleToggleVentaCosto(item.producto.id)}
+                              className="w-3.5 h-3.5 accent-orange-500"
+                            />
+                            <span className="text-xs text-gray-500 select-none">Al costo</span>
+                          </label>
+                        )}
                       </div>
                     );
                   })}

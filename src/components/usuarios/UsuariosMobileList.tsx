@@ -145,7 +145,7 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
                   onClick={(e) => { e.stopPropagation(); onEliminar(usuario); }}
                   className="text-left text-sm py-1.5 font-medium text-red-500 hover:text-red-700"
                 >
-                  🗑 Eliminar cuenta
+                  🚫 Deshabilitar cuenta
                 </button>
               </div>
             )}

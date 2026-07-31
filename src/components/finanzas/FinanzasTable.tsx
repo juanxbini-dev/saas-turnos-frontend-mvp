@@ -14,7 +14,8 @@ interface FinanzasTableProps {
   sortField: FinanzasFilters['ordenar_por'];
   sortOrder: FinanzasFilters['orden'];
   onRowClick: (comision: ComisionProfesional) => void;
-  onCobrarPago: (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia') => Promise<void>;
+  // canjeDetalle: solo se pasa cuando metodoPago = 'canje' (qué se recibió a cambio / motivo)
+  onCobrarPago: (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje', canjeDetalle?: string) => Promise<void>;
   // Tab activo: el filtrado lo hace el backend, acá solo se renderiza
   tipoFiltro: TipoFiltro;
   onTipoChange: (tipo: TipoFiltro) => void;
@@ -38,6 +39,7 @@ interface GrupoVenta {
   comision_monto: number;
   neto_vendedor: number;
   items: VentaItemFinanzas[];
+  canje_detalle: string | null;
 }
 
 type EntradaServicio = { kind: 'servicio'; comision: ComisionProfesional };
@@ -56,6 +58,7 @@ function toGrupoVenta(v: VentaGrupadaFinanzas): GrupoVenta {
     comision_monto: v.comision_monto,
     neto_vendedor:  v.neto_vendedor,
     items:          v.items,
+    canje_detalle:  v.canje_detalle ?? null,
   };
 }
 
@@ -73,21 +76,56 @@ const MetodoPagoBadge = ({ metodo }: { metodo: string }) => {
   const map = {
     efectivo: { color: 'green', label: 'Efectivo' },
     transferencia: { color: 'blue', label: 'Transferencia' },
+    tarjeta: { color: 'purple', label: 'Tarjeta' },
     pendiente: { color: 'yellow', label: 'Pendiente' },
+    // naranja: color no soportado por Badge, se aplica vía className (mismo patrón bg-*-100 text-*-800)
+    canje: { color: 'orange', label: 'Canje' },
   };
   const b = map[metodo as keyof typeof map] || { color: 'gray', label: metodo };
-  return <Badge variant={b.color as any} className="text-xs">{b.label}</Badge>;
+  const extra = b.color === 'orange' ? ' bg-orange-100 text-orange-800' : '';
+  return <Badge variant={b.color as any} className={`text-xs${extra}`}>{b.label}</Badge>;
 };
+
+// Badge de método + detalle del canje debajo (truncado, completo en title)
+const MetodoPagoConDetalle = ({ metodo, canjeDetalle }: { metodo: string; canjeDetalle?: string | null }) => (
+  <div className="min-w-0">
+    <MetodoPagoBadge metodo={metodo} />
+    {metodo === 'canje' && canjeDetalle && (
+      <p className="text-xs text-gray-400 italic truncate max-w-[160px] mt-0.5" title={canjeDetalle}>
+        {canjeDetalle}
+      </p>
+    )}
+  </div>
+);
 
 // ─── Botón Cobrar inline ────────────────────────────────────────────────────
 
-function CobrarButton({ onCobrar }: { onCobrar: (m: 'efectivo' | 'transferencia') => void }) {
+type MetodoCobro = 'efectivo' | 'transferencia' | 'tarjeta' | 'canje';
+
+// conTarjeta: solo los cobros de productos admiten tarjeta (el servicio del turno no).
+// 'canje' aplica a servicios y productos: es gratis, el backend fuerza montos $0.
+// Elegir "Canje" no cobra directo: abre un mini-input inline para cargar el detalle
+// (requerido) y recién Confirmar dispara el cobro.
+function CobrarButton({ onCobrar, conTarjeta = false }: { onCobrar: (m: MetodoCobro, canjeDetalle?: string) => void; conTarjeta?: boolean }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [canjeMode, setCanjeMode] = useState(false);
+  const [canjeDetalle, setCanjeDetalle] = useState('');
 
-  const handle = async (m: 'efectivo' | 'transferencia') => {
+  const handle = async (m: MetodoCobro, detalle?: string) => {
     setLoading(true);
-    try { await onCobrar(m); } finally { setLoading(false); setOpen(false); }
+    try { await onCobrar(m, detalle); } finally {
+      setLoading(false);
+      setOpen(false);
+      setCanjeMode(false);
+      setCanjeDetalle('');
+    }
+  };
+
+  const cancelar = () => {
+    setOpen(false);
+    setCanjeMode(false);
+    setCanjeDetalle('');
   };
 
   if (!open) {
@@ -98,6 +136,35 @@ function CobrarButton({ onCobrar }: { onCobrar: (m: 'efectivo' | 'transferencia'
       >
         <CheckCircle className="w-3 h-3" /> Cobrar
       </button>
+    );
+  }
+
+  // Paso 2 del canje: detalle requerido (Confirmar deshabilitado si está vacío)
+  if (canjeMode) {
+    return (
+      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+        <input
+          autoFocus
+          type="text"
+          maxLength={500}
+          value={canjeDetalle}
+          onChange={e => setCanjeDetalle(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && canjeDetalle.trim() && !loading) handle('canje', canjeDetalle.trim()); }}
+          placeholder="¿Qué se recibió a cambio? / motivo"
+          className="text-xs border border-orange-300 rounded-full px-2.5 py-1 w-44 focus:outline-none focus:ring-1 focus:ring-orange-400"
+        />
+        <button
+          onClick={() => handle('canje', canjeDetalle.trim())}
+          disabled={loading || !canjeDetalle.trim()}
+          title={!canjeDetalle.trim() ? 'Ingresá el detalle del canje' : undefined}
+          className="text-xs bg-orange-100 text-orange-800 hover:bg-orange-200 px-2 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+        >
+          Confirmar
+        </button>
+        <button onClick={cancelar} className="text-xs text-gray-400 hover:text-gray-600 px-1">
+          ✕
+        </button>
+      </div>
     );
   }
 
@@ -117,8 +184,24 @@ function CobrarButton({ onCobrar }: { onCobrar: (m: 'efectivo' | 'transferencia'
       >
         Transf.
       </button>
+      {conTarjeta && (
+        <button
+          onClick={() => handle('tarjeta')}
+          disabled={loading}
+          className="text-xs bg-purple-100 text-purple-800 hover:bg-purple-200 px-2 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+        >
+          Tarjeta
+        </button>
+      )}
       <button
-        onClick={() => setOpen(false)}
+        onClick={() => setCanjeMode(true)}
+        disabled={loading}
+        className="text-xs bg-orange-100 text-orange-800 hover:bg-orange-200 px-2 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+      >
+        Canje
+      </button>
+      <button
+        onClick={cancelar}
         className="text-xs text-gray-400 hover:text-gray-600 px-1"
       >
         ✕
@@ -133,7 +216,7 @@ const ServicioRow = ({
   comision, isAdmin, isPendientesTab, onClick, onCobrar,
 }: {
   comision: ComisionProfesional; isAdmin: boolean; isPendientesTab: boolean;
-  onClick: () => void; onCobrar: (m: 'efectivo' | 'transferencia') => void;
+  onClick: () => void; onCobrar: (m: MetodoCobro, canjeDetalle?: string) => void;
 }) => (
   <tr className="hover:bg-blue-50/40 cursor-pointer border-b" onClick={onClick}>
     <td className="px-4 py-3">
@@ -155,7 +238,7 @@ const ServicioRow = ({
     <td className="px-4 py-3">
       {isPendientesTab
         ? <CobrarButton onCobrar={onCobrar} />
-        : <MetodoPagoBadge metodo={comision.metodo_pago} />
+        : <MetodoPagoConDetalle metodo={comision.metodo_pago} canjeDetalle={comision.canje_detalle} />
       }
     </td>
     <td className="px-4 py-3 text-sm font-semibold text-green-600">{formatCurrency(comision.servicio_neto_profesional)}</td>
@@ -167,7 +250,7 @@ const VentaRow = ({
   grupo, isAdmin, isPendientesTab, onCobrar,
 }: {
   grupo: GrupoVenta; isAdmin: boolean; isPendientesTab: boolean;
-  onCobrar: (m: 'efectivo' | 'transferencia') => void;
+  onCobrar: (m: MetodoCobro, canjeDetalle?: string) => void;
 }) => {
   const esDesdeTurno = grupo.turno_id !== null;
   const productosLabel = grupo.items.map(i => `${i.nombre_producto} ×${i.cantidad}`).join(', ');
@@ -192,12 +275,12 @@ const VentaRow = ({
       </td>
       {isAdmin && <td className="px-4 py-3 text-sm text-gray-700">{grupo.vendedor_nombre}</td>}
       <td className="px-4 py-3 text-sm text-gray-900">{grupo.cliente_nombre || <span className="text-gray-400 italic">Sin cliente</span>}</td>
-      <td className="pxadd py-3 text-sm text-gray-700 max-w-xs truncate" title={productosLabel}>{productosLabel}</td>
+      <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title={productosLabel}>{productosLabel}</td>
       <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(grupo.total)}</td>
       <td className="px-4 py-3">
         {isPendientesTab
-          ? <CobrarButton onCobrar={onCobrar} />
-          : <MetodoPagoBadge metodo={grupo.metodo_pago} />
+          ? <CobrarButton onCobrar={onCobrar} conTarjeta />
+          : <MetodoPagoConDetalle metodo={grupo.metodo_pago} canjeDetalle={grupo.canje_detalle} />
         }
       </td>
       <td className="px-4 py-3 text-sm font-semibold text-green-600">{formatCurrency(grupo.neto_vendedor)}</td>
@@ -212,7 +295,7 @@ const ServicioCard = ({
   comision, isAdmin, isPendientesTab, onClick, onCobrar,
 }: {
   comision: ComisionProfesional; isAdmin: boolean; isPendientesTab: boolean;
-  onClick: () => void; onCobrar: (m: 'efectivo' | 'transferencia') => void;
+  onClick: () => void; onCobrar: (m: MetodoCobro, canjeDetalle?: string) => void;
 }) => (
   <div className="bg-white border-l-4 border-l-blue-500 rounded-xl shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
     <div className="flex items-start justify-between mb-2">
@@ -228,7 +311,7 @@ const ServicioCard = ({
       </div>
       {isPendientesTab
         ? <CobrarButton onCobrar={onCobrar} />
-        : <MetodoPagoBadge metodo={comision.metodo_pago} />
+        : <MetodoPagoConDetalle metodo={comision.metodo_pago} canjeDetalle={comision.canje_detalle} />
       }
     </div>
     <div className="space-y-1 text-sm text-gray-600">
@@ -259,7 +342,7 @@ const VentaCard = ({
   grupo, isAdmin, isPendientesTab, onCobrar,
 }: {
   grupo: GrupoVenta; isAdmin: boolean; isPendientesTab: boolean;
-  onCobrar: (m: 'efectivo' | 'transferencia') => void;
+  onCobrar: (m: MetodoCobro, canjeDetalle?: string) => void;
 }) => {
   const esDesdeTurno = grupo.turno_id !== null;
   return (
@@ -279,8 +362,8 @@ const VentaCard = ({
           }
         </div>
         {isPendientesTab
-          ? <CobrarButton onCobrar={onCobrar} />
-          : <MetodoPagoBadge metodo={grupo.metodo_pago} />
+          ? <CobrarButton onCobrar={onCobrar} conTarjeta />
+          : <MetodoPagoConDetalle metodo={grupo.metodo_pago} canjeDetalle={grupo.canje_detalle} />
         }
       </div>
       <div className="space-y-1 text-sm text-gray-600">
@@ -404,17 +487,17 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
                         // Si el turno tiene también productos pendientes, cobrar solo el servicio
                         // para no pisar el método de los productos. El flag viene del backend
                         // porque los productos pueden estar en otra página.
-                        const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                          onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
+                        const getCobrar = (m: MetodoCobro, canjeDetalle?: string) =>
+                          canjeDetalle !== undefined
+                            ? onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m, canjeDetalle)
+                            : onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
                         return <ServicioRow key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
                       }
                       // Productos asociados a un turno: solo actualizar venta_productos, no el turno
-                      const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                        onCobrarPago(
-                          e.grupo.turno_id ? 'venta_turno' : 'venta',
-                          e.grupo.turno_id ?? e.grupo.grupo_id,
-                          m
-                        );
+                      const getCobrar = (m: MetodoCobro, canjeDetalle?: string) =>
+                        canjeDetalle !== undefined
+                          ? onCobrarPago(e.grupo.turno_id ? 'venta_turno' : 'venta', e.grupo.turno_id ?? e.grupo.grupo_id, m, canjeDetalle)
+                          : onCobrarPago(e.grupo.turno_id ? 'venta_turno' : 'venta', e.grupo.turno_id ?? e.grupo.grupo_id, m);
                       return <VentaRow key={`v-${e.grupo.grupo_id}`} grupo={e.grupo} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onCobrar={getCobrar} />;
                     })}
                   </tbody>
@@ -427,16 +510,16 @@ export const FinanzasTable: React.FC<FinanzasTableProps> = ({
           <div className="md:hidden space-y-3">
             {entradas.map((e) => {
               if (e.kind === 'servicio') {
-                const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                  onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
+                const getCobrar = (m: MetodoCobro, canjeDetalle?: string) =>
+                  canjeDetalle !== undefined
+                    ? onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m, canjeDetalle)
+                    : onCobrarPago(e.comision.tiene_producto_pendiente ? 'turno_solo_servicio' : 'turno', e.comision.turno_id, m);
                 return <ServicioCard key={`s-${e.comision.id}`} comision={e.comision} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onClick={() => onRowClick(e.comision)} onCobrar={getCobrar} />;
               }
-              const getCobrar = (m: 'efectivo' | 'transferencia') =>
-                onCobrarPago(
-                  e.grupo.turno_id ? 'venta_turno' : 'venta',
-                  e.grupo.turno_id ?? e.grupo.grupo_id,
-                  m
-                );
+              const getCobrar = (m: MetodoCobro, canjeDetalle?: string) =>
+                canjeDetalle !== undefined
+                  ? onCobrarPago(e.grupo.turno_id ? 'venta_turno' : 'venta', e.grupo.turno_id ?? e.grupo.grupo_id, m, canjeDetalle)
+                  : onCobrarPago(e.grupo.turno_id ? 'venta_turno' : 'venta', e.grupo.turno_id ?? e.grupo.grupo_id, m);
               return <VentaCard key={`v-${e.grupo.grupo_id}`} grupo={e.grupo} isAdmin={isAdmin} isPendientesTab={isPendientesTab} onCobrar={getCobrar} />;
             })}
           </div>

@@ -1,5 +1,5 @@
 export type TurnoEstado = 'pendiente' | 'confirmado' | 'completado' | 'cancelado';
-export type MetodoPago = 'efectivo' | 'transferencia' | 'pendiente';
+export type MetodoPago = 'efectivo' | 'transferencia' | 'pendiente' | 'canje';
 
 export interface Turno {
   id: string;
@@ -39,6 +39,8 @@ export interface TurnoConDetalle extends Turno {
   cliente_telefono?: string;
   usuario_nombre: string;
   usuario_username: string;
+  // Detalle del canje (qué se recibió a cambio / motivo) cuando hubo canje en el turno
+  canje_detalle?: string | null;
 }
 
 export interface CreateTurnoData {
@@ -119,6 +121,8 @@ export interface FinalizarTurnoData {
   descuentoPorcentaje?: number;
   descuentoAplicarA?: DescuentoAplicarA;
   productos?: VentaProductoData[];
+  // Detalle del canje: requerido cuando el servicio o algún producto va en canje
+  canjeDetalle?: string;
 }
 
 export interface EditarPagoData {
@@ -127,6 +131,8 @@ export interface EditarPagoData {
   descuentoPorcentaje?: number;
   descuentoAplicarA?: DescuentoAplicarA;
   productos?: VentaProductoData[];
+  // Detalle del canje: requerido cuando el servicio o algún producto va en canje
+  canjeDetalle?: string;
 }
 
 export interface VentaProductoData {
@@ -136,11 +142,13 @@ export interface VentaProductoData {
   cantidad: number;
   precio_unitario: number;
   precio_total: number;
-  metodo_pago?: 'efectivo' | 'transferencia';
+  // 'tarjeta' solo aplica a productos, nunca al servicio del turno. 'canje' = gratis ($0)
+  metodo_pago?: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje';
   es_venta_costo?: boolean;
   // Precios guardados al agregar — permiten recalcular sin depender del catálogo
   _precio_efectivo?: number;
   _precio_transferencia?: number;
+  _precio_tarjeta?: number;
   _precio_costo?: number;
 }
 

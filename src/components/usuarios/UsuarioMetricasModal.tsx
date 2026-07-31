@@ -10,6 +10,7 @@ import {
   CheckSquare,
   Clock,
   ShoppingBag,
+  Repeat,
   ExternalLink
 } from 'lucide-react';
 import { Modal, Button, Card, Badge, Avatar } from '../ui';
@@ -32,6 +33,7 @@ const SUMMARY_VACIO: FinanzasSummary = {
   total_comision_empresa: 0, total_comision_empresa_servicios: 0, total_comision_empresa_productos: 0,
   total_neto_profesional: 0, total_neto_profesional_servicios: 0, total_neto_profesional_productos: 0,
   total_descuentos: 0, cantidad_turnos: 0, cantidad_productos_vendidos: 0, promedio_por_turno: 0, total_pendiente: 0,
+  cantidad_canjes_servicios: 0, cantidad_canjes_productos: 0,
 };
 
 const toLocalStr = (d: Date) => {
@@ -46,6 +48,8 @@ const buildFiltrosMes = (base: Date): FinanzasFilters => ({
   periodo: 'mes',
   fecha_desde: toLocalStr(new Date(base.getFullYear(), base.getMonth(), 1)),
   fecha_hasta: toLocalStr(new Date(base.getFullYear(), base.getMonth() + 1, 0)),
+  // 'tipo' es requerido por el backend: sin él responde 400 y las métricas no cargan
+  tipo: 'todos',
   metodo_pago: 'todos',
   estado_comision: 'todos',
   ordenar_por: 'fecha',
@@ -142,6 +146,12 @@ export const UsuarioMetricasModal: React.FC<UsuarioMetricasModalProps> = ({ usua
 
   const summary = finanzasData?.summary ?? SUMMARY_VACIO;
   const summaryAnterior = finanzasAnterior?.summary ?? null;
+
+  // Canjes: importe $0, no suman a los totales; solo se cuentan
+  const totalCanjes = (summary.cantidad_canjes_servicios ?? 0) + (summary.cantidad_canjes_productos ?? 0);
+  const totalCanjesAnterior = summaryAnterior
+    ? (summaryAnterior.cantidad_canjes_servicios ?? 0) + (summaryAnterior.cantidad_canjes_productos ?? 0)
+    : null;
 
   const now = new Date();
   const esMesActual = mesBase.getFullYear() === now.getFullYear() && mesBase.getMonth() === now.getMonth();
@@ -335,6 +345,20 @@ export const UsuarioMetricasModal: React.FC<UsuarioMetricasModalProps> = ({ usua
                 iconColor="text-yellow-600"
                 bgColor="bg-yellow-50"
                 rows={[]}
+              />
+
+              {/* Canjes (gratis, no suman a los totales) */}
+              <MetricaCard
+                title="Canjes"
+                total={totalCanjes.toString()}
+                delta={<DeltaMensual actual={totalCanjes} anterior={totalCanjesAnterior} />}
+                icon={<Repeat className="w-4 h-4" />}
+                iconColor="text-orange-600"
+                bgColor="bg-orange-50"
+                rows={[
+                  { label: 'Servicios', value: String(summary.cantidad_canjes_servicios ?? 0) },
+                  { label: 'Productos', value: String(summary.cantidad_canjes_productos ?? 0) },
+                ]}
               />
             </div>
           </>

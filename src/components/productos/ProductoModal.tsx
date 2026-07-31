@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Input, Textarea } from '../ui';
 import { productosService } from '../../services/productos.service';
 import { marcasService } from '../../services/marcas.service';
-import { Producto, CreateProductoData } from '../../types/producto.types';
+import { Producto, ConfiguracionProductos } from '../../types/producto.types';
 import { MarcaConProductos } from '../../types/marca.types';
 import { useToast } from '../../hooks/useToast';
 
@@ -16,14 +16,17 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [marcas, setMarcas] = useState<MarcaConProductos[]>([]);
+  const [config, setConfig] = useState<ConfiguracionProductos | null>(null);
   const [nuevaMarca, setNuevaMarca] = useState('');
   const [creandoMarca, setCreandoMarca] = useState(false);
   const [mostrarNuevaMarca, setMostrarNuevaMarca] = useState(false);
   const [form, setForm] = useState({
     nombre: producto?.nombre || '',
     descripcion: producto?.descripcion || '',
-    precio_efectivo: producto?.precio_efectivo?.toString() || '0',
-    precio_transferencia: producto?.precio_transferencia?.toString() || '0',
+    // Solo se muestra el precio si es un override manual; vacío = automático según config
+    precio_efectivo: producto?.precio_efectivo_manual ? String(producto.precio_efectivo ?? '') : '',
+    precio_transferencia: producto?.precio_transferencia_manual ? String(producto.precio_transferencia ?? '') : '',
+    precio_tarjeta: producto?.precio_tarjeta_manual ? String(producto.precio_tarjeta ?? '') : '',
     costo: producto?.costo?.toString() || '',
     stock: producto?.stock?.toString() || '0',
     marca_id: producto?.marca_id || '',
@@ -33,7 +36,16 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
 
   useEffect(() => {
     marcasService.getMarcas().then(setMarcas).catch(() => {});
+    productosService.getConfiguracion().then(setConfig).catch(() => {});
   }, []);
+
+  // Precio derivado de la config para mostrar como placeholder mientras el campo está vacío
+  const precioDerivado = (pct?: number): string => {
+    const costo = parseFloat(form.costo);
+    if (Number.isNaN(costo) || pct == null) return 'Automático';
+    const precio = Math.round(costo * (1 + pct / 100) * 100) / 100;
+    return `Auto: $${precio.toLocaleString('es-AR')}`;
+  };
 
   const handleCrearMarca = async () => {
     if (!nuevaMarca.trim()) return;
@@ -59,15 +71,24 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
       toast.error('El nombre es requerido');
       return;
     }
+    if (form.costo === '' || Number.isNaN(parseFloat(form.costo))) {
+      toast.error('El costo es requerido');
+      return;
+    }
+    // Campo vacío = precio automático según la configuración general
+    const precios = {
+      precio_efectivo: form.precio_efectivo !== '' ? parseFloat(form.precio_efectivo) : null,
+      precio_transferencia: form.precio_transferencia !== '' ? parseFloat(form.precio_transferencia) : null,
+      precio_tarjeta: form.precio_tarjeta !== '' ? parseFloat(form.precio_tarjeta) : null,
+    };
     setLoading(true);
     try {
       if (isEditing) {
         await productosService.updateProducto(producto!.id, {
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim() || undefined,
-          precio_efectivo: parseFloat(form.precio_efectivo),
-          precio_transferencia: parseFloat(form.precio_transferencia),
-          costo: form.costo !== '' ? parseFloat(form.costo) : null,
+          ...precios,
+          costo: parseFloat(form.costo),
           stock: parseInt(form.stock),
           marca_id: form.marca_id || null,
         });
@@ -76,9 +97,8 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
         await productosService.createProducto({
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim() || undefined,
-          precio_efectivo: parseFloat(form.precio_efectivo),
-          precio_transferencia: parseFloat(form.precio_transferencia),
-          costo: form.costo !== '' ? parseFloat(form.costo) : null,
+          ...precios,
+          costo: parseFloat(form.costo),
           stock: parseInt(form.stock),
           marca_id: form.marca_id || null,
         });
@@ -163,38 +183,14 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Precio efectivo ($)</label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.precio_efectivo}
-                onChange={e => setForm(f => ({ ...f, precio_efectivo: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Precio transferencia ($)</label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.precio_transferencia}
-                onChange={e => setForm(f => ({ ...f, precio_transferencia: e.target.value }))}
-                required
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Costo ($)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Costo ($) *</label>
               <Input
                 type="number"
                 min="0"
                 step="0.01"
                 value={form.costo}
                 onChange={e => setForm(f => ({ ...f, costo: e.target.value }))}
-                placeholder="Opcional"
+                required
               />
             </div>
             <div>
@@ -210,6 +206,46 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
                 required
               />
             </div>
+          </div>
+          <div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Efectivo ($)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.precio_efectivo}
+                  onChange={e => setForm(f => ({ ...f, precio_efectivo: e.target.value }))}
+                  placeholder={precioDerivado(config?.pct_efectivo)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Transferencia ($)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.precio_transferencia}
+                  onChange={e => setForm(f => ({ ...f, precio_transferencia: e.target.value }))}
+                  placeholder={precioDerivado(config?.pct_transferencia)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tarjeta ($)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.precio_tarjeta}
+                  onChange={e => setForm(f => ({ ...f, precio_tarjeta: e.target.value }))}
+                  placeholder={precioDerivado(config?.pct_tarjeta)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Vacío = precio automático según la configuración general. Cargá un valor solo para pisar el cálculo.
+            </p>
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
