@@ -48,8 +48,10 @@ const TimeSlotWrapper: React.FC<any> = ({ children }) => (
 // Factory para el componente de evento con color dinámico
 const getEventColor = (turno: TurnoConDetalle, defaultColor: string): string => {
   if (turno?.estado !== 'completado') return defaultColor;
-  // completado + cobrado (canje cuenta como cobrado: es gratis, no queda pendiente) → verde
-  if (turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia' || turno.metodo_pago === 'canje') return '#10B981';
+  // completado + canje → violeta (gratis: no es cobro ni queda pendiente)
+  if (turno.metodo_pago === 'canje') return '#7C3AED';
+  // completado + cobrado → verde
+  if (turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia') return '#10B981';
   // completado + pago pendiente (o sin metodo_pago) → naranja
   return '#D97706';
 };
@@ -57,7 +59,8 @@ const getEventColor = (turno: TurnoConDetalle, defaultColor: string): string => 
 const makeEventComponent = (color: string, isMobile = false): React.FC<any> => ({ event }) => {
   const turno = event.resource as TurnoConDetalle;
   const completado = turno?.estado === 'completado';
-  const cobrado = turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia' || turno.metodo_pago === 'canje';
+  const esCanje = turno.metodo_pago === 'canje';
+  const cobrado = esCanje || turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia';
   const bgColor = getEventColor(turno, color);
 
   // Hooks siempre al tope (reglas de hooks)
@@ -107,7 +110,7 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
             )}
             {completado && (
               <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3' }}>
-                {cobrado ? '💰 Cobrado' : '⏱ Pend.'}
+                {esCanje ? '🔁 Canje' : cobrado ? '💰 Cobrado' : '⏱ Pend.'}
               </div>
             )}
             {turno.origen === 'web' && (
@@ -140,7 +143,7 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
       </div>
       {showServicio && (
         <div style={{ fontSize: '10px', opacity: 0.85, lineHeight: '1.25', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-          {completado ? (cobrado ? 'Cobrado' : 'Pago pendiente') : turno.servicio}
+          {completado ? (esCanje ? 'Canje' : cobrado ? 'Cobrado' : 'Pago pendiente') : turno.servicio}
         </div>
       )}
       {turno.cliente_telefono && (
