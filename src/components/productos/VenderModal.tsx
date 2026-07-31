@@ -55,6 +55,9 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   // Pago
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('efectivo');
   const [notas, setNotas] = useState('');
+  // Un solo detalle de canje por venta
+  const [canjeDetalle, setCanjeDetalle] = useState('');
+  const [canjeDetalleError, setCanjeDetalleError] = useState<string | null>(null);
 
   // Fecha retroactiva
   const [esFechaRetroactiva, setEsFechaRetroactiva] = useState(false);
@@ -171,12 +174,18 @@ export const VenderModal: React.FC<VenderModalProps> = ({
       toast.error('Agregá al menos un producto');
       return;
     }
+    if (metodoPago === 'canje' && !canjeDetalle.trim()) {
+      setCanjeDetalleError('Ingresá el detalle del canje');
+      toast.error('Ingresá el detalle del canje');
+      return;
+    }
     setLoading(true);
     try {
       await ventasService.createVenta({
         cliente_id: selectedCliente?.id || null,
         vendedor_id: vendedorId,
         metodo_pago: metodoPago,
+        canje_detalle: metodoPago === 'canje' ? canjeDetalle.trim() : undefined,
         notas: notas.trim() || undefined,
         ...(esFechaRetroactiva && fechaVenta ? { fecha_venta: fechaVenta } : {}),
         items: items.map(i => ({
@@ -233,6 +242,28 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                 </button>
               ))}
             </div>
+
+            {/* Detalle del canje — un solo detalle por venta */}
+            {metodoPago === 'canje' && (
+              <div className="mt-3">
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                  Detalle del canje <span className="text-red-500 normal-case">*</span>
+                </label>
+                <textarea
+                  rows={2}
+                  maxLength={500}
+                  value={canjeDetalle}
+                  onChange={e => { setCanjeDetalle(e.target.value); if (canjeDetalleError) setCanjeDetalleError(null); }}
+                  placeholder="¿Qué se recibió a cambio? / motivo"
+                  className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
+                    canjeDetalleError ? 'border-red-400' : 'border-gray-200'
+                  }`}
+                />
+                {canjeDetalleError && (
+                  <p className="text-xs text-red-600 mt-1">{canjeDetalleError}</p>
+                )}
+              </div>
+            )}
           </section>
 
           {/* Cliente */}

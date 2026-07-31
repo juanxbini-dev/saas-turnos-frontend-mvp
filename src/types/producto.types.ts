@@ -114,6 +114,8 @@ export interface CreateVentaData {
   cliente_id?: string | null;
   vendedor_id: string;
   metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta' | 'pendiente' | 'canje';
+  // Detalle del canje: requerido cuando metodo_pago = 'canje' (un solo detalle por venta)
+  canje_detalle?: string;
   notas?: string;
   fecha_venta?: string;
   items: {

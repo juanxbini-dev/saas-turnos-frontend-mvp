@@ -82,7 +82,9 @@ function ProductosPage() {
     precio_unitario: number;
     precio_total: number;
     metodo_pago: string;
+    canje_detalle: string;
   } | null>(null);
+  const [editCanjeError, setEditCanjeError] = useState<string | null>(null);
 
   // Resumen ventas (cards + por profesional)
   const [resumenFechaDesde, setResumenFechaDesde] = useState(primerDiaMes);
@@ -331,6 +333,7 @@ function ProductosPage() {
 
   const handleEditarVenta = (row: any) => {
     setEditingVentaId(row.id);
+    setEditCanjeError(null);
     setEditForm({
       vendedor_id: row.vendedor_id || '',
       fecha_venta: row.fecha_venta ? row.fecha_venta.split('T')[0] : '',
@@ -339,16 +342,26 @@ function ProductosPage() {
       precio_unitario: Number(row.precio_unitario) || 0,
       precio_total: Number(row.precio_total) || 0,
       metodo_pago: row.metodo_pago || 'efectivo',
+      canje_detalle: row.canje_detalle || '',
     });
   };
 
   const handleGuardarEdicion = async () => {
     if (!editingVentaId || !editForm) return;
+    // Canje requiere detalle (qué se recibió a cambio / motivo)
+    if (editForm.metodo_pago === 'canje' && !editForm.canje_detalle.trim()) {
+      setEditCanjeError('Ingresá el detalle del canje');
+      return;
+    }
     try {
-      await updateVentaProducto(editingVentaId, editForm);
+      await updateVentaProducto(editingVentaId, {
+        ...editForm,
+        canje_detalle: editForm.metodo_pago === 'canje' ? editForm.canje_detalle.trim() : undefined,
+      });
       toast.success('Venta actualizada');
       setEditingVentaId(null);
       setEditForm(null);
+      setEditCanjeError(null);
       cargarRegistro(registroPage);
     } catch {
       toast.error('Error al actualizar la venta');
@@ -1262,6 +1275,31 @@ function ProductosPage() {
                                           <option value="canje">Canje</option>
                                         </select>
                                       </div>
+                                      {/* Detalle del canje — requerido cuando el método es canje */}
+                                      {editForm.metodo_pago === 'canje' && (
+                                        <div className="col-span-2 sm:col-span-3">
+                                          <label className="text-xs font-medium text-gray-600 block mb-1">
+                                            Detalle del canje <span className="text-red-500">*</span>
+                                          </label>
+                                          <input
+                                            type="text"
+                                            maxLength={500}
+                                            value={editForm.canje_detalle}
+                                            onChange={e => {
+                                              const v = e.target.value;
+                                              setEditForm(f => f ? { ...f, canje_detalle: v } : f);
+                                              if (editCanjeError) setEditCanjeError(null);
+                                            }}
+                                            placeholder="¿Qué se recibió a cambio? / motivo"
+                                            className={`w-full rounded-lg border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                              editCanjeError ? 'border-red-400' : 'border-gray-300'
+                                            }`}
+                                          />
+                                          {editCanjeError && (
+                                            <p className="text-xs text-red-600 mt-1">{editCanjeError}</p>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex gap-2 mt-3">
                                       <button

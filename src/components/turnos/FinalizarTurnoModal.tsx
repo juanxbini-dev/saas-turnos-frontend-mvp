@@ -39,6 +39,9 @@ export function FinalizarTurnoModal({
   const [cantidadError, setCantidadError] = useState<string | null>(null);
   const [nuevaEsVentaCosto, setNuevaEsVentaCosto] = useState(false);
   const [loadingProductosExistentes, setLoadingProductosExistentes] = useState(false);
+  // Un solo detalle de canje por turno (aplica a servicio y/o productos en canje)
+  const [canjeDetalle, setCanjeDetalle] = useState('');
+  const [canjeDetalleError, setCanjeDetalleError] = useState<string | null>(null);
 
   const { data: catalogoProductos, loading: loadingCatalogo } = useFetch(
     'productos:lista',
@@ -59,6 +62,7 @@ export function FinalizarTurnoModal({
       if (turno.descuento_porcentaje && Number(turno.descuento_porcentaje) > 0) {
         setDescuentoPorcentaje(String(turno.descuento_porcentaje));
       }
+      setCanjeDetalle(turno.canje_detalle ?? '');
 
       // Cargar productos existentes del turno
       setLoadingProductosExistentes(true);
@@ -195,9 +199,17 @@ export function FinalizarTurnoModal({
     setProductos(productos.filter(p => p.id !== id));
   };
 
+  // Hay canje si el servicio va en canje o algún producto va en canje
+  const hayCanje = metodoPago === 'canje' || productos.some(p => p.metodo_pago === 'canje');
+
   const handleSubmit = async () => {
     if (!metodoPago) {
       alert('Por favor seleccioná un método de pago');
+      return;
+    }
+
+    if (hayCanje && !canjeDetalle.trim()) {
+      setCanjeDetalleError('Ingresá el detalle del canje');
       return;
     }
 
@@ -213,6 +225,7 @@ export function FinalizarTurnoModal({
         descuentoPorcentaje: descuentoPorcentaje ? parseFloat(descuentoPorcentaje) : undefined,
         descuentoAplicarA,
         productos: productos.length > 0 ? productos : undefined,
+        canjeDetalle: hayCanje ? canjeDetalle.trim() : undefined,
       };
 
       if (mode === 'editar') {
@@ -243,6 +256,8 @@ export function FinalizarTurnoModal({
     setNuevaCantidad(1);
     setCantidadError(null);
     setNuevaEsVentaCosto(false);
+    setCanjeDetalle('');
+    setCanjeDetalleError(null);
     onClose();
   };
 
@@ -530,6 +545,28 @@ export function FinalizarTurnoModal({
                 </Button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Detalle del canje — un solo detalle por turno (servicio y/o productos en canje) */}
+        {hayCanje && (
+          <div className="border-t border-gray-100 pt-4">
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              Detalle del canje <span className="text-red-500 normal-case">*</span>
+            </label>
+            <textarea
+              rows={2}
+              maxLength={500}
+              value={canjeDetalle}
+              onChange={(e) => { setCanjeDetalle(e.target.value); if (canjeDetalleError) setCanjeDetalleError(null); }}
+              placeholder="¿Qué se recibió a cambio? / motivo"
+              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
+                canjeDetalleError ? 'border-red-400' : 'border-gray-300'
+              }`}
+            />
+            {canjeDetalleError && (
+              <p className="text-xs text-red-600 mt-1">{canjeDetalleError}</p>
+            )}
           </div>
         )}
 

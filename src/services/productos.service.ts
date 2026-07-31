@@ -83,6 +83,8 @@ export async function updateVentaProducto(
     precio_unitario?: number;
     precio_total?: number;
     metodo_pago?: string;
+    // Detalle del canje: requerido cuando metodo_pago = 'canje'
+    canje_detalle?: string;
     fecha_venta?: string;
   }
 ): Promise<any> {

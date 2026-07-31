@@ -24,6 +24,8 @@ export interface VentaGrupadaFinanzas {
   vendedor_nombre: string;
   empresa_id: string;
   items: VentaItemFinanzas[];
+  // Detalle del canje (qué se recibió a cambio / motivo) cuando metodo_pago = 'canje'
+  canje_detalle?: string | null;
 }
 
 // Representa un registro de comisión por turno finalizado (solo servicio)
@@ -59,6 +61,8 @@ export interface ComisionProfesional {
   profesional_nombre?: string;
   // El turno tiene productos con pago pendiente (calculado por el backend sobre todos los datos, no la página visible)
   tiene_producto_pendiente?: boolean;
+  // Detalle del canje (qué se recibió a cambio / motivo) cuando metodo_pago = 'canje'
+  canje_detalle?: string | null;
 }
 
 export type EntradaFinanzas = ComisionProfesional | VentaGrupadaFinanzas;

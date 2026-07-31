@@ -964,6 +964,9 @@ export function DashboardCalendario({
                         {turnoMenu.turno.metodo_pago === 'pendiente' || !turnoMenu.turno.metodo_pago ? '⚠️ Pendiente' : turnoMenu.turno.metodo_pago}
                       </span>
                     </div>
+                    {turnoMenu.turno.metodo_pago === 'canje' && turnoMenu.turno.canje_detalle && (
+                      <p className="text-xs text-gray-400 italic">Canje: {turnoMenu.turno.canje_detalle}</p>
+                    )}
                     {turnoMenu.turno.descuento_porcentaje != null && turnoMenu.turno.descuento_porcentaje > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Descuento</span>
@@ -1069,6 +1072,9 @@ export function DashboardCalendario({
                         {turnoMenu.turno.metodo_pago === 'pendiente' || !turnoMenu.turno.metodo_pago ? '⚠️ Pendiente' : turnoMenu.turno.metodo_pago}
                       </span>
                     </div>
+                    {turnoMenu.turno.metodo_pago === 'canje' && turnoMenu.turno.canje_detalle && (
+                      <p className="text-xs text-gray-400 italic">Canje: {turnoMenu.turno.canje_detalle}</p>
+                    )}
                     {turnoMenu.turno.descuento_porcentaje != null && turnoMenu.turno.descuento_porcentaje > 0 && (
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-400">Descuento</span>

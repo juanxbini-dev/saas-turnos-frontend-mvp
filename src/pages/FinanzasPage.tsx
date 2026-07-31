@@ -148,8 +148,8 @@ export function FinanzasPage() {
     handleFiltersChange({ tipo, pagina: 1 });
   };
 
-  const handleCobrarPago = async (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje') => {
-    await finanzasService.cobrarPago(tipo, id, metodoPago);
+  const handleCobrarPago = async (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje', canjeDetalle?: string) => {
+    await finanzasService.cobrarPago(tipo, id, metodoPago, undefined, canjeDetalle);
     revalidate();
   };
 
