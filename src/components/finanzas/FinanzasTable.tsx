@@ -14,7 +14,7 @@ interface FinanzasTableProps {
   sortField: FinanzasFilters['ordenar_por'];
   sortOrder: FinanzasFilters['orden'];
   onRowClick: (comision: ComisionProfesional) => void;
-  onCobrarPago: (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia' | 'tarjeta') => Promise<void>;
+  onCobrarPago: (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje') => Promise<void>;
   // Tab activo: el filtrado lo hace el backend, acá solo se renderiza
   tipoFiltro: TipoFiltro;
   onTipoChange: (tipo: TipoFiltro) => void;
@@ -75,16 +75,20 @@ const MetodoPagoBadge = ({ metodo }: { metodo: string }) => {
     transferencia: { color: 'blue', label: 'Transferencia' },
     tarjeta: { color: 'purple', label: 'Tarjeta' },
     pendiente: { color: 'yellow', label: 'Pendiente' },
+    // naranja: color no soportado por Badge, se aplica vía className (mismo patrón bg-*-100 text-*-800)
+    canje: { color: 'orange', label: 'Canje' },
   };
   const b = map[metodo as keyof typeof map] || { color: 'gray', label: metodo };
-  return <Badge variant={b.color as any} className="text-xs">{b.label}</Badge>;
+  const extra = b.color === 'orange' ? ' bg-orange-100 text-orange-800' : '';
+  return <Badge variant={b.color as any} className={`text-xs${extra}`}>{b.label}</Badge>;
 };
 
 // ─── Botón Cobrar inline ────────────────────────────────────────────────────
 
-type MetodoCobro = 'efectivo' | 'transferencia' | 'tarjeta';
+type MetodoCobro = 'efectivo' | 'transferencia' | 'tarjeta' | 'canje';
 
-// conTarjeta: solo los cobros de productos admiten tarjeta (el servicio del turno no)
+// conTarjeta: solo los cobros de productos admiten tarjeta (el servicio del turno no).
+// 'canje' aplica a servicios y productos: es gratis, el backend fuerza montos $0.
 function CobrarButton({ onCobrar, conTarjeta = false }: { onCobrar: (m: MetodoCobro) => void; conTarjeta?: boolean }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -130,6 +134,13 @@ function CobrarButton({ onCobrar, conTarjeta = false }: { onCobrar: (m: MetodoCo
           Tarjeta
         </button>
       )}
+      <button
+        onClick={() => handle('canje')}
+        disabled={loading}
+        className="text-xs bg-orange-100 text-orange-800 hover:bg-orange-200 px-2 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+      >
+        Canje
+      </button>
       <button
         onClick={() => setOpen(false)}
         className="text-xs text-gray-400 hover:text-gray-600 px-1"

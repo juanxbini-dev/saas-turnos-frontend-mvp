@@ -21,6 +21,7 @@ const metodosPago = [
   { value: 'efectivo',      label: 'Efectivo' },
   { value: 'transferencia', label: 'Transferencia' },
   { value: 'pendiente',     label: 'Pendiente' },
+  { value: 'canje',         label: 'Canje' },
 ];
 
 const ordenarPorOpts = [

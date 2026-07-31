@@ -68,10 +68,12 @@ export interface ProductoVentaFinanzas {
   precio_efectivo: number | null;
   precio_transferencia: number | null;
   costo: number | null;
+  // total_unidades excluye los canjes (unidades regaladas, importe $0)
   total_unidades: number;
   unidades_efectivo: number;
   unidades_transferencia: number;
   unidades_pendiente: number;
+  unidades_canje: number;
   total_efectivo: number;
   total_transferencia: number;
   total_pendiente: number;
@@ -111,7 +113,7 @@ export interface VentaItemInput {
 export interface CreateVentaData {
   cliente_id?: string | null;
   vendedor_id: string;
-  metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta' | 'pendiente';
+  metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta' | 'pendiente' | 'canje';
   notas?: string;
   fecha_venta?: string;
   items: {

@@ -1223,11 +1223,12 @@ function ProductosPage() {
                                           type="number"
                                           min={0}
                                           value={editForm.precio_unitario}
+                                          disabled={editForm.metodo_pago === 'canje'}
                                           onChange={e => {
                                             const pu = Number(e.target.value);
                                             setEditForm(f => f ? { ...f, precio_unitario: pu, precio_total: pu * f.cantidad } : f);
                                           }}
-                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                                         />
                                       </div>
                                       <div>
@@ -1243,13 +1244,22 @@ function ProductosPage() {
                                         <label className="text-xs font-medium text-gray-600 block mb-1">Método de pago</label>
                                         <select
                                           value={editForm.metodo_pago}
-                                          onChange={e => setEditForm(f => f ? { ...f, metodo_pago: e.target.value } : f)}
+                                          onChange={e => {
+                                            const metodo = e.target.value;
+                                            // Canje = gratis: precio $0 (el backend también fuerza montos 0)
+                                            setEditForm(f => f
+                                              ? metodo === 'canje'
+                                                ? { ...f, metodo_pago: metodo, precio_unitario: 0, precio_total: 0 }
+                                                : { ...f, metodo_pago: metodo }
+                                              : f);
+                                          }}
                                           className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         >
                                           <option value="efectivo">Efectivo</option>
                                           <option value="transferencia">Transferencia</option>
                                           <option value="tarjeta">Tarjeta</option>
                                           <option value="pendiente">Pendiente</option>
+                                          <option value="canje">Canje</option>
                                         </select>
                                       </div>
                                     </div>

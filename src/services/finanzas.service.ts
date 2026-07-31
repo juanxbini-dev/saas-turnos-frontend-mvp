@@ -49,12 +49,13 @@ export const finanzasService = {
     return response.data;
   },
 
-  // 'tarjeta' solo es válido para cobros de productos (tipos venta/venta_turno o metodo_pago_productos)
+  // 'tarjeta' solo es válido para cobros de productos (tipos venta/venta_turno o metodo_pago_productos).
+  // 'canje' = gratis: el backend fuerza los montos a 0.
   async cobrarPago(
     tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta',
     id: string,
-    metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta',
-    metodo_pago_productos?: 'efectivo' | 'transferencia' | 'tarjeta'
+    metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje',
+    metodo_pago_productos?: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje'
   ): Promise<void> {
     await axiosInstance.patch('/api/finanzas/cobrar', { tipo, id, metodo_pago, metodo_pago_productos });
   },

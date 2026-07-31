@@ -48,8 +48,8 @@ const TimeSlotWrapper: React.FC<any> = ({ children }) => (
 // Factory para el componente de evento con color dinámico
 const getEventColor = (turno: TurnoConDetalle, defaultColor: string): string => {
   if (turno?.estado !== 'completado') return defaultColor;
-  // completado + cobrado → verde
-  if (turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia') return '#10B981';
+  // completado + cobrado (canje cuenta como cobrado: es gratis, no queda pendiente) → verde
+  if (turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia' || turno.metodo_pago === 'canje') return '#10B981';
   // completado + pago pendiente (o sin metodo_pago) → naranja
   return '#D97706';
 };
@@ -57,7 +57,7 @@ const getEventColor = (turno: TurnoConDetalle, defaultColor: string): string => 
 const makeEventComponent = (color: string, isMobile = false): React.FC<any> => ({ event }) => {
   const turno = event.resource as TurnoConDetalle;
   const completado = turno?.estado === 'completado';
-  const cobrado = turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia';
+  const cobrado = turno.metodo_pago === 'efectivo' || turno.metodo_pago === 'transferencia' || turno.metodo_pago === 'canje';
   const bgColor = getEventColor(turno, color);
 
   // Hooks siempre al tope (reglas de hooks)

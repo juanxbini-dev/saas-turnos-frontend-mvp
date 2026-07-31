@@ -1,5 +1,5 @@
 export type TurnoEstado = 'pendiente' | 'confirmado' | 'completado' | 'cancelado';
-export type MetodoPago = 'efectivo' | 'transferencia' | 'pendiente';
+export type MetodoPago = 'efectivo' | 'transferencia' | 'pendiente' | 'canje';
 
 export interface Turno {
   id: string;
@@ -136,8 +136,8 @@ export interface VentaProductoData {
   cantidad: number;
   precio_unitario: number;
   precio_total: number;
-  // 'tarjeta' solo aplica a productos, nunca al servicio del turno
-  metodo_pago?: 'efectivo' | 'transferencia' | 'tarjeta';
+  // 'tarjeta' solo aplica a productos, nunca al servicio del turno. 'canje' = gratis ($0)
+  metodo_pago?: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje';
   es_venta_costo?: boolean;
   // Precios guardados al agregar — permiten recalcular sin depender del catálogo
   _precio_efectivo?: number;

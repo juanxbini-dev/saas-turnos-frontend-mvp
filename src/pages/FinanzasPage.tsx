@@ -148,7 +148,7 @@ export function FinanzasPage() {
     handleFiltersChange({ tipo, pagina: 1 });
   };
 
-  const handleCobrarPago = async (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia' | 'tarjeta') => {
+  const handleCobrarPago = async (tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta', id: string, metodoPago: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje') => {
     await finanzasService.cobrarPago(tipo, id, metodoPago);
     revalidate();
   };
@@ -207,6 +207,7 @@ export function FinanzasPage() {
           total_comision_empresa: 0, total_comision_empresa_servicios: 0, total_comision_empresa_productos: 0,
           total_neto_profesional: 0, total_neto_profesional_servicios: 0, total_neto_profesional_productos: 0,
           total_descuentos: 0, cantidad_turnos: 0, cantidad_productos_vendidos: 0, promedio_por_turno: 0, total_pendiente: 0,
+          cantidad_canjes_servicios: 0, cantidad_canjes_productos: 0,
         }}
         isLoading={loadingFinanzas}
         comisionProfesional={comisionProfesional}

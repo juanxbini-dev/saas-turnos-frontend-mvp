@@ -83,15 +83,17 @@ export function FinalizarTurnoModal({
     }
   }, [isOpen, mode, turno]);
 
-  // Cambiar método de pago de un producto y recalcular su precio
-  const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia' | 'tarjeta') => {
+  // Cambiar método de pago de un producto y recalcular su precio ('canje' = gratis, $0)
+  const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje') => {
     setProductos(prev => prev.map(p => {
       if (p.id !== id || p.es_venta_costo) return p;
-      const nuevoPrecio = metodo === 'transferencia'
-        ? (p._precio_transferencia ?? p.precio_unitario)
-        : metodo === 'tarjeta'
-          ? (p._precio_tarjeta ?? p.precio_unitario)
-          : (p._precio_efectivo ?? p.precio_unitario);
+      const nuevoPrecio = metodo === 'canje'
+        ? 0
+        : metodo === 'transferencia'
+          ? (p._precio_transferencia ?? p.precio_unitario)
+          : metodo === 'tarjeta'
+            ? (p._precio_tarjeta ?? p.precio_unitario)
+            : (p._precio_efectivo ?? p.precio_unitario);
       return { ...p, metodo_pago: metodo, precio_unitario: nuevoPrecio, precio_total: nuevoPrecio * p.cantidad };
     }));
   };
@@ -111,12 +113,16 @@ export function FinalizarTurnoModal({
     }));
   };
 
-  // Calcular totales respetando a qué ítems aplica el descuento
+  // Calcular totales respetando a qué ítems aplica el descuento.
+  // Servicio en canje → $0 (los productos canje ya tienen precio_total 0 en el estado).
   const calculo = useMemo(() => {
-    const precioServicio = precioModificado ? parseFloat(precioModificado) || 0 : Number(turno.precio);
+    const precioServicio = metodoPago === 'canje'
+      ? 0
+      : precioModificado ? parseFloat(precioModificado) || 0 : Number(turno.precio);
     const montoProductos = productos.reduce((sum, p) => sum + Number(p.precio_total), 0);
     const subtotal = precioServicio + montoProductos;
-    if (subtotal <= 0) return null;
+    // Con canje el total puede ser $0 legítimamente: mostrar el resumen igual
+    if (subtotal <= 0 && metodoPago !== 'canje' && !productos.some(p => p.metodo_pago === 'canje')) return null;
 
     const descuento = descuentoPorcentaje ? parseFloat(descuentoPorcentaje) || 0 : 0;
     const baseDescuento =
@@ -133,7 +139,7 @@ export function FinalizarTurnoModal({
       descuentoMonto,
       totalConDescuento,
     };
-  }, [precioModificado, productos, descuentoPorcentaje, descuentoAplicarA, turno.precio]);
+  }, [metodoPago, precioModificado, productos, descuentoPorcentaje, descuentoAplicarA, turno.precio]);
 
   const handleAgregarProducto = () => {
     if (!selectedCatalogProducto) return;
@@ -147,14 +153,17 @@ export function FinalizarTurnoModal({
           : p
       ));
     } else {
-      const metodoProd = metodoPago as 'efectivo' | 'transferencia' | 'pendiente';
+      const metodoProd = metodoPago as 'efectivo' | 'transferencia' | 'pendiente' | 'canje';
       const precioEfectivo = Number(selectedCatalogProducto.precio_efectivo) || 0;
       const precioTransferencia = Number(selectedCatalogProducto.precio_transferencia) || 0;
       const precioTarjeta = Number(selectedCatalogProducto.precio_tarjeta) || 0;
       const precioCosto = Number(selectedCatalogProducto.costo) || 0;
-      const precioUnitario = nuevaEsVentaCosto
-        ? precioCosto
-        : (metodoProd === 'transferencia' ? precioTransferencia : precioEfectivo);
+      // Canje = gratis: el toggle "al costo" no aplica y el precio es $0
+      const precioUnitario = metodoProd === 'canje'
+        ? 0
+        : nuevaEsVentaCosto
+          ? precioCosto
+          : (metodoProd === 'transferencia' ? precioTransferencia : precioEfectivo);
       const producto: VentaProductoData = {
         id: generarId(),
         producto_id: selectedCatalogProducto.id,
@@ -162,8 +171,10 @@ export function FinalizarTurnoModal({
         cantidad: nuevaCantidad,
         precio_unitario: precioUnitario,
         precio_total: precioUnitario * nuevaCantidad,
-        metodo_pago: nuevaEsVentaCosto ? undefined : metodoProd as 'efectivo' | 'transferencia',
-        es_venta_costo: nuevaEsVentaCosto,
+        metodo_pago: metodoProd === 'canje'
+          ? 'canje'
+          : nuevaEsVentaCosto ? undefined : metodoProd as 'efectivo' | 'transferencia',
+        es_venta_costo: metodoProd === 'canje' ? false : nuevaEsVentaCosto,
         _precio_efectivo: precioEfectivo,
         _precio_transferencia: precioTransferencia,
         _precio_tarjeta: precioTarjeta,
@@ -195,7 +206,10 @@ export function FinalizarTurnoModal({
       const { turnoService } = await import('../../services/turno.service');
       const payload = {
         metodoPago,
-        precioModificado: precioModificado ? parseFloat(precioModificado) : undefined,
+        // Canje = gratis: se envía $0 explícito (el backend igualmente fuerza montos 0)
+        precioModificado: metodoPago === 'canje'
+          ? 0
+          : precioModificado ? parseFloat(precioModificado) : undefined,
         descuentoPorcentaje: descuentoPorcentaje ? parseFloat(descuentoPorcentaje) : undefined,
         descuentoAplicarA,
         productos: productos.length > 0 ? productos : undefined,
@@ -234,7 +248,9 @@ export function FinalizarTurnoModal({
 
   if (!isOpen) return null;
 
-  const precioServicio = precioModificado ? parseFloat(precioModificado) || 0 : turno.precio;
+  const precioServicio = metodoPago === 'canje'
+    ? 0
+    : precioModificado ? parseFloat(precioModificado) || 0 : turno.precio;
   const montoProductos = productos.reduce((sum, p) => sum + p.precio_total, 0);
   const tieneProductos = montoProductos > 0 || productos.length > 0;
 
@@ -276,8 +292,8 @@ export function FinalizarTurnoModal({
         {/* Método de Pago — pills modernos */}
         <div className="border-t border-gray-100 pt-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Método de Pago</p>
-          <div className="grid grid-cols-3 gap-2">
-            {(['efectivo', 'transferencia', 'pendiente'] as MetodoPago[]).map((metodo) => (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {(['efectivo', 'transferencia', 'pendiente', 'canje'] as MetodoPago[]).map((metodo) => (
               <button
                 key={metodo}
                 onClick={() => setMetodoPago(metodo)}
@@ -363,7 +379,7 @@ export function FinalizarTurnoModal({
                     </div>
                   </div>
                   <div className="flex gap-1 flex-wrap">
-                    {!producto.es_venta_costo && (['efectivo', 'transferencia', 'tarjeta'] as const).map(m => (
+                    {!producto.es_venta_costo && (['efectivo', 'transferencia', 'tarjeta', 'canje'] as const).map(m => (
                       <button
                         key={m}
                         type="button"
@@ -374,20 +390,23 @@ export function FinalizarTurnoModal({
                             : 'border-gray-200 text-gray-500 hover:border-blue-300'
                         }`}
                       >
-                        {m === 'efectivo' ? 'Efectivo' : m === 'transferencia' ? 'Transferencia' : 'Tarjeta'}
+                        {m === 'efectivo' ? 'Efectivo' : m === 'transferencia' ? 'Transferencia' : m === 'tarjeta' ? 'Tarjeta' : 'Canje'}
                       </button>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() => handleToggleVentaCosto(producto.id)}
-                      className={`text-xs px-2 py-0.5 rounded border transition-all ${
-                        producto.es_venta_costo
-                          ? 'border-orange-500 bg-orange-50 text-orange-700 font-medium'
-                          : 'border-gray-200 text-gray-500 hover:border-orange-300'
-                      }`}
-                    >
-                      Al costo
-                    </button>
+                    {/* "Al costo" no aplica a canje (el canje ya es $0) */}
+                    {producto.metodo_pago !== 'canje' && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleVentaCosto(producto.id)}
+                        className={`text-xs px-2 py-0.5 rounded border transition-all ${
+                          producto.es_venta_costo
+                            ? 'border-orange-500 bg-orange-50 text-orange-700 font-medium'
+                            : 'border-gray-200 text-gray-500 hover:border-orange-300'
+                        }`}
+                      >
+                        Al costo
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -406,7 +425,7 @@ export function FinalizarTurnoModal({
                     <p className="text-sm font-medium text-gray-900">{selectedCatalogProducto.nombre}</p>
                     <p className="text-xs text-gray-500">
                       {selectedCatalogProducto.marca_nombre && <span className="text-blue-600 font-medium">{selectedCatalogProducto.marca_nombre} · </span>}
-                      {formatCurrency(metodoPago === 'transferencia' ? selectedCatalogProducto.precio_transferencia ?? 0 : selectedCatalogProducto.precio_efectivo ?? 0)} c/u · Stock: {selectedCatalogProducto.stock}
+                      {formatCurrency(metodoPago === 'canje' ? 0 : metodoPago === 'transferencia' ? selectedCatalogProducto.precio_transferencia ?? 0 : selectedCatalogProducto.precio_efectivo ?? 0)} c/u · Stock: {selectedCatalogProducto.stock}
                     </p>
                   </div>
                   <button onClick={() => setSelectedCatalogProducto(null)} className="text-gray-400 hover:text-red-500">
@@ -447,7 +466,7 @@ export function FinalizarTurnoModal({
                               <p className="text-sm font-medium">{p.nombre}</p>
                               {p.marca_nombre && <p className="text-xs text-blue-600 font-medium">{p.marca_nombre}</p>}
                             </div>
-                            <span className="text-sm text-gray-500 shrink-0">{formatCurrency(metodoPago === 'transferencia' ? p.precio_transferencia ?? 0 : p.precio_efectivo ?? 0)}</span>
+                            <span className="text-sm text-gray-500 shrink-0">{formatCurrency(metodoPago === 'canje' ? 0 : metodoPago === 'transferencia' ? p.precio_transferencia ?? 0 : p.precio_efectivo ?? 0)}</span>
                           </button>
                         ))
                       )}
@@ -483,20 +502,23 @@ export function FinalizarTurnoModal({
                       <p className="text-xs text-red-600 mt-1">{cantidadError}</p>
                     )}
                   </div>
-                  <label className="flex items-center gap-2 cursor-pointer w-fit">
-                    <input
-                      type="checkbox"
-                      checked={nuevaEsVentaCosto}
-                      onChange={e => setNuevaEsVentaCosto(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-orange-500 cursor-pointer"
-                    />
-                    <span className="text-sm text-gray-700">Vender al costo</span>
-                    {nuevaEsVentaCosto && selectedCatalogProducto.costo != null && (
-                      <span className="text-xs text-orange-600 font-medium">
-                        {formatCurrency(Number(selectedCatalogProducto.costo))} c/u
-                      </span>
-                    )}
-                  </label>
+                  {/* "Vender al costo" no aplica cuando el método es canje (ya es $0) */}
+                  {metodoPago !== 'canje' && (
+                    <label className="flex items-center gap-2 cursor-pointer w-fit">
+                      <input
+                        type="checkbox"
+                        checked={nuevaEsVentaCosto}
+                        onChange={e => setNuevaEsVentaCosto(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-orange-500 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-700">Vender al costo</span>
+                      {nuevaEsVentaCosto && selectedCatalogProducto.costo != null && (
+                        <span className="text-xs text-orange-600 font-medium">
+                          {formatCurrency(Number(selectedCatalogProducto.costo))} c/u
+                        </span>
+                      )}
+                    </label>
+                  )}
                 </div>
               )}
               <div className="flex gap-2">

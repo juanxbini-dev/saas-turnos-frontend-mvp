@@ -25,15 +25,17 @@ interface CobrarTurnoModalProps {
   onSuccess: () => void;
 }
 
-type MetodoPagoProducto = 'efectivo' | 'transferencia' | 'tarjeta';
+type MetodoPagoProducto = 'efectivo' | 'transferencia' | 'tarjeta' | 'canje';
 
 const METODO_LABELS: Record<MetodoPagoProducto, string> = {
   efectivo: 'Efectivo',
   transferencia: 'Transferencia',
   tarjeta: 'Tarjeta',
+  canje: 'Canje',
 };
 
-// conTarjeta: solo el cobro de productos admite tarjeta (el servicio del turno no)
+// conTarjeta: solo el cobro de productos admite tarjeta (el servicio del turno no).
+// 'canje' aplica a ambos: es gratis, aporta $0 al total.
 function MetodoSelector({
   label,
   value,
@@ -46,8 +48,8 @@ function MetodoSelector({
   conTarjeta?: boolean;
 }) {
   const opciones: MetodoPagoProducto[] = conTarjeta
-    ? ['efectivo', 'transferencia', 'tarjeta']
-    : ['efectivo', 'transferencia'];
+    ? ['efectivo', 'transferencia', 'tarjeta', 'canje']
+    : ['efectivo', 'transferencia', 'canje'];
   return (
     <div>
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{label}</p>
@@ -89,14 +91,18 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
       .catch(() => setProductosDetalle([]));
   }, [isOpen, turno.id, tieneProductos]);
 
-  // Calcular totales reactivos según método elegido
+  // Calcular totales reactivos según método elegido ('canje' = gratis, aporta $0)
   const { totalServicio, totalProductos, descuentoMonto, totalFinal } = useMemo(() => {
-    const svc = Number(turno.precio ?? turno.servicio_precio ?? 0);
+    const svc = metodoPagoServicio === 'canje'
+      ? 0
+      : Number(turno.precio ?? turno.servicio_precio ?? 0);
     const descuento = Number(turno.descuento_porcentaje ?? 0);
 
     let prod = 0;
     if (tieneProductos) {
-      if (productosDetalle.length > 0 && metodoPagoProductos) {
+      if (metodoPagoProductos === 'canje') {
+        prod = 0;
+      } else if (productosDetalle.length > 0 && metodoPagoProductos) {
         // Recalcular con el precio del método elegido
         prod = productosDetalle.reduce((sum, p) => {
           const precio = metodoPagoProductos === 'transferencia'
@@ -120,7 +126,7 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
       descuentoMonto: descMonto,
       totalFinal: sub - descMonto,
     };
-  }, [turno, tieneProductos, productosDetalle, metodoPagoProductos]);
+  }, [turno, tieneProductos, productosDetalle, metodoPagoServicio, metodoPagoProductos]);
 
   const canSave = metodoPagoServicio !== null && (!tieneProductos || metodoPagoProductos !== null);
 

@@ -138,6 +138,10 @@ export function ProductosVentasTab() {
                         {row.unidades_pendiente > 0 && (
                           <p className="text-xs text-amber-600">{row.unidades_pendiente} pend.</p>
                         )}
+                        {/* Canjes: unidades regaladas ($0), excluidas de total_unidades */}
+                        {Number(row.unidades_canje ?? 0) > 0 && (
+                          <p className="text-xs text-orange-600">{row.unidades_canje} canje</p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {row.total_efectivo > 0 ? (
