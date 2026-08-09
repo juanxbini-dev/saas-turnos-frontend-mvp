@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   TrendingUp,
+  BarChart3,
   X,
   LogOut,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ interface SidebarProps {
 const menuItems = [
   { path: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard',     adminOnly: false, hideSuperAdmin: false },
   { path: '/finanzas',       icon: TrendingUp,      label: 'Finanzas',      adminOnly: false, hideSuperAdmin: false },
+  { path: '/metricas',       icon: BarChart3,       label: 'Métricas',      adminOnly: true,  hideSuperAdmin: false },
   { path: '/perfil',         icon: UserCircle,      label: 'Perfil',        adminOnly: false, hideSuperAdmin: true  },
   { path: '/usuarios',       icon: Users,           label: 'Usuarios',      adminOnly: true,  hideSuperAdmin: false },
   { path: '/turnos',         icon: Calendar,        label: 'Turnos',        adminOnly: false, hideSuperAdmin: false },
