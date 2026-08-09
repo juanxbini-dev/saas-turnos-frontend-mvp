@@ -21,6 +21,7 @@ const axiosMock = axiosInstance as unknown as {
 const filtrosBase = {
   fecha_desde: '2026-04-01',
   fecha_hasta: '2026-04-30',
+  tipo: 'todos',
   metodo_pago: 'todos',
   estado_comision: 'todos',
   ordenar_por: 'fecha',
@@ -48,12 +49,22 @@ describe('finanzasService', () => {
       expect(url).toContain('/api/finanzas/me');
       expect(url).toContain('fecha_desde=2026-04-01');
       expect(url).toContain('fecha_hasta=2026-04-30');
+      expect(url).toContain('tipo=todos');
       expect(url).toContain('metodo_pago=todos');
       expect(url).toContain('estado_comision=todos');
       expect(url).toContain('ordenar_por=fecha');
       expect(url).toContain('orden=desc');
       expect(url).toContain('pagina=1');
       expect(url).toContain('por_pagina=20');
+    });
+
+    it('envía el tipo del tab activo como query param', async () => {
+      axiosMock.get.mockResolvedValueOnce({ data: { data: [], total: 0 } });
+
+      await finanzasService.getMyFinanzas({ ...filtrosBase, tipo: 'pendientes' });
+
+      const [url] = axiosMock.get.mock.calls[0] as [string];
+      expect(url).toContain('tipo=pendientes');
     });
 
     it('retorna response.data directamente', async () => {
@@ -93,6 +104,7 @@ describe('finanzasService', () => {
       const [url] = axiosMock.get.mock.calls[0] as [string];
       expect(url).toContain('fecha_desde=2026-04-01');
       expect(url).toContain('fecha_hasta=2026-04-30');
+      expect(url).toContain('tipo=todos');
       expect(url).toContain('metodo_pago=todos');
       expect(url).toContain('estado_comision=todos');
       expect(url).toContain('pagina=1');

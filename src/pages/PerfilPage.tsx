@@ -40,6 +40,30 @@ function formatHora(hora: string): string {
   return hora.slice(0, 5); // HH:MM
 }
 
+// Sublabel de la card de turnos. Los agendados incluyen turnos sin finalizar o con
+// cobro pendiente, por eso se contrasta con los cobrados (= "Servicios" en Finanzas).
+// Para un admin el conteo de agendados es de toda la empresa mientras que sus
+// finanzas son propias: los números no son comparables y no se muestra el contraste.
+export function buildTurnosSublabel(isAdmin: boolean, cobrados: number): string {
+  if (isAdmin) return 'agendados este mes (toda la empresa)';
+  return `${cobrados} cobrados este mes · detalle en Finanzas`;
+}
+
+// Sublabel de la card de clientes únicos: el valor principal cuenta clientes con
+// turnos agendados en el mes (incluye futuros); acá se contrasta con los que ya
+// fueron efectivamente atendidos (turnos completados) y los que repiten
+// (2+ turnos agendados en el mes, misma base que el valor principal)
+export function buildClientesSublabel(atendidos: number, repetidores: number): string {
+  return `${atendidos} ya atendidos · ${repetidores} repiten este mes`;
+}
+
+// Sublabel de la card de comisión: el valor principal es el neto del profesional
+// sobre lo YA COBRADO del mes (excluye pendientes); acá se explicita ese criterio
+// y el desglose servicios/productos que trae el mismo summary
+export function buildComisionSublabel(netoServicios: number, netoProductos: number): string {
+  return `de lo cobrado: ${formatMoney(netoServicios)} servicios · ${formatMoney(netoProductos)} productos`;
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 interface StatCardProps {
@@ -152,6 +176,7 @@ function InlineEditNombre({ userId, nombre, onUpdate }: InlineEditNombreProps) {
 
 function PerfilPage() {
   const { state } = useAuth();
+  const isAdmin = state.roles.includes('admin');
   const toast = useToast();
   // ── Estado de mes compartido (resumen + productos) ──
   const [mesSeleccionado, setMesSeleccionado] = useState<{ year: number; month: number }>(() => {
@@ -161,8 +186,12 @@ function PerfilPage() {
 
   const [profile, setProfile] = useState<Usuario | null>(null);
   const [comisionMes, setComisionMes] = useState<number>(0);
+  const [comisionDesglose, setComisionDesglose] = useState<{ servicios: number; productos: number }>({ servicios: 0, productos: 0 });
   const [turnosMesCount, setTurnosMesCount] = useState<number>(0);
+  const [turnosCobradosCount, setTurnosCobradosCount] = useState<number>(0);
   const [clientesUnicosCount, setClientesUnicosCount] = useState<number>(0);
+  const [clientesAtendidosCount, setClientesAtendidosCount] = useState<number>(0);
+  const [clientesRepetidoresCount, setClientesRepetidoresCount] = useState<number>(0);
   const [turnosHoy, setTurnosHoy] = useState<TurnoConDetalle[]>([]);
   const [topProductos, setTopProductos] = useState<{ nombre: string; cantidad: number; total: number }[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -188,6 +217,7 @@ function PerfilPage() {
         periodo: 'mes',
         fecha_desde: rango.desde,
         fecha_hasta: rango.hasta,
+        tipo: 'todos',
         metodo_pago: 'todos',
         estado_comision: 'todos',
         ordenar_por: 'fecha',
@@ -198,8 +228,15 @@ function PerfilPage() {
       turnoService.getTurnos()
     ])
       .then(([finanzasRes, allTurnos]) => {
-        // Comisión del mes seleccionado
+        // Comisión del mes seleccionado (neto sobre lo ya cobrado)
         setComisionMes(finanzasRes.summary.total_neto_profesional);
+        setComisionDesglose({
+          servicios: finanzasRes.summary.total_neto_profesional_servicios,
+          productos: finanzasRes.summary.total_neto_profesional_productos,
+        });
+
+        // Turnos cobrados: mismo número que "Servicios" en Finanzas
+        setTurnosCobradosCount(finanzasRes.summary.cantidad_turnos);
 
         // Turnos y clientes únicos del mes seleccionado
         const turnosMes = allTurnos.filter(t => {
@@ -208,6 +245,18 @@ function PerfilPage() {
         });
         setTurnosMesCount(turnosMes.length);
         setClientesUnicosCount(new Set(turnosMes.map(t => t.cliente_id)).size);
+
+        // Clientes efectivamente atendidos: solo turnos ya completados
+        setClientesAtendidosCount(
+          new Set(turnosMes.filter(t => t.estado === 'completado').map(t => t.cliente_id)).size
+        );
+
+        // Clientes que repiten: 2+ turnos agendados en el mes
+        const turnosPorCliente = new Map<string, number>();
+        turnosMes.forEach(t => turnosPorCliente.set(t.cliente_id, (turnosPorCliente.get(t.cliente_id) ?? 0) + 1));
+        setClientesRepetidoresCount(
+          Array.from(turnosPorCliente.values()).filter(n => n >= 2).length
+        );
 
         // Turnos de hoy: siempre fijos al día actual sin importar el mes seleccionado
         const proximos = allTurnos
@@ -337,9 +386,9 @@ function PerfilPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatCard
               icon={<CalendarDays size={22} />}
-              label="Turnos"
+              label="Turnos agendados"
               value={turnosMesCount}
-              sublabel="realizados este mes"
+              sublabel={buildTurnosSublabel(isAdmin, turnosCobradosCount)}
               color="blue"
               loading={loadingStats}
             />
@@ -347,7 +396,7 @@ function PerfilPage() {
               icon={<DollarSign size={22} />}
               label="Comisión generada"
               value={formatMoney(comisionMes)}
-              sublabel="neto al profesional"
+              sublabel={buildComisionSublabel(comisionDesglose.servicios, comisionDesglose.productos)}
               color="green"
               loading={loadingStats}
             />
@@ -355,7 +404,7 @@ function PerfilPage() {
               icon={<Users size={22} />}
               label="Clientes únicos"
               value={clientesUnicosCount}
-              sublabel="atendidos este mes"
+              sublabel={buildClientesSublabel(clientesAtendidosCount, clientesRepetidoresCount)}
               color="purple"
               loading={loadingStats}
             />

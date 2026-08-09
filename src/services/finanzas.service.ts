@@ -11,6 +11,7 @@ export const finanzasService = {
     // Agregar filtros como query params
     params.append('fecha_desde', filters.fecha_desde);
     params.append('fecha_hasta', filters.fecha_hasta);
+    params.append('tipo', filters.tipo);
     params.append('metodo_pago', filters.metodo_pago);
     params.append('estado_comision', filters.estado_comision);
     params.append('ordenar_por', filters.ordenar_por);
@@ -34,6 +35,7 @@ export const finanzasService = {
     // Agregar filtros como query params
     params.append('fecha_desde', filters.fecha_desde);
     params.append('fecha_hasta', filters.fecha_hasta);
+    params.append('tipo', filters.tipo);
     params.append('metodo_pago', filters.metodo_pago);
     params.append('estado_comision', filters.estado_comision);
     params.append('ordenar_por', filters.ordenar_por);
@@ -47,12 +49,16 @@ export const finanzasService = {
     return response.data;
   },
 
+  // 'tarjeta' solo es válido para cobros de productos (tipos venta/venta_turno o metodo_pago_productos).
+  // 'canje' = gratis: el backend fuerza los montos a 0.
+  // canje_detalle: requerido cuando algún método es 'canje' (qué se recibió a cambio / motivo).
   async cobrarPago(
     tipo: 'turno' | 'turno_solo_servicio' | 'venta_turno' | 'venta',
     id: string,
-    metodo_pago: 'efectivo' | 'transferencia',
-    metodo_pago_productos?: 'efectivo' | 'transferencia'
+    metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje',
+    metodo_pago_productos?: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje',
+    canje_detalle?: string
   ): Promise<void> {
-    await axiosInstance.patch('/api/finanzas/cobrar', { tipo, id, metodo_pago, metodo_pago_productos });
+    await axiosInstance.patch('/api/finanzas/cobrar', { tipo, id, metodo_pago, metodo_pago_productos, canje_detalle });
   },
 };

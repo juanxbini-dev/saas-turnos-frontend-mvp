@@ -41,6 +41,7 @@ function metodoPagoLabel(metodo: string | null): string {
   if (!metodo || metodo === 'pendiente') return '—';
   if (metodo === 'efectivo') return 'Efectivo';
   if (metodo === 'transferencia') return 'Transferencia';
+  if (metodo === 'canje') return 'Canje';
   return metodo;
 }
 

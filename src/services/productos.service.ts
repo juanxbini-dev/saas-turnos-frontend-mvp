@@ -1,9 +1,25 @@
 import axiosInstance from '../api/axiosInstance';
-import { Producto, CreateProductoData, UpdateProductoData, ProductosStats, ProductoVentaFinanzas } from '../types/producto.types';
+import { Producto, CreateProductoData, UpdateProductoData, ProductosStats, ProductoVentaFinanzas, ConfiguracionProductos, UpdateConfiguracionProductosData } from '../types/producto.types';
 
 export const productosService = {
   async getProductos(): Promise<Producto[]> {
     const res = await axiosInstance.get('/api/productos');
+    return res.data.data;
+  },
+
+  async getConfiguracion(): Promise<ConfiguracionProductos> {
+    const res = await axiosInstance.get('/api/productos/configuracion');
+    return res.data.data;
+  },
+
+  async updateConfiguracion(data: UpdateConfiguracionProductosData): Promise<ConfiguracionProductos> {
+    const res = await axiosInstance.put('/api/productos/configuracion', data);
+    return res.data.data;
+  },
+
+  // Borra los precios manuales de todos los productos con costo (vuelven al automático)
+  async sincronizarPrecios(): Promise<{ actualizados: number; omitidos_sin_costo: number }> {
+    const res = await axiosInstance.post('/api/productos/sincronizar-precios');
     return res.data.data;
   },
 
@@ -67,6 +83,8 @@ export async function updateVentaProducto(
     precio_unitario?: number;
     precio_total?: number;
     metodo_pago?: string;
+    // Detalle del canje: requerido cuando metodo_pago = 'canje'
+    canje_detalle?: string;
     fecha_venta?: string;
   }
 ): Promise<any> {

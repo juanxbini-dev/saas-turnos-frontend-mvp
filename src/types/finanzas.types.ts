@@ -24,6 +24,8 @@ export interface VentaGrupadaFinanzas {
   vendedor_nombre: string;
   empresa_id: string;
   items: VentaItemFinanzas[];
+  // Detalle del canje (qué se recibió a cambio / motivo) cuando metodo_pago = 'canje'
+  canje_detalle?: string | null;
 }
 
 // Representa un registro de comisión por turno finalizado (solo servicio)
@@ -48,7 +50,7 @@ export interface ComisionProfesional {
   turno_fecha: string;
   turno_hora: string;
   turno_estado: string;
-  metodo_pago: 'efectivo' | 'transferencia' | 'pendiente';
+  metodo_pago: 'efectivo' | 'transferencia' | 'pendiente' | 'canje';
   precio_original: number;
   descuento_porcentaje: number;
   descuento_monto: number;
@@ -57,6 +59,10 @@ export interface ComisionProfesional {
   cliente_nombre: string;
   servicio_nombre: string;
   profesional_nombre?: string;
+  // El turno tiene productos con pago pendiente (calculado por el backend sobre todos los datos, no la página visible)
+  tiene_producto_pendiente?: boolean;
+  // Detalle del canje (qué se recibió a cambio / motivo) cuando metodo_pago = 'canje'
+  canje_detalle?: string | null;
 }
 
 export type EntradaFinanzas = ComisionProfesional | VentaGrupadaFinanzas;
@@ -76,13 +82,18 @@ export interface FinanzasSummary {
   cantidad_productos_vendidos: number;
   promedio_por_turno: number;
   total_pendiente: number;
+  // Canjes: no suman a los totales (importe $0), solo se cuentan
+  cantidad_canjes_servicios: number;
+  cantidad_canjes_productos: number;
 }
 
 export interface FinanzasFilters {
   periodo: 'dia' | 'semana' | 'mes' | 'anio' | 'custom';
   fecha_desde: string;
   fecha_hasta: string;
-  metodo_pago: 'todos' | 'efectivo' | 'transferencia' | 'pendiente';
+  // Tab activo del listado; 'pendientes' pisa metodo_pago en el backend
+  tipo: 'todos' | 'turnos' | 'productos' | 'pendientes';
+  metodo_pago: 'todos' | 'efectivo' | 'transferencia' | 'pendiente' | 'canje';
   estado_comision: 'todos' | 'pendiente' | 'pagada' | 'cancelada';
   ordenar_por: 'fecha' | 'total_venta' | 'total_neto_profesional';
   orden: 'asc' | 'desc';
