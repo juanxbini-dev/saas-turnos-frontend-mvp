@@ -9,6 +9,8 @@ import { usuarioService } from '../services/usuario.service';
 import { MetricasResumenCards } from '../components/metricas/MetricasResumenCards';
 import { MetricasEvolucionChart } from '../components/metricas/MetricasEvolucionChart';
 import { MetricasEquipoTabla } from '../components/metricas/MetricasEquipoTabla';
+import { MetricasClientesNuevos } from '../components/metricas/MetricasClientesNuevos';
+import { MetricasComparativa } from '../components/metricas/MetricasComparativa';
 import { UsuarioMetricasModal } from '../components/usuarios/UsuarioMetricasModal';
 import type { MetricasPeriodo } from '../types/metricas.types';
 import type { Usuario } from '../types/usuario.types';
@@ -95,6 +97,18 @@ function MetricasPage() {
   const { data: equipo, loading: loadingEquipo } = useFetch(
     buildKey(ENTITIES.METRICAS, 'equipo', cacheKeyPeriodo),
     () => metricasService.getEquipo(periodo),
+    { ttl: TTL.MEDIUM }
+  );
+
+  const { data: clientesNuevos, loading: loadingClientesNuevos } = useFetch(
+    buildKey(ENTITIES.METRICAS, 'clientes-nuevos', cacheKeyPeriodo),
+    () => metricasService.getClientesNuevos(periodo),
+    { ttl: TTL.MEDIUM }
+  );
+
+  const { data: comparativa, loading: loadingComparativa } = useFetch(
+    buildKey(ENTITIES.METRICAS, 'comparativa', cacheKeyPeriodo),
+    () => metricasService.getComparativa(periodo, agrupar),
     { ttl: TTL.MEDIUM }
   );
 
@@ -192,11 +206,30 @@ function MetricasPage() {
         />
       </div>
 
+      {/* Clientes nuevos y profesional elegido */}
+      <div className="mb-6">
+        <MetricasClientesNuevos
+          data={clientesNuevos ?? null}
+          isLoading={loadingClientesNuevos}
+        />
+      </div>
+
       {/* Equipo */}
-      <MetricasEquipoTabla
-        equipo={equipo ?? []}
-        isLoading={loadingEquipo}
-        onVerDetalle={handleVerDetalle}
+      <div className="mb-6">
+        <MetricasEquipoTabla
+          equipo={equipo ?? []}
+          isLoading={loadingEquipo}
+          onVerDetalle={handleVerDetalle}
+        />
+      </div>
+
+      {/* Comparativa detallada de profesionales */}
+      <MetricasComparativa
+        comparativa={comparativa ?? []}
+        agrupar={agrupar}
+        fechaDesde={periodo.fecha_desde}
+        fechaHasta={periodo.fecha_hasta}
+        isLoading={loadingComparativa}
       />
 
       {/* Detalle mensual por profesional (reutiliza el modal de Usuarios) */}

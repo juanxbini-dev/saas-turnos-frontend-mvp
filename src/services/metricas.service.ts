@@ -5,6 +5,8 @@ import {
   MetricasEquipoItem,
   MetricasAgrupacion,
   MetricasPeriodo,
+  MetricasClientesNuevos,
+  MetricasComparativaItem,
 } from '../types/metricas.types';
 
 const buildParams = (periodo: MetricasPeriodo): URLSearchParams => {
@@ -29,6 +31,18 @@ export const metricasService = {
 
   async getEquipo(periodo: MetricasPeriodo): Promise<MetricasEquipoItem[]> {
     const response = await axiosInstance.get(`/api/metricas/equipo?${buildParams(periodo).toString()}`);
+    return response.data.data;
+  },
+
+  async getClientesNuevos(periodo: MetricasPeriodo): Promise<MetricasClientesNuevos> {
+    const response = await axiosInstance.get(`/api/metricas/clientes-nuevos?${buildParams(periodo).toString()}`);
+    return response.data.data;
+  },
+
+  async getComparativa(periodo: MetricasPeriodo, agrupar: MetricasAgrupacion): Promise<MetricasComparativaItem[]> {
+    const params = buildParams(periodo);
+    params.append('agrupar', agrupar);
+    const response = await axiosInstance.get(`/api/metricas/comparativa?${params.toString()}`);
     return response.data.data;
   },
 };
