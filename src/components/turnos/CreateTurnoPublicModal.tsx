@@ -65,6 +65,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     telefono: ''
   });
   const [notas, setNotas] = useState('');
+  const [aceptaMarketing, setAceptaMarketing] = useState(true);
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -144,7 +145,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const buildClientePayload = () => ({
     nombre: `${clienteData.nombre.trim()} ${clienteData.apellido.trim()}`.trim(),
     email: clienteData.email.trim().toLowerCase(),
-    telefono: clienteData.telefono.trim()
+    telefono: clienteData.telefono.trim(),
+    acepta_marketing: aceptaMarketing
   });
 
   const handleValidateAndCreateTurno = async () => {
@@ -223,6 +225,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setStep(1);
     setSelectedServicio(null);
     setClienteData({ nombre: '', apellido: '', email: '', telefono: '' });
+    setAceptaMarketing(true);
     setNotas('');
     setExistingCliente(null);
     setShowMatchModal(false);
@@ -483,6 +486,20 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                     <p className="text-red-400 text-xs mt-1">{fieldErrors.telefono}</p>
                   )}
                 </div>
+
+                {/* Consentimiento de marketing por WhatsApp */}
+                <label className="flex items-start gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={aceptaMarketing}
+                    onChange={(e) => setAceptaMarketing(e.target.checked)}
+                    disabled={loading}
+                    className="mt-0.5 h-4 w-4 rounded border-white/30 bg-transparent accent-white"
+                  />
+                  <span className="text-xs text-white/60">
+                    Acepto recibir recordatorios y novedades por WhatsApp
+                  </span>
+                </label>
 
                 {/* Resumen */}
                 <div className={darkCard}>

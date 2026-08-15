@@ -16,6 +16,7 @@ import {
   ChevronRight,
   TrendingUp,
   BarChart3,
+  MessageCircle,
   X,
   LogOut,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ const menuItems = [
   { path: '/servicios',      icon: Wrench,          label: 'Servicios',     adminOnly: false, hideSuperAdmin: false },
   { path: '/clientes',       icon: User,            label: 'Clientes',      adminOnly: false, hideSuperAdmin: false },
   { path: '/productos',      icon: Package,         label: 'Productos',     adminOnly: false, hideSuperAdmin: false },
+  { path: '/campanias',      icon: MessageCircle,   label: 'Campañas',      adminOnly: true,  hideSuperAdmin: false },
   { path: '/configuracion',  icon: Settings,        label: 'Configuracion', adminOnly: true,  hideSuperAdmin: false },
 ];
 

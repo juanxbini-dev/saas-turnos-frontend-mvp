@@ -28,6 +28,7 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
     email: '',
     telefono: ''
   });
+  const [aceptaMarketing, setAceptaMarketing] = useState(true);
   const [duplicado, setDuplicado] = useState<{ isOpen: boolean; cliente: Cliente | null; mensaje: string }>({
     isOpen: false,
     cliente: null,
@@ -46,12 +47,14 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
         email: cliente.email || '',
         telefono: cliente.telefono || ''
       });
+      setAceptaMarketing(cliente.acepta_marketing ?? true);
     } else {
       setFormData({
         nombre: '',
         email: '',
         telefono: ''
       });
+      setAceptaMarketing(true);
     }
   }, [cliente, isEditing]);
 
@@ -69,7 +72,9 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
         const updateData: UpdateClienteData = {
           nombre: formData.nombre,
           email: formData.email.trim() || null,
-          telefono: formData.telefono || null
+          telefono: formData.telefono || null,
+          // Solo se manda si cambió, para no re-sellar el opt-in en cada edición
+          ...(aceptaMarketing !== (cliente.acepta_marketing ?? true) && { acepta_marketing: aceptaMarketing })
         };
         await clienteService.updateCliente(cliente.id, updateData);
         toast.success('Cliente actualizado');
@@ -77,7 +82,8 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
         const createData: CreateClienteData = {
           nombre: formData.nombre,
           email: formData.email.trim() || undefined,
-          telefono: formData.telefono || undefined
+          telefono: formData.telefono || undefined,
+          acepta_marketing: aceptaMarketing
         };
         await clienteService.createCliente(createData);
         toast.success('Cliente creado');
@@ -154,6 +160,19 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
             disabled={loading}
           />
         </div>
+
+        <label className="flex items-start gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={aceptaMarketing}
+            onChange={(e) => setAceptaMarketing(e.target.checked)}
+            disabled={loading}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300"
+          />
+          <span className="text-sm text-gray-600">
+            Acepta recibir recordatorios y novedades por WhatsApp
+          </span>
+        </label>
 
         <div className="flex justify-end space-x-3 pt-4">
           <Button

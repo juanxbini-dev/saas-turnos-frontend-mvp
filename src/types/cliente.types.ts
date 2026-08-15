@@ -5,6 +5,11 @@ export interface Cliente {
   telefono: string | null
   empresa_id: string
   activo: boolean
+  // Consentimiento de marketing por WhatsApp (campañas); los transaccionales no lo requieren
+  acepta_marketing: boolean
+  marketing_opt_in_at: string | null
+  opt_in_metodo: string | null
+  marketing_opt_out_at: string | null
   created_at: string
   updated_at: string
 }
@@ -13,12 +18,14 @@ export interface CreateClienteData {
   nombre: string
   email?: string
   telefono?: string
+  acepta_marketing?: boolean
 }
 
 export interface UpdateClienteData {
   nombre?: string
   email?: string | null
   telefono?: string | null
+  acepta_marketing?: boolean
 }
 
 export type TurnoEstadoPerfil = 'pendiente' | 'confirmado' | 'completado' | 'cancelado';

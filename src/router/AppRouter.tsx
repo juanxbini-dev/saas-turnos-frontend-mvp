@@ -10,6 +10,7 @@ import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
 import { FinanzasPage } from '../pages/FinanzasPage';
 import MetricasPage from '../pages/MetricasPage';
+import CampaniasPage from '../pages/CampaniasPage';
 import { DebSalonLandingPage } from '../pages/public/DebSalonLandingPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
 import { PrivateRoute } from '../components/PrivateRoute';
@@ -53,6 +54,11 @@ const AppRouter = () => {
           <Route path="/configuracion" element={
             <AdminRoute>
               <ConfiguracionPage />
+            </AdminRoute>
+          } />
+          <Route path="/campanias" element={
+            <AdminRoute>
+              <CampaniasPage />
             </AdminRoute>
           } />
           <Route path="/productos" element={<ProductosPage />} />

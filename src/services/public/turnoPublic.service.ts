@@ -26,6 +26,8 @@ export interface CreateTurnoPublicRequest {
     nombre: string;
     email?: string;
     telefono?: string;
+    // Checkbox de consentimiento para recordatorios y novedades por WhatsApp
+    acepta_marketing?: boolean;
   };
   cliente_id?: string;
   notas?: string;
