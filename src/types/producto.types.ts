@@ -16,6 +16,9 @@ export interface Producto {
   activo: boolean;
   marca_id: string | null;
   marca_nombre: string | null;
+  // Campañas WhatsApp: tags para el seguimiento post-compra; vida útil estimada para el aviso de reposición
+  tags: string[];
+  duracion_estimada_dias: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +33,8 @@ export interface CreateProductoData {
   costo: number;
   stock: number;
   marca_id?: string | null;
+  tags?: string[];
+  duracion_estimada_dias?: number | null;
 }
 
 export interface UpdateProductoData {
@@ -42,6 +47,8 @@ export interface UpdateProductoData {
   stock?: number;
   activo?: boolean;
   marca_id?: string | null;
+  tags?: string[];
+  duracion_estimada_dias?: number | null;
 }
 
 // Porcentajes de ganancia sobre el costo por método de pago (config por empresa)

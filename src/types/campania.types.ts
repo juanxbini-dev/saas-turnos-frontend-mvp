@@ -57,6 +57,37 @@ export interface CandidatoDryRun {
 
 export type DryRunResponse = Partial<Record<TipoCampania, CandidatoDryRun[]>>;
 
+export interface MetricaPorTipo {
+  tipo: TipoCampania;
+  enviados: number;
+  fallidos: number;
+  simulados: number;
+  entregados: number;
+  leidos: number;
+  convertidos: number;
+  tasa_conversion: number;
+}
+
+export interface MensajeAutomatizadoResumen {
+  id: string;
+  tipo: TipoCampania;
+  cliente_nombre: string | null;
+  estado: 'enviado' | 'fallido' | 'simulado';
+  estado_entrega: 'sent' | 'delivered' | 'read' | 'failed' | null;
+  created_at: string;
+}
+
+export interface MetricasCampanias {
+  desde: string;
+  hasta: string;
+  ventana_conversion_dias: number;
+  por_tipo: MetricaPorTipo[];
+  totales: Omit<MetricaPorTipo, 'tipo'>;
+  opt_outs_periodo: number;
+  opt_outs_total: number;
+  ultimos_mensajes: MensajeAutomatizadoResumen[];
+}
+
 export const CAMPANIA_LABELS: Record<TipoCampania, { titulo: string; descripcion: string }> = {
   recencia: {
     titulo: 'Recordatorio por recencia',

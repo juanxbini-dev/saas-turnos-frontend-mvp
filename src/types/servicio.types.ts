@@ -8,6 +8,8 @@ export interface Servicio {
   precio_maximo: number | null
   empresa_id: string
   activo: boolean
+  // Cada cuántos días "toca" repetir el servicio (campaña de recencia); null = sin recencia
+  frecuencia_dias: number | null
   created_at: string
   updated_at: string
 }
@@ -42,6 +44,7 @@ export interface CreateServicioData {
   precio_base?: number
   precio_minimo?: number
   precio_maximo?: number
+  frecuencia_dias?: number | null
 }
 
 export interface UpdateServicioData extends Partial<CreateServicioData> {}

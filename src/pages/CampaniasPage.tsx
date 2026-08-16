@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { MessageCircle, Info } from 'lucide-react';
-import { Button, Input, Spinner } from '../components/ui';
+import { Button, Input, Spinner, Tabs } from '../components/ui';
 import { campaniasService } from '../services/campanias.service';
 import { useToast } from '../hooks/useToast';
+import { CampaniasMetricasTab } from '../components/campanias/CampaniasMetricasTab';
 import {
   CAMPANIA_LABELS,
   CampaniaConfig,
@@ -240,6 +241,7 @@ function CampaniaCard({
 }
 
 function CampaniasPage() {
+  const [tab, setTab] = useState<'config' | 'metricas'>('config');
   const [campanias, setCampanias] = useState<CampaniaConfig[] | null>(null);
   const [sistema, setSistema] = useState<CampaniasSistema | null>(null);
   const [error, setError] = useState(false);
@@ -297,7 +299,15 @@ function CampaniasPage() {
         </p>
       </div>
 
-      {sistema && (
+      <Tabs
+        tabs={[{ id: 'config', label: 'Configuración' }, { id: 'metricas', label: 'Métricas' }]}
+        activeTab={tab}
+        onChange={(id) => setTab(id as 'config' | 'metricas')}
+      />
+
+      {tab === 'metricas' && <CampaniasMetricasTab />}
+
+      {tab === 'config' && sistema && (
         <div className={`flex items-start gap-2 rounded-md px-4 py-3 mb-6 text-sm ${
           sistema.enabled ? MODO_LABELS[sistema.modo].clases : 'bg-gray-100 text-gray-700'
         }`}>
@@ -316,7 +326,7 @@ function CampaniasPage() {
         </div>
       )}
 
-      {!campanias ? (
+      {tab === 'config' && (!campanias ? (
         <div className="flex justify-center py-16">
           <Spinner />
         </div>
@@ -326,12 +336,14 @@ function CampaniasPage() {
             <CampaniaCard key={config.tipo} config={config} onGuardar={guardar} />
           ))}
         </div>
-      )}
+      ))}
 
-      <p className="text-xs text-gray-400 mt-6">
-        Los clientes pueden darse de baja respondiendo BAJA a cualquier mensaje. Los mensajes de confirmación y
-        recordatorio de turnos no dependen de estas campañas.
-      </p>
+      {tab === 'config' && (
+        <p className="text-xs text-gray-400 mt-6">
+          Los clientes pueden darse de baja respondiendo BAJA a cualquier mensaje. Los mensajes de confirmación y
+          recordatorio de turnos no dependen de estas campañas.
+        </p>
+      )}
     </div>
   );
 }

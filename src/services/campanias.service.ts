@@ -3,6 +3,7 @@ import {
   CampaniaConfig,
   CampaniasConfigResponse,
   DryRunResponse,
+  MetricasCampanias,
   ParametrosCampania,
   TipoCampania,
 } from '../types/campania.types';
@@ -21,6 +22,11 @@ export const campaniasService = {
   async dryRun(tipo?: TipoCampania): Promise<DryRunResponse> {
     const query = tipo ? `?tipo=${tipo}` : '';
     const response = await axiosInstance.get(`/api/campanias/dry-run${query}`);
+    return response.data.data;
+  },
+
+  async getMetricas(desde: string, hasta: string): Promise<MetricasCampanias> {
+    const response = await axiosInstance.get(`/api/campanias/metricas?desde=${desde}&hasta=${hasta}`);
     return response.data.data;
   },
 };

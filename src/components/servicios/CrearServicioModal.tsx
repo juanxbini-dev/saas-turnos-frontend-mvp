@@ -21,7 +21,8 @@ export const CrearServicioModal: React.FC<CrearServicioModalProps> = ({
     duracion: 30,
     precio_base: undefined,
     precio_minimo: undefined,
-    precio_maximo: undefined
+    precio_maximo: undefined,
+    frecuencia_dias: null
   });
 
   const handleChange = (field: keyof CreateServicioData, value: any) => {
@@ -116,6 +117,20 @@ export const CrearServicioModal: React.FC<CrearServicioModalProps> = ({
           step="0.01"
           min="0"
         />
+      </div>
+
+      <div>
+        <Input
+          label="Frecuencia recomendada (días)"
+          type="number"
+          value={formData.frecuencia_dias ?? ''}
+          onChange={(e) => handleChange('frecuencia_dias', e.target.value ? parseInt(e.target.value) : null)}
+          placeholder="Ej: 30"
+          min="1"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Cada cuántos días conviene repetir este servicio. Se usa para el recordatorio automático por WhatsApp ("ya te toca"). Vacío = sin recordatorio.
+        </p>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4">

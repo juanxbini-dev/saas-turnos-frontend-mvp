@@ -30,9 +30,18 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
     costo: producto?.costo?.toString() || '',
     stock: producto?.stock?.toString() || '0',
     marca_id: producto?.marca_id || '',
+    duracion_estimada_dias: producto?.duracion_estimada_dias?.toString() || '',
   });
+  const [tags, setTags] = useState<string[]>(producto?.tags ?? []);
+  const [tagInput, setTagInput] = useState('');
 
   const isEditing = !!producto;
+
+  const agregarTag = () => {
+    const nuevo = tagInput.trim().toLowerCase();
+    if (nuevo && !tags.includes(nuevo)) setTags(prev => [...prev, nuevo]);
+    setTagInput('');
+  };
 
   useEffect(() => {
     marcasService.getMarcas().then(setMarcas).catch(() => {});
@@ -81,6 +90,10 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
       precio_transferencia: form.precio_transferencia !== '' ? parseFloat(form.precio_transferencia) : null,
       precio_tarjeta: form.precio_tarjeta !== '' ? parseFloat(form.precio_tarjeta) : null,
     };
+    const campanias = {
+      tags,
+      duracion_estimada_dias: form.duracion_estimada_dias !== '' ? parseInt(form.duracion_estimada_dias) : null,
+    };
     setLoading(true);
     try {
       if (isEditing) {
@@ -91,6 +104,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           costo: parseFloat(form.costo),
           stock: parseInt(form.stock),
           marca_id: form.marca_id || null,
+          ...campanias,
         });
         toast.success('Producto actualizado');
       } else {
@@ -101,6 +115,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           costo: parseFloat(form.costo),
           stock: parseInt(form.stock),
           marca_id: form.marca_id || null,
+          ...campanias,
         });
         toast.success('Producto creado');
       }
@@ -115,7 +130,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b">
           <h2 className="text-lg font-semibold text-gray-900">
             {isEditing ? 'Editar producto' : 'Nuevo producto'}
@@ -247,6 +262,60 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
               Vacío = precio automático según la configuración general. Cargá un valor solo para pisar el cálculo.
             </p>
           </div>
+
+          {/* Campañas de WhatsApp */}
+          <div className="border-t pt-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Campañas de WhatsApp</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {tags.map(tag => (
+                  <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 px-2.5 py-0.5 text-xs">
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => setTags(prev => prev.filter(t => t !== tag))}
+                      className="text-blue-400 hover:text-blue-700"
+                      aria-label={`Quitar ${tag}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={tagInput}
+                  onChange={e => setTagInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); agregarTag(); }
+                  }}
+                  placeholder="Ej: tratamiento (Enter para agregar)"
+                />
+                <Button type="button" variant="outline" onClick={agregarTag} disabled={!tagInput.trim()} className="shrink-0">
+                  Agregar
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Sirven para el mensaje de seguimiento post-compra (se configura por tag en Campañas).
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Duración estimada (días)</label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                value={form.duracion_estimada_dias}
+                onChange={e => setForm(f => ({ ...f, duracion_estimada_dias: e.target.value }))}
+                placeholder="Ej: 60"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Cuánto le dura al cliente. Se usa para avisarle cuando se le está por acabar. Vacío = sin aviso.
+              </p>
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
               Cancelar
