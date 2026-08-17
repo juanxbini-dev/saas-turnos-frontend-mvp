@@ -1,10 +1,11 @@
 import { Wallet } from 'lucide-react';
 import { EmptyState } from '../components/ui';
+import { GastosGate } from '../components/gastos/GastosGate';
 
-// F0: cáscara de la sección. El gate de contraseña llega en F1 y el contenido
-// (gastos únicos, recurrentes, derivados y gráficos) en F2–F5.
+// F1: el gate de contraseña ya protege la sección. El contenido (gastos únicos,
+// recurrentes, derivados y gráficos) llega en F2–F5.
 // Diseño: backend/docs/gastos-superadmin.md
-function GastosPage() {
+function GastosContenido() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
@@ -20,6 +21,14 @@ function GastosPage() {
         />
       </div>
     </div>
+  );
+}
+
+function GastosPage() {
+  return (
+    <GastosGate>
+      <GastosContenido />
+    </GastosGate>
   );
 }
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { clearGastosToken } from '../services/gastos.service';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -149,6 +150,9 @@ export function setTokens(accessToken: string, refreshToken?: string): void {
 export function clearTokens(): void {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
+  // El token de la sección de gastos muere con la sesión: si no, quedaría vivo
+  // en la pestaña para el próximo usuario que loguee sin cerrarla.
+  clearGastosToken();
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
