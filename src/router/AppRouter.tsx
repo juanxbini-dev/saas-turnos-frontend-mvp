@@ -10,10 +10,12 @@ import ProductosPage from '../pages/ProductosPage';
 import ServiciosPage from '../pages/ServiciosPage';
 import { FinanzasPage } from '../pages/FinanzasPage';
 import MetricasPage from '../pages/MetricasPage';
+import GastosPage from '../pages/GastosPage';
 import { DebSalonLandingPage } from '../pages/public/DebSalonLandingPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
+import { SuperAdminRoute } from '../components/SuperAdminRoute';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
 
@@ -41,6 +43,11 @@ const AppRouter = () => {
             <AdminRoute>
               <MetricasPage />
             </AdminRoute>
+          } />
+          <Route path="/gastos" element={
+            <SuperAdminRoute>
+              <GastosPage />
+            </SuperAdminRoute>
           } />
           <Route path="/usuarios" element={
             <AdminRoute>
