@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import { Settings2 } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useFetch } from '../hooks/useFetch';
 import { buildKey, ENTITIES } from '../cache/key.builder';
@@ -26,7 +25,7 @@ import type { GastoMesItem, GastoRecurrente } from '../types/gastos.types';
 function GastosContenido() {
   const [periodo, setPeriodo] = useState(periodoActual);
 
-  const [agregarAbierto, setAgregarAbierto] = useState(false);
+  const [agregar, setAgregar] = useState<{ abierto: boolean; sugerido: { nombre: string; categoria: string; dia?: number } | null }>({ abierto: false, sugerido: null });
   const [editando, setEditando] = useState<{ item: GastoMesItem; esRecurrente: boolean } | null>(null);
   const [aEliminar, setAEliminar] = useState<GastoMesItem | null>(null);
   const [eliminando, setEliminando] = useState(false);
@@ -91,17 +90,7 @@ function GastosContenido() {
       {/* Cabecera: título + mes */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-3xl font-bold text-gray-900">Gastos</h1>
-        <div className="flex items-center gap-2">
-          <GastosSelectorMes periodo={periodo} onChange={setPeriodo} />
-          <button
-            onClick={() => setCategoriasAbierto(true)}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-            title="Categorías"
-            aria-label="Categorías"
-          >
-            <Settings2 size={18} />
-          </button>
-        </div>
+        <GastosSelectorMes periodo={periodo} onChange={setPeriodo} />
       </div>
 
       {/* Tres números */}
@@ -110,8 +99,9 @@ function GastosContenido() {
       {/* La lista del mes: el centro de la pantalla */}
       <GastosListaMes
         mes={mes ?? null}
+        periodo={periodo}
         isLoading={loadingMes}
-        onAgregar={() => setAgregarAbierto(true)}
+        onAgregar={(sugerido) => setAgregar({ abierto: true, sugerido: sugerido ?? null })}
         onEditar={(item, esRecurrente) => setEditando({ item, esRecurrente })}
         onEliminarUnico={setAEliminar}
         onTogglePagado={togglePagado}
@@ -129,11 +119,12 @@ function GastosContenido() {
 
       {/* Modales */}
       <AgregarGastoModal
-        isOpen={agregarAbierto}
-        onClose={() => setAgregarAbierto(false)}
+        isOpen={agregar.abierto}
+        onClose={() => setAgregar({ abierto: false, sugerido: null })}
         onGuardado={refrescarTodo}
         periodo={periodo}
         categorias={categorias ?? []}
+        sugerido={agregar.sugerido}
       />
       <EditarGastoModal
         isOpen={!!editando}
@@ -150,7 +141,8 @@ function GastosContenido() {
         recurrentes={recurrentes ?? []}
         periodo={periodo}
         onEditar={(r) => { setRecurrentesAbierto(false); setPlantilla(r); }}
-        onNuevo={() => { setRecurrentesAbierto(false); setAgregarAbierto(true); }}
+        onNuevo={() => { setRecurrentesAbierto(false); setAgregar({ abierto: true, sugerido: null }); }}
+        onCategorias={() => { setRecurrentesAbierto(false); setCategoriasAbierto(true); }}
         onCambio={refrescarTodo}
       />
       <GastoRecurrenteFormModal

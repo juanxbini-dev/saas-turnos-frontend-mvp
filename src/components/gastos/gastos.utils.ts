@@ -51,3 +51,29 @@ export function formatDiaMes(fecha: string | null): string {
   const [, mes, dia] = fecha.split('-');
   return `${dia}/${mes}`;
 }
+
+// Chips del arranque guiado: nombre → categoría del seed. Tocar uno abre el alta
+// con el nombre puesto y la categoría resuelta, así el dueño solo escribe el monto.
+export const GASTOS_SUGERIDOS: { nombre: string; categoria: string; dia?: number }[] = [
+  { nombre: 'Alquiler', categoria: 'Alquiler', dia: 10 },
+  { nombre: 'Luz', categoria: 'Servicios' },
+  { nombre: 'Gas', categoria: 'Servicios' },
+  { nombre: 'Agua', categoria: 'Servicios' },
+  { nombre: 'Internet', categoria: 'Internet y telefonía' },
+  { nombre: 'Celular', categoria: 'Internet y telefonía' },
+  { nombre: 'Sueldos', categoria: 'Sueldos' },
+  { nombre: 'Contadora', categoria: 'Impuestos' },
+  { nombre: 'Monotributo', categoria: 'Impuestos' },
+  { nombre: 'Seguro', categoria: 'Otros' },
+  { nombre: 'Limpieza', categoria: 'Mantenimiento' },
+];
+
+// ¿Ya pasó el día de vencimiento de este mes? Solo aplica al mes en curso: en un
+// mes futuro nada venció todavía, y en uno pasado todo lo pendiente venció.
+export function estaVencido(periodo: string, diaVencimiento: number | null): boolean {
+  if (!diaVencimiento) return false;
+  const actual = periodoActual();
+  if (periodo < actual) return true;
+  if (periodo > actual) return false;
+  return new Date().getDate() > diaVencimiento;
+}

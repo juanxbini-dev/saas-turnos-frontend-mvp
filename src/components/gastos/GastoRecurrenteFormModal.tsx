@@ -109,7 +109,7 @@ export function GastoRecurrenteFormModal({
 
       if (!esEdicion) {
         await gastosService.crearRecurrente({ ...base, monto_default: monto });
-        toastService.success('Gasto recurrente creado');
+        toastService.success('Gasto fijo creado');
       } else if (montoCambio && modoMonto === 'desde') {
         // Primero se guardan los demás campos en la plantilla actual, después se
         // cierra y se abre la nueva con el monto nuevo.
@@ -118,7 +118,7 @@ export function GastoRecurrenteFormModal({
         toastService.success(`Monto actualizado desde ${etiquetaPeriodo(desdeCambio)}`);
       } else {
         await gastosService.actualizarRecurrente(recurrente!.id, { ...base, monto_default: monto });
-        toastService.success('Gasto recurrente actualizado');
+        toastService.success('Gasto fijo actualizado');
       }
       onGuardado();
       onClose();
@@ -140,13 +140,13 @@ export function GastoRecurrenteFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={esEdicion ? 'Editar gasto recurrente' : 'Nuevo gasto recurrente'}
+      title={esEdicion ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}
       size="md"
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
           <Button type="submit" form="recurrente-form" loading={guardando}>
-            {esEdicion ? 'Guardar cambios' : 'Crear recurrente'}
+            {esEdicion ? 'Guardar cambios' : 'Crear'}
           </Button>
         </div>
       }

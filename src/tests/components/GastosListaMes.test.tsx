@@ -29,7 +29,7 @@ const MES: GastosMes = {
 };
 
 const props = () => ({
-  mes: MES, isLoading: false,
+  mes: MES, periodo: '2026-08', isLoading: false,
   onAgregar: vi.fn(), onEditar: vi.fn(), onEliminarUnico: vi.fn(),
   onTogglePagado: vi.fn(), onVerRecurrentes: vi.fn(),
 });
@@ -40,11 +40,26 @@ const renderLista = (p = props()) => {
 };
 
 describe('GastosListaMes', () => {
-  it('habla en el idioma del dueño: "Todos los meses" y "Solo este mes"', () => {
+  it('separa por lo que importa: "Te falta pagar" y "Ya pagaste"', () => {
     renderLista();
-    expect(screen.getByText('Todos los meses')).toBeTruthy();
-    expect(screen.getByText('Solo este mes')).toBeTruthy();
-    expect(screen.queryByText(/derivado|override|plantilla|virtual/i)).toBeNull();
+    expect(screen.getByText('Te falta pagar')).toBeTruthy();
+    expect(screen.getByText('Ya pagaste')).toBeTruthy();
+    expect(screen.queryByText(/derivado|override|plantilla|virtual|recurrente/i)).toBeNull();
+  });
+
+  it('lo pendiente va arriba y lo pagado abajo', () => {
+    renderLista();
+    const textos = [...document.querySelectorAll('span.text-sm.font-medium')].map((e) => e.textContent);
+    const iAlquiler = textos.indexOf('Alquiler');   // pendiente
+    const iLuz = textos.indexOf('Luz');             // pagado
+    expect(iAlquiler).toBeGreaterThanOrEqual(0);
+    expect(iLuz).toBeGreaterThan(iAlquiler);
+  });
+
+  it('que se repita es una etiqueta en la fila, no una sección', () => {
+    renderLista();
+    const etiquetas = screen.getAllByText('todos los meses');
+    expect(etiquetas).toHaveLength(3);   // Alquiler, Luz e Internet: los tres se repiten
   });
 
   it('un solo botón para agregar', () => {
@@ -61,51 +76,43 @@ describe('GastosListaMes', () => {
     expect(p.onTogglePagado).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'Alquiler' }), true);
   });
 
-  it('muestra "Pagado" y "Falta pagar" según el estado', () => {
-    renderLista();
-    expect(screen.getAllByText('Pagado').length).toBeGreaterThanOrEqual(2);   // Luz y Arreglo
-    expect(screen.getAllByText('Falta pagar').length).toBeGreaterThanOrEqual(1);   // Alquiler
-  });
-
   it('el recurrente que este mes es distinto lo dice en criollo', () => {
     renderLista();
     expect(screen.getByText(/este mes distinto \(normalmente/)).toBeTruthy();
   });
 
-  it('el omitido dice "no aplica este mes" y va tachado', () => {
+  it('el omitido va aparte, tachado, y no tiene botón de pagar', () => {
     renderLista();
-    expect(screen.getByText('no aplica este mes')).toBeTruthy();
+    expect(screen.getByText('Este mes no se pagan')).toBeTruthy();
     expect(screen.getByText('Internet').className).toContain('line-through');
+    expect(screen.getAllByTitle(/marcar como/i)).toHaveLength(3);   // Alquiler, Luz, Arreglo — no Internet
   });
 
-  it('lo automático va al pie, con link a Finanzas, sin botones', () => {
+  it('lo automático es una frase al pie con link a Finanzas', () => {
     renderLista();
-    expect(screen.getByText(/calculado automáticamente/i)).toBeTruthy();
-    expect(screen.getByText(/ver detalle en Finanzas/i)).toBeTruthy();
-    expect(screen.queryByText('Comisiones')).toBeNull();   // no es una fila editable
+    expect(screen.getByText(/se calcula solo/i)).toBeTruthy();
+    expect(screen.getByText(/ver en Finanzas/i)).toBeTruthy();
   });
 
-  it('el gasto único se edita y se borra; el recurrente solo se edita', () => {
+  it('el gasto único se borra; el que se repite no', () => {
     const p = renderLista();
-    const editar = screen.getAllByLabelText('Editar');
     const eliminar = screen.getAllByLabelText('Eliminar');
-    expect(editar).toHaveLength(4);      // 3 recurrentes + 1 único
-    expect(eliminar).toHaveLength(1);    // solo el único
+    expect(eliminar).toHaveLength(1);
     fireEvent.click(eliminar[0]);
     expect(p.onEliminarUnico).toHaveBeenCalledWith(expect.objectContaining({ id: 'u-1' }));
   });
 
-  it('el pie muestra lo cargado a mano, lo que falta pagar y el total', () => {
-    renderLista();
-    expect(screen.getByText(/cargado a mano/i)).toBeTruthy();
-    // "Falta pagar" también es el texto de los botones de estado: el del pie va con el monto
-    expect(screen.getByText(/cargado a mano/i).textContent).toMatch(/falta pagar/i);
-    expect(screen.getByText(/total del mes/i)).toBeTruthy();
+  it('con la lista vacía muestra el arranque guiado con chips', () => {
+    const p = props();
+    render(<MemoryRouter><GastosListaMes {...p} mes={{ ...MES, recurrentes: [], unicos: [] }} /></MemoryRouter>);
+    expect(screen.getByText(/empezá con tus gastos fijos/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^alquiler$/i }));
+    expect(p.onAgregar).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'Alquiler', categoria: 'Alquiler' }));
   });
 
-  it('con la lista vacía explica qué hacer', () => {
-    render(<MemoryRouter><GastosListaMes {...props()} mes={{ ...MES, recurrentes: [], unicos: [] }} /></MemoryRouter>);
-    expect(screen.getByText(/todavía no cargaste ningún gasto que se repita/i)).toBeTruthy();
-    expect(screen.getByText(/nada cargado para este mes/i)).toBeTruthy();
+  it('cuando está todo pagado lo dice', () => {
+    const todoPagado = { ...MES, recurrentes: [MES.recurrentes[1]], unicos: MES.unicos };   // Luz y Arreglo, ambos pagados
+    render(<MemoryRouter><GastosListaMes {...props()} mes={todoPagado} /></MemoryRouter>);
+    expect(screen.getByText(/todo pagado/i)).toBeTruthy();
   });
 });

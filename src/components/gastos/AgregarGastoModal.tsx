@@ -12,13 +12,16 @@ interface AgregarGastoModalProps {
   onGuardado: () => void;
   periodo: string;
   categorias: GastoCategoria[];
+  // Si viene de un chip del arranque guiado: nombre y categoría ya resueltos,
+  // se salta la pregunta "¿se repite?" (los chips son siempre gastos fijos)
+  sugerido?: { nombre: string; categoria: string; dia?: number } | null;
 }
 
 type Tipo = 'repite' | 'unico' | null;
 
 // Un solo camino para agregar: primero "¿se repite todos los meses?", después
 // tres campos. Categoría y detalles quedan plegados: casi nunca hacen falta.
-export function AgregarGastoModal({ isOpen, onClose, onGuardado, periodo, categorias }: AgregarGastoModalProps) {
+export function AgregarGastoModal({ isOpen, onClose, onGuardado, periodo, categorias, sugerido }: AgregarGastoModalProps) {
   const [tipo, setTipo] = useState<Tipo>(null);
   const [nombre, setNombre] = useState('');
   const [monto, setMonto] = useState('');
@@ -34,9 +37,17 @@ export function AgregarGastoModal({ isOpen, onClose, onGuardado, periodo, catego
 
   useEffect(() => {
     if (!isOpen) return;
-    setTipo(null); setNombre(''); setMonto(''); setDia(''); setFecha('');
-    setYaPagado(false); setCategoriaId(otros?.id ?? ''); setMasOpciones(false); setError('');
-  }, [isOpen, otros?.id]);
+    setMonto(''); setFecha(''); setYaPagado(false); setMasOpciones(false); setError('');
+    if (sugerido) {
+      const cat = categorias.find((c) => c.nombre === sugerido.categoria && c.activa);
+      setTipo('repite');
+      setNombre(sugerido.nombre);
+      setDia(sugerido.dia ? String(sugerido.dia) : '');
+      setCategoriaId(cat?.id ?? otros?.id ?? '');
+    } else {
+      setTipo(null); setNombre(''); setDia(''); setCategoriaId(otros?.id ?? '');
+    }
+  }, [isOpen, sugerido, categorias, otros?.id]);
 
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +93,7 @@ export function AgregarGastoModal({ isOpen, onClose, onGuardado, periodo, catego
       size="sm"
       footer={tipo === null ? undefined : (
         <div className="flex justify-between items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setTipo(null)} disabled={guardando}>← Cambiar</Button>
+          {sugerido ? <span /> : <Button variant="ghost" size="sm" onClick={() => setTipo(null)} disabled={guardando}>← Cambiar</Button>}
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
             <Button type="submit" form="agregar-gasto-form" loading={guardando}>Guardar</Button>
@@ -121,13 +132,14 @@ export function AgregarGastoModal({ isOpen, onClose, onGuardado, periodo, catego
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder={tipo === 'repite' ? 'Alquiler del local' : 'Arreglo del aire acondicionado'}
-            autoFocus
+            autoFocus={!sugerido}
           />
           <Input
             label={tipo === 'repite' ? '¿Cuánto por mes?' : '¿Cuánto?'}
             type="number" min={0} step="0.01" prefix="$"
             value={monto}
             onChange={(e) => setMonto(e.target.value)}
+            autoFocus={!!sugerido}
           />
           {tipo === 'repite' ? (
             <Input

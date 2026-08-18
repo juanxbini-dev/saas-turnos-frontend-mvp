@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Input, Modal, Select, Textarea } from '../ui';
 import { gastosService } from '../../services/gastos.service';
 import { toastService } from '../../services/toast.service';
-import { etiquetaPeriodo, formatMoneda } from './gastos.utils';
+import { etiquetaPeriodo, formatMoneda, periodoActual } from './gastos.utils';
 import { METODOS_PAGO_GASTO, type GastoCategoria, type GastoMesItem, type GastoMetodoPago } from '../../types/gastos.types';
 
 interface EditarGastoModalProps {
@@ -33,18 +33,23 @@ export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categor
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
+  // Default inteligente: si estás en un mes pasado, cambiar el monto es
+  // obviamente "solo ese mes"; si estás en el actual o uno futuro, casi siempre
+  // es un aumento que sigue de acá en adelante.
+  const esMesPasado = periodo < periodoActual();
+
   useEffect(() => {
     if (!isOpen || !item) return;
     setNombre(item.nombre);
     setMonto(String(item.monto));
-    setAlcance('solo_este_mes');
+    setAlcance(esMesPasado ? 'solo_este_mes' : 'desde_este_mes');
     setPagado(item.estado === 'pagado');
     setMetodo(item.metodo_pago ?? '');
     setNoAplica(item.omitido);
     setCategoriaId(item.categoria.id);
     setNotas(item.notas ?? '');
     setError('');
-  }, [isOpen, item]);
+  }, [isOpen, item, esMesPasado]);
 
   if (!item) return null;
 
@@ -154,20 +159,19 @@ export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categor
         />
 
         {montoCambio && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-1.5">
-            <p className="text-sm font-medium text-blue-900">¿Desde cuándo vale {formatMoneda(montoNum)}?</p>
-            <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer">
-              <input type="radio" checked={alcance === 'solo_este_mes'} onChange={() => setAlcance('solo_este_mes')} />
-              Solo {etiquetaPeriodo(periodo).toLowerCase()} — los demás meses siguen en {formatMoneda(montoNormal)}
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer">
-              <input type="radio" checked={alcance === 'desde_este_mes'} onChange={() => setAlcance('desde_este_mes')} />
-              Desde {etiquetaPeriodo(periodo).toLowerCase()} en adelante (aumento)
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer">
-              <input type="radio" checked={alcance === 'siempre'} onChange={() => setAlcance('siempre')} />
-              Siempre fue así — corregir todos los meses
-            </label>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+            <p className="text-sm text-blue-900">
+              {alcance === 'desde_este_mes' && <>Se toma como <strong>aumento</strong>: {formatMoneda(montoNum)} desde {etiquetaPeriodo(periodo).toLowerCase()} en adelante. Los meses anteriores quedan en {formatMoneda(montoNormal)}.</>}
+              {alcance === 'solo_este_mes' && <>Vale <strong>solo para {etiquetaPeriodo(periodo).toLowerCase()}</strong>. Los demás meses siguen en {formatMoneda(montoNormal)}.</>}
+              {alcance === 'siempre' && <>Se <strong>corrige en todos los meses</strong> que no hayas editado a mano.</>}
+            </p>
+            <div className="flex flex-wrap gap-1.5 text-xs">
+              {(['desde_este_mes', 'solo_este_mes', 'siempre'] as Alcance[]).filter((a) => a !== alcance).map((a) => (
+                <button key={a} type="button" onClick={() => setAlcance(a)} className="text-blue-700 underline-offset-2 hover:underline">
+                  {a === 'desde_este_mes' ? 'es un aumento desde este mes' : a === 'solo_este_mes' ? 'es solo por este mes' : 'siempre fue así, corregir todos'}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

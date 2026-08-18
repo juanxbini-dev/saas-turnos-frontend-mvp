@@ -15,12 +15,13 @@ interface GastosRecurrentesModalProps {
   onEditar: (r: GastoRecurrente) => void;
   onNuevo: () => void;
   onCambio: () => void;
+  onCategorias?: () => void;
 }
 
 // Listado de plantillas (activas e históricas) con edición y baja.
 // La baja no borra: cierra la vigencia en el mes que elija el usuario.
 export function GastosRecurrentesModal({
-  isOpen, onClose, recurrentes, periodo, onEditar, onNuevo, onCambio,
+  isOpen, onClose, recurrentes, periodo, onEditar, onNuevo, onCambio, onCategorias,
 }: GastosRecurrentesModalProps) {
   const [aDarDeBaja, setADarDeBaja] = useState<GastoRecurrente | null>(null);
   const [procesando, setProcesando] = useState(false);
@@ -62,7 +63,7 @@ export function GastosRecurrentesModal({
         {formatMoneda(r.monto_default)}<span className="text-xs text-gray-400">/mes</span>
       </span>
       <div className="flex items-center gap-0.5 shrink-0">
-        <button onClick={() => onEditar(r)} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded" aria-label="Editar plantilla">
+        <button onClick={() => onEditar(r)} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded" aria-label="Editar para todos los meses">
           <Pencil size={15} />
         </button>
         {r.activo && (
@@ -79,19 +80,20 @@ export function GastosRecurrentesModal({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title="Gastos recurrentes"
+        title="Mis gastos fijos"
         size="lg"
         footer={
           <div className="flex justify-between items-center">
             <p className="text-xs text-gray-500">
-              Editar la plantilla cambia todos los meses sin editar a mano. Para un solo mes, usá el lápiz en la tabla del mes.
+              Acá se cambia el gasto para todos los meses. Para un mes puntual, usá el lápiz en la lista del mes.
+              {onCategorias && <> · <button type="button" onClick={onCategorias} className="text-blue-600 hover:underline">Categorías</button></>}
             </p>
             <Button size="sm" leftIcon={Plus} onClick={onNuevo}>Nuevo</Button>
           </div>
         }
       >
         {activos.length === 0 && historicos.length === 0 ? (
-          <p className="text-sm text-gray-500 py-6 text-center">Todavía no hay gastos recurrentes.</p>
+          <p className="text-sm text-gray-500 py-6 text-center">Todavía no cargaste gastos fijos.</p>
         ) : (
           <>
             <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Vigentes</h4>
@@ -117,7 +119,7 @@ export function GastosRecurrentesModal({
         onClose={() => setADarDeBaja(null)}
         onConfirm={confirmarBaja}
         loading={procesando}
-        title="Dar de baja el gasto recurrente"
+        title="Dejar de pagar este gasto"
         message={`"${aDarDeBaja?.nombre}" deja de aplicar a partir de ${etiquetaPeriodo(periodo)} inclusive. Los meses anteriores conservan lo que ya tenían.`}
         confirmText="Dar de baja"
       />
