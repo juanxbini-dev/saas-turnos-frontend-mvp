@@ -1,6 +1,5 @@
 import React from 'react';
-import { Repeat, Pencil, Trash2, Check, AlertCircle, Plus, Info, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Repeat, Pencil, Trash2, Check, AlertCircle, Plus, ChevronRight } from 'lucide-react';
 import { Button } from '../ui';
 import { formatMoneda, formatDiaMes, estaVencido, GASTOS_SUGERIDOS } from './gastos.utils';
 import type { GastosMes, GastoMesItem } from '../../types/gastos.types';
@@ -218,17 +217,6 @@ export const GastosListaMes: React.FC<GastosListaMesProps> = ({
           )}
         </div>
       )}
-
-      {/* Lo automático: informa, no compite */}
-      <div className="flex items-start gap-2 px-1 text-sm text-gray-500">
-        <Info size={15} className="shrink-0 mt-0.5 text-gray-400" />
-        <span>
-          Además, este mes salieron{' '}
-          <span className="font-semibold text-gray-800 tabular-nums">{formatMoneda(mes.totales.derivados)}</span>{' '}
-          en comisiones a los profesionales y mercadería vendida — eso se calcula solo{' '}
-          <Link to="/finanzas" className="text-blue-600 hover:underline">(ver en Finanzas)</Link>.
-        </span>
-      </div>
     </div>
   );
 };

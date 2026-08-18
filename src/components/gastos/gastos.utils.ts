@@ -55,7 +55,7 @@ export function formatDiaMes(fecha: string | null): string {
 // Chips del arranque guiado: nombre → categoría del seed. Tocar uno abre el alta
 // con el nombre puesto y la categoría resuelta, así el dueño solo escribe el monto.
 export const GASTOS_SUGERIDOS: { nombre: string; categoria: string; dia?: number }[] = [
-  { nombre: 'Alquiler', categoria: 'Alquiler', dia: 10 },
+  { nombre: 'Alquiler', categoria: 'Alquiler' },
   { nombre: 'Luz', categoria: 'Servicios' },
   { nombre: 'Gas', categoria: 'Servicios' },
   { nombre: 'Agua', categoria: 'Servicios' },

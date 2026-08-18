@@ -5,6 +5,7 @@ import type {
   GastosAccesoFallo,
   GastosMes,
   GastosResumen,
+  GastosDetalleMes,
   GastosEvolucionPunto,
   GastosPorCategoriaItem,
   GastoCategoria,
@@ -100,6 +101,11 @@ export const gastosService = {
 
   async getResumen(periodo: string): Promise<GastosResumen> {
     const response = await axiosInstance.get(`${BASE}/resumen?periodo=${periodo}`, conToken());
+    return response.data.data;
+  },
+
+  async getDetalle(periodo: string): Promise<GastosDetalleMes> {
+    const response = await axiosInstance.get(`${BASE}/detalle?periodo=${periodo}`, conToken());
     return response.data.data;
   },
 

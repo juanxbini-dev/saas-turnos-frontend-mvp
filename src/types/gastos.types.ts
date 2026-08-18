@@ -124,6 +124,34 @@ export interface GastosEvolucionPunto {
   neto: number;
 }
 
+export interface GastosComisionProfesional {
+  profesional_id: string;
+  nombre: string;
+  avatar_url: string | null;
+  servicios: number;
+  productos: number;
+  total: number;
+  turnos_cobrados: number;
+}
+
+export interface GastosIngresosDetalle {
+  servicios: number;
+  productos: number;
+  total: number;
+  turnos_cobrados: number;
+  productos_vendidos: number;
+  pendiente_cobro: number;
+}
+
+export interface GastosDetalleMes {
+  periodo: string;
+  ingresos: GastosIngresosDetalle;
+  comisiones: GastosComisionProfesional[];
+  comisiones_total: number;
+  mercaderia_costo: number;
+  mercaderia_unidades: number;
+}
+
 export interface GastosPorCategoriaItem {
   categoria_id: string;
   nombre: string;

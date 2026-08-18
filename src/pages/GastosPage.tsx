@@ -9,6 +9,7 @@ import { GastosGate } from '../components/gastos/GastosGate';
 import { GastosSelectorMes } from '../components/gastos/GastosSelectorMes';
 import { GastosResumenSimple } from '../components/gastos/GastosResumenSimple';
 import { GastosListaMes } from '../components/gastos/GastosListaMes';
+import { GastosDetalleAutomatico } from '../components/gastos/GastosDetalleAutomatico';
 import { GastosAnalisis } from '../components/gastos/GastosAnalisis';
 import { AgregarGastoModal } from '../components/gastos/AgregarGastoModal';
 import { EditarGastoModal } from '../components/gastos/EditarGastoModal';
@@ -40,6 +41,8 @@ function GastosContenido() {
     buildKey(ENTITIES.GASTOS, 'mes', periodo), () => gastosService.getMes(periodo), cacheOpts);
   const { data: resumen, loading: loadingResumen, revalidate: revalidarResumen } = useFetch(
     buildKey(ENTITIES.GASTOS, 'resumen', periodo), () => gastosService.getResumen(periodo), cacheOpts);
+  const { data: detalle, loading: loadingDetalle, revalidate: revalidarDetalle } = useFetch(
+    buildKey(ENTITIES.GASTOS, 'detalle', periodo), () => gastosService.getDetalle(periodo), cacheOpts);
   const { data: evolucion, loading: loadingEvolucion, revalidate: revalidarEvolucion } = useFetch(
     buildKey(ENTITIES.GASTOS, 'evolucion', evolucionDesde, periodo), () => gastosService.getEvolucion(evolucionDesde, periodo), cacheOpts);
   const { data: porCategoria, loading: loadingCategorias, revalidate: revalidarPorCategoria } = useFetch(
@@ -51,9 +54,9 @@ function GastosContenido() {
 
   const refrescarTodo = useCallback(() => {
     invalidarCacheGastos();
-    revalidarMes(); revalidarResumen(); revalidarEvolucion();
+    revalidarMes(); revalidarResumen(); revalidarDetalle(); revalidarEvolucion();
     revalidarPorCategoria(); revalidarCategorias(); revalidarRecurrentes();
-  }, [revalidarMes, revalidarResumen, revalidarEvolucion, revalidarPorCategoria, revalidarCategorias, revalidarRecurrentes]);
+  }, [revalidarMes, revalidarResumen, revalidarDetalle, revalidarEvolucion, revalidarPorCategoria, revalidarCategorias, revalidarRecurrentes]);
 
   // Tildar "pagado" es la acción más frecuente: un click, sin abrir nada
   const togglePagado = async (item: GastoMesItem, esRecurrente: boolean) => {
@@ -107,6 +110,9 @@ function GastosContenido() {
         onTogglePagado={togglePagado}
         onVerRecurrentes={() => setRecurrentesAbierto(true)}
       />
+
+      {/* Qué entró y qué salió solo: la explicación de los números automáticos */}
+      <GastosDetalleAutomatico detalle={detalle ?? null} isLoading={loadingDetalle} />
 
       {/* Gráficos, plegados */}
       <GastosAnalisis

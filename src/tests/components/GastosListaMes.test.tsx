@@ -88,12 +88,6 @@ describe('GastosListaMes', () => {
     expect(screen.getAllByTitle(/marcar como/i)).toHaveLength(3);   // Alquiler, Luz, Arreglo — no Internet
   });
 
-  it('lo automático es una frase al pie con link a Finanzas', () => {
-    renderLista();
-    expect(screen.getByText(/se calcula solo/i)).toBeTruthy();
-    expect(screen.getByText(/ver en Finanzas/i)).toBeTruthy();
-  });
-
   it('el gasto único se borra; el que se repite no', () => {
     const p = renderLista();
     const eliminar = screen.getAllByLabelText('Eliminar');
