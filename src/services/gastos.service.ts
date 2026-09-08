@@ -17,6 +17,10 @@ import type {
   ActualizarRecurrenteInput,
   OverrideRecurrenteInput,
   CrearCategoriaInput,
+  GastoEstado,
+  MarcarPagadoItem,
+  MarcarPagadosInput,
+  MarcarPagadosResult,
 } from '../types/gastos.types';
 
 // El token de la sección vive en sessionStorage, no en localStorage: muere al
@@ -56,6 +60,19 @@ function traducirFallo(error: any): GastosAccesoFallo {
     return { tipo: 'password_incorrecta', mensaje: 'Contraseña incorrecta' };
   }
   return { tipo: 'error', mensaje: 'No se pudo validar el acceso. Intentá de nuevo.' };
+}
+
+// ¿Este error es el backend rechazando el token de la sección (vencido, ajeno a
+// la sesión o ausente)? El middleware responde 401/403 con code GASTOS_TOKEN_*.
+// Ojo: el interceptor de axiosInstance trata todo 401 como JWT vencido, intenta
+// un refresh y reintenta una vez; si el token de gastos sigue vencido el reintento
+// vuelve a fallar y el error llega acá. Nadie lo maneja globalmente: el que lo
+// reciba tiene que delegar en GastosGate (useGastosGate().bloquear).
+export function esFalloTokenGastos(error: unknown): boolean {
+  const response = (error as any)?.response;
+  const status = response?.status;
+  const code = response?.data?.code;
+  return (status === 401 || status === 403) && typeof code === 'string' && code.startsWith('GASTOS_TOKEN');
 }
 
 // Cualquier mutación deja obsoleto todo lo cacheado de gastos: el mes editado,
@@ -157,6 +174,15 @@ export const gastosService = {
 
   async actualizarGasto(id: string, input: ActualizarGastoInput): Promise<GastoMesItem> {
     const response = await axiosInstance.patch(`${BASE}/${id}`, input, conToken());
+    invalidarCacheGastos();
+    return response.data.data;
+  },
+
+  // Tilde por fila o por rubro: pagado/pendiente en lote, en una transacción.
+  // Los ítems se arman con itemPagado() de gastos.utils.
+  async marcarPagados(periodo: string, estado: GastoEstado, items: MarcarPagadoItem[]): Promise<MarcarPagadosResult> {
+    const body: MarcarPagadosInput = { periodo, estado, items };
+    const response = await axiosInstance.patch(`${BASE}/pagado`, body, conToken());
     invalidarCacheGastos();
     return response.data.data;
   },

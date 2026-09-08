@@ -1,12 +1,30 @@
-import { useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Lock, ShieldAlert } from 'lucide-react';
 import { Button, Input, Spinner } from '../ui';
-import { gastosService } from '../../services/gastos.service';
+import { clearGastosToken, gastosService } from '../../services/gastos.service';
 import type { GastosAccesoFallo } from '../../types/gastos.types';
 
 interface GastosGateProps {
   children: React.ReactNode;
 }
+
+// Lo que el contenido protegido puede pedirle al gate. Hoy solo `bloquear`: el
+// token de la sección venció a mitad de sesión (el backend devolvió
+// GASTOS_TOKEN_*), así que se tira el token y se vuelve a pedir la contraseña.
+interface GastosGateApi {
+  bloquear: () => void;
+}
+
+const GastosGateContext = createContext<GastosGateApi>({ bloquear: () => {} });
+
+export function useGastosGate(): GastosGateApi {
+  return useContext(GastosGateContext);
+}
+
+const FALLO_EXPIRADO: GastosAccesoFallo = {
+  tipo: 'expirado',
+  mensaje: 'Tu acceso a la sección venció. Ingresá la contraseña de nuevo.',
+};
 
 // Segunda llave de la sección: aunque ya estés logueado como super admin, el
 // contenido no se monta hasta que la contraseña de la sección sea válida.
@@ -32,6 +50,15 @@ export function GastosGate({ children }: GastosGateProps) {
 
     return () => { cancelado = true; };
   }, []);
+
+  const bloquear = useCallback(() => {
+    clearGastosToken();
+    setHabilitado(false);
+    setPassword('');
+    setFallo(FALLO_EXPIRADO);
+  }, []);
+
+  const api = useMemo<GastosGateApi>(() => ({ bloquear }), [bloquear]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +88,7 @@ export function GastosGate({ children }: GastosGateProps) {
   }
 
   if (habilitado) {
-    return <>{children}</>;
+    return <GastosGateContext.Provider value={api}>{children}</GastosGateContext.Provider>;
   }
 
   const bloqueado = fallo?.tipo === 'demasiados_intentos' || fallo?.tipo === 'no_configurado';
@@ -79,7 +106,9 @@ export function GastosGate({ children }: GastosGateProps) {
           </div>
           <h1 className="text-xl font-semibold text-gray-900">Sección protegida</h1>
           <p className="text-sm text-gray-600 mt-2">
-            Ingresá la contraseña de la sección de gastos para continuar.
+            {fallo?.tipo === 'expirado'
+              ? fallo.mensaje
+              : 'Ingresá la contraseña de la sección de gastos para continuar.'}
           </p>
         </div>
 
@@ -89,7 +118,7 @@ export function GastosGate({ children }: GastosGateProps) {
             label="Contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            error={fallo?.mensaje}
+            error={fallo?.tipo === 'expirado' ? undefined : fallo?.mensaje}
             disabled={enviando || bloqueado}
             autoFocus
             autoComplete="off"

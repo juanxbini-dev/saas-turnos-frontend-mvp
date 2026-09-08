@@ -1,10 +1,11 @@
 import React from 'react';
 import { ArrowDownToLine, ArrowUpFromLine, Scale, TrendingUp, TrendingDown } from 'lucide-react';
 import { formatMoneda } from './gastos.utils';
-import type { GastosResumen } from '../../types/gastos.types';
+import type { GastosDetalleMes, GastosResumen } from '../../types/gastos.types';
 
 interface GastosResumenSimpleProps {
   resumen: GastosResumen | null;
+  detalle: GastosDetalleMes | null;   // si todavía carga, "Entró" muestra la variación
   isLoading: boolean;
 }
 
@@ -27,12 +28,12 @@ const Delta: React.FC<{ actual: number; anterior?: number | null; invertir?: boo
 
 // Tres números en el idioma del dueño: cuánto entró, cuánto salió y cuánto quedó.
 // Todo lo demás (fijos, variables, comisiones) vive en la lista, no acá.
-export const GastosResumenSimple: React.FC<GastosResumenSimpleProps> = ({ resumen, isLoading }) => {
+export const GastosResumenSimple: React.FC<GastosResumenSimpleProps> = ({ resumen, detalle, isLoading }) => {
   if (isLoading || !resumen) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-white border border-gray-200 rounded-xl p-5 animate-pulse h-28" />
+          <div key={i} className={`bg-white border border-gray-200 rounded-xl p-5 animate-pulse h-28 ${i === 2 ? 'col-span-2 md:col-span-1' : ''}`} />
         ))}
       </div>
     );
@@ -41,30 +42,45 @@ export const GastosResumenSimple: React.FC<GastosResumenSimpleProps> = ({ resume
   const ant = resumen.anterior;
   const quedo = resumen.neto;
   const positivo = quedo >= 0;
+  const ingresos = detalle?.ingresos;
+
+  // "Salió" desglosado: lo que pagaste a mano, lo que salió solo y lo que falta.
+  // Sin nada cargado ni calculado, "todo pagado · $ 0 salió solo" confunde.
+  const sinGastos = resumen.total_gastos === 0 && resumen.pagado === 0 && resumen.pendiente === 0;
+  const salioDetalle = sinGastos
+    ? 'todavía no hay gastos este mes'
+    : resumen.pendiente > 0
+      ? `${formatMoneda(resumen.pagado)} pagado · ${formatMoneda(resumen.derivados)} salió solo · falta ${formatMoneda(resumen.pendiente)}`
+      : `todo pagado · ${formatMoneda(resumen.derivados)} salió solo`;
+  const turnosCobrados = ingresos
+    ? `${ingresos.turnos_cobrados} ${ingresos.turnos_cobrados === 1 ? 'turno cobrado' : 'turnos cobrados'}`
+    : '';
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-1">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex flex-col gap-1 min-w-0">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <ArrowDownToLine size={16} className="text-green-600" /> Entró
         </div>
-        <div className="text-2xl font-bold text-gray-900 tabular-nums">{formatMoneda(resumen.ingresos)}</div>
-        <Delta actual={resumen.ingresos} anterior={ant?.ingresos} />
+        <div className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums truncate">{formatMoneda(resumen.ingresos)}</div>
+        {ingresos
+          ? <span className="text-xs text-gray-500">{turnosCobrados} · {formatMoneda(ingresos.productos)} en productos</span>
+          : <Delta actual={resumen.ingresos} anterior={ant?.ingresos} />}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-1">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex flex-col gap-1 min-w-0">
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <ArrowUpFromLine size={16} className="text-orange-600" /> Salió
         </div>
-        <div className="text-2xl font-bold text-gray-900 tabular-nums">{formatMoneda(resumen.total_gastos)}</div>
-        <Delta actual={resumen.total_gastos} anterior={ant?.total_gastos} invertir />
+        <div className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums truncate">{formatMoneda(resumen.total_gastos)}</div>
+        <span className={`text-xs ${resumen.pendiente > 0 ? 'text-amber-700' : 'text-gray-500'}`}>{salioDetalle}</span>
       </div>
 
-      <div className={`rounded-xl p-5 flex flex-col gap-1 border ${positivo ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+      <div className={`rounded-xl p-4 sm:p-5 flex flex-col gap-1 border col-span-2 md:col-span-1 ${positivo ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
         <div className={`flex items-center gap-2 text-sm ${positivo ? 'text-green-800' : 'text-red-800'}`}>
           <Scale size={16} /> Te quedó
         </div>
-        <div className={`text-2xl font-bold tabular-nums ${positivo ? 'text-green-800' : 'text-red-800'}`}>
+        <div className={`text-xl sm:text-2xl font-bold tabular-nums ${positivo ? 'text-green-800' : 'text-red-800'}`}>
           {positivo ? '' : '−'}{formatMoneda(Math.abs(quedo))}
         </div>
         <span className={`text-xs ${positivo ? 'text-green-700' : 'text-red-700'}`}>

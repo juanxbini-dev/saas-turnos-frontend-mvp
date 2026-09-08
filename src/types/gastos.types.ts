@@ -9,8 +9,9 @@ export interface GastosAccesoResponse {
 }
 
 // Por qué el gate no dejó pasar. 'no_configurado' es un problema de la instalación
-// (falta GASTOS_PASSWORD_HASH en el backend), no un error del usuario.
-export type GastosAccesoError = 'password_incorrecta' | 'demasiados_intentos' | 'no_configurado' | 'error';
+// (falta GASTOS_PASSWORD_HASH en el backend), no un error del usuario. 'expirado'
+// es el token de la sección vencido a mitad de sesión: se vuelve a pedir la contraseña.
+export type GastosAccesoError = 'password_incorrecta' | 'demasiados_intentos' | 'no_configurado' | 'expirado' | 'error';
 
 export interface GastosAccesoFallo {
   tipo: GastosAccesoError;
@@ -204,6 +205,23 @@ export interface OverrideRecurrenteInput {
 export interface CrearCategoriaInput {
   nombre: string;
   color?: string;
+}
+
+// --- Pagado en lote (tilde por rubro) ---
+
+// Un gasto único u override ya guardado va por id; un fijo (proyectado o con
+// override) va siempre por recurrente_id, así el backend hace el upsert.
+export type MarcarPagadoItem = { id: string } | { recurrente_id: string };
+
+// Body de PATCH /api/gastos/pagado (lo arma gastosService.marcarPagados)
+export interface MarcarPagadosInput {
+  periodo: string;          // 'YYYY-MM'
+  estado: GastoEstado;
+  items: MarcarPagadoItem[];
+}
+
+export interface MarcarPagadosResult {
+  actualizados: number;
 }
 
 export const METODOS_PAGO_GASTO: { value: GastoMetodoPago; label: string }[] = [

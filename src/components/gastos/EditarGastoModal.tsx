@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Button, Input, Modal, Select, Textarea } from '../ui';
 import { gastosService } from '../../services/gastos.service';
 import { toastService } from '../../services/toast.service';
-import { etiquetaPeriodo, formatMoneda, periodoActual } from './gastos.utils';
-import { METODOS_PAGO_GASTO, type GastoCategoria, type GastoMesItem, type GastoMetodoPago } from '../../types/gastos.types';
+import { etiquetaPeriodo, formatMoneda } from './gastos.utils';
+import { useCambioMontoFijo, type AlcanceMontoFijo } from '../../hooks/useCambioMontoFijo';
+import { METODOS_PAGO_GASTO, type GastoCategoria, type GastoMesItem, type GastoMetodoPago, type OverrideRecurrenteInput } from '../../types/gastos.types';
 
 interface EditarGastoModalProps {
   isOpen: boolean;
@@ -15,16 +16,12 @@ interface EditarGastoModalProps {
   esRecurrente: boolean;
 }
 
-// Para un recurrente, "¿desde cuándo vale el monto nuevo?" decide qué se toca:
-//   'solo_este_mes' → override del mes, la plantilla no cambia
-//   'desde_este_mes' → cierra la plantilla vieja y abre una nueva desde este mes
-//   'siempre'        → cambia la plantilla para todos los meses sin editar
-type Alcance = 'solo_este_mes' | 'desde_este_mes' | 'siempre';
-
+// Para un fijo, "¿desde cuándo vale el monto nuevo?" decide qué se toca. La
+// regla y las llamadas viven en useCambioMontoFijo (compartido con la tabla).
 export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categorias, item, esRecurrente }: EditarGastoModalProps) {
   const [nombre, setNombre] = useState('');
   const [monto, setMonto] = useState('');
-  const [alcance, setAlcance] = useState<Alcance>('solo_este_mes');
+  const { alcance, setAlcance, reset: resetAlcance, aplicar: aplicarCambioMonto, mensajeExito } = useCambioMontoFijo(periodo);
   const [pagado, setPagado] = useState(false);
   const [metodo, setMetodo] = useState<GastoMetodoPago | ''>('');
   const [noAplica, setNoAplica] = useState(false);
@@ -33,23 +30,18 @@ export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categor
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
-  // Default inteligente: si estás en un mes pasado, cambiar el monto es
-  // obviamente "solo ese mes"; si estás en el actual o uno futuro, casi siempre
-  // es un aumento que sigue de acá en adelante.
-  const esMesPasado = periodo < periodoActual();
-
   useEffect(() => {
     if (!isOpen || !item) return;
     setNombre(item.nombre);
     setMonto(String(item.monto));
-    setAlcance(esMesPasado ? 'solo_este_mes' : 'desde_este_mes');
+    resetAlcance();
     setPagado(item.estado === 'pagado');
     setMetodo(item.metodo_pago ?? '');
     setNoAplica(item.omitido);
     setCategoriaId(item.categoria.id);
     setNotas(item.notas ?? '');
     setError('');
-  }, [isOpen, item, esMesPasado]);
+  }, [isOpen, item, resetAlcance]);
 
   if (!item) return null;
 
@@ -73,32 +65,27 @@ export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categor
         });
         toastService.success('Gasto actualizado');
       } else {
-        let recId = item.recurrente_id!;
-        if (montoCambio && alcance === 'siempre') {
-          await gastosService.actualizarRecurrente(recId, { monto_default: montoNum, nombre: nombre.trim() });
-        } else if (montoCambio && alcance === 'desde_este_mes') {
-          await gastosService.actualizarRecurrente(recId, { nombre: nombre.trim() });
-          // La plantilla vieja queda cerrada el mes anterior; de acá en más el
-          // recurrente de este mes es la nueva, y el override tiene que ir a ella.
-          const nueva = await gastosService.reemplazarRecurrente(recId, periodo, montoNum);
-          recId = nueva.id;
-        } else if (nombre.trim() !== item.nombre) {
+        const recId = item.recurrente_id!;
+        if (nombre.trim() !== item.nombre) {
           await gastosService.actualizarRecurrente(recId, { nombre: nombre.trim() });
         }
-        // Estado, método, notas y "no aplica" son siempre de este mes.
-        // El monto va al override solo si el alcance es "solo este mes".
-        await gastosService.guardarOverride(recId, periodo, {
-          ...(montoCambio && alcance === 'solo_este_mes' ? { monto: montoNum } : {}),
+        // Estado, método, notas y "no aplica" son siempre de este mes. Si además
+        // cambió el monto, el hook decide qué tocar según el alcance y guarda
+        // estos campos en la misma pasada (con "desde este mes" el fijo vigente
+        // pasa a ser uno nuevo, y el override tiene que ir a ese).
+        const esteMes: OverrideRecurrenteInput = {
           estado: pagado ? 'pagado' : 'pendiente',
           metodo_pago: metodo || null,
           omitido: noAplica,
           notas: notas.trim() || null,
-        });
-        toastService.success(
-          montoCambio && alcance === 'siempre' ? `${nombre.trim()}: monto nuevo para todos los meses`
-          : montoCambio && alcance === 'desde_este_mes' ? `${nombre.trim()}: monto nuevo desde ${etiquetaPeriodo(periodo)}`
-          : `${nombre.trim()} actualizado`
-        );
+        };
+        if (montoCambio) {
+          await aplicarCambioMonto(recId, montoNum, esteMes);
+          toastService.success(mensajeExito(nombre.trim()));
+        } else {
+          await gastosService.guardarOverride(recId, periodo, esteMes);
+          toastService.success(`${nombre.trim()} actualizado`);
+        }
       }
       onGuardado();
       onClose();
@@ -166,7 +153,7 @@ export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categor
               {alcance === 'siempre' && <>Se <strong>corrige en todos los meses</strong> que no hayas editado a mano.</>}
             </p>
             <div className="flex flex-wrap gap-1.5 text-xs">
-              {(['desde_este_mes', 'solo_este_mes', 'siempre'] as Alcance[]).filter((a) => a !== alcance).map((a) => (
+              {(['desde_este_mes', 'solo_este_mes', 'siempre'] as AlcanceMontoFijo[]).filter((a) => a !== alcance).map((a) => (
                 <button key={a} type="button" onClick={() => setAlcance(a)} className="text-blue-700 underline-offset-2 hover:underline">
                   {a === 'desde_este_mes' ? 'es un aumento desde este mes' : a === 'solo_este_mes' ? 'es solo por este mes' : 'siempre fue así, corregir todos'}
                 </button>
