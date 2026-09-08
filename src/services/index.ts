@@ -8,3 +8,4 @@ export { turnoService } from './turno.service';
 export { usuarioService } from './usuario.service';
 export { perfilService } from './perfil.service';
 export { configuracionService } from './configuracion.service';
+export { gastosService } from './gastos.service';
