@@ -32,6 +32,8 @@ export interface CampaniaConfig {
   tipo: TipoCampania;
   habilitada: boolean;
   parametros: ParametrosCampania;
+  // 1 = gana si un cliente califica para varias campañas el mismo día (el backend ya las manda ordenadas)
+  prioridad: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -46,12 +48,28 @@ export interface CampaniasConfigResponse {
   sistema: CampaniasSistema;
 }
 
+// Contexto que arma el motor por candidato (todos opcionales; depende del tipo de campaña)
+export interface ContextoCandidato {
+  servicio?: string;
+  turno_fecha?: string;              // DD/MM
+  variante?: string;                 // turno_abandonado: 'pendiente' | 'cancelado'
+  servicio_habitual?: string;
+  dias_desde_ultima_visita?: number;
+  incentivo?: string;
+  nro_intento?: number;
+  producto?: string;
+  fecha_compra?: string;             // DD/MM
+  link_reserva?: string;
+  [clave: string]: unknown;
+}
+
 export interface CandidatoDryRun {
   cliente_id: string;
   cliente_nombre: string;
-  telefono: string | null;
+  // El backend ya no manda teléfono ni flags del cliente en la vista previa (datos personales que la pantalla no usa)
   referencia_id: string;
-  contexto: Record<string, unknown>;
+  contexto: ContextoCandidato;
+  // null = recibiría el mensaje hoy; string = motivo por el que el motor lo excluiría
   excluido: string | null;
 }
 

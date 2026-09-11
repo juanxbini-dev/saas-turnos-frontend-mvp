@@ -55,6 +55,8 @@ export function CampaniasMetricasTab() {
 
   useEffect(() => {
     let cancelado = false;
+    // Limpiar al cambiar de período: se ve el spinner y, si falla, no quedan los números del mes anterior
+    setData(null);
     setLoading(true);
     setError(false);
     campaniasService.getMetricas(periodo.desde, periodo.hasta)
@@ -87,11 +89,14 @@ export function CampaniasMetricasTab() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             <KPI label="Enviados" value={data.totales.enviados} hint={data.totales.simulados > 0 ? `+ ${data.totales.simulados} simulados` : undefined} />
             <KPI label="Entregados" value={data.totales.entregados} hint={data.totales.leidos > 0 ? `${data.totales.leidos} leídos` : undefined} />
+            {/* Sin envíos reales la tasa no significa nada: "—" como en la tabla, sin aclaración ni color */}
             <KPI
               label="Volvieron"
-              value={pct(data.totales.tasa_conversion)}
-              hint={`${data.totales.convertidos} agendaron en ${data.ventana_conversion_dias} días`}
-              tone={data.totales.convertidos > 0 ? 'good' : 'default'}
+              value={data.totales.enviados > 0 ? pct(data.totales.tasa_conversion) : '—'}
+              hint={data.totales.enviados > 0
+                ? `${data.totales.convertidos} agendaron en ${data.ventana_conversion_dias} días`
+                : undefined}
+              tone={data.totales.enviados > 0 && data.totales.convertidos > 0 ? 'good' : 'default'}
             />
             <KPI
               label="Bajas"
