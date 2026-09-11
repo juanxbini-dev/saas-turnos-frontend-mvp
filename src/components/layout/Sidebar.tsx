@@ -17,6 +17,7 @@ import {
   TrendingUp,
   BarChart3,
   MessageCircle,
+  Wallet,
   X,
   LogOut,
 } from 'lucide-react';
@@ -29,18 +30,20 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
+// superAdminOnly: solo visible para super_admin (el rol 'admin' no alcanza)
 const menuItems = [
-  { path: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard',     adminOnly: false, hideSuperAdmin: false },
-  { path: '/finanzas',       icon: TrendingUp,      label: 'Finanzas',      adminOnly: false, hideSuperAdmin: false },
-  { path: '/metricas',       icon: BarChart3,       label: 'Métricas',      adminOnly: true,  hideSuperAdmin: false },
-  { path: '/perfil',         icon: UserCircle,      label: 'Perfil',        adminOnly: false, hideSuperAdmin: true  },
-  { path: '/usuarios',       icon: Users,           label: 'Usuarios',      adminOnly: true,  hideSuperAdmin: false },
-  { path: '/turnos',         icon: Calendar,        label: 'Turnos',        adminOnly: false, hideSuperAdmin: false },
-  { path: '/servicios',      icon: Wrench,          label: 'Servicios',     adminOnly: false, hideSuperAdmin: false },
-  { path: '/clientes',       icon: User,            label: 'Clientes',      adminOnly: false, hideSuperAdmin: false },
-  { path: '/productos',      icon: Package,         label: 'Productos',     adminOnly: false, hideSuperAdmin: false },
-  { path: '/campanias',      icon: MessageCircle,   label: 'Campañas',      adminOnly: true,  hideSuperAdmin: false },
-  { path: '/configuracion',  icon: Settings,        label: 'Configuracion', adminOnly: true,  hideSuperAdmin: false },
+  { path: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard',     adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/finanzas',       icon: TrendingUp,      label: 'Finanzas',      adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/metricas',       icon: BarChart3,       label: 'Métricas',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/gastos',         icon: Wallet,          label: 'Gastos',        adminOnly: true,  hideSuperAdmin: false, superAdminOnly: true  },
+  { path: '/perfil',         icon: UserCircle,      label: 'Perfil',        adminOnly: false, hideSuperAdmin: true,  superAdminOnly: false },
+  { path: '/usuarios',       icon: Users,           label: 'Usuarios',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/turnos',         icon: Calendar,        label: 'Turnos',        adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/servicios',      icon: Wrench,          label: 'Servicios',     adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/clientes',       icon: User,            label: 'Clientes',      adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/productos',      icon: Package,         label: 'Productos',     adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/campanias',      icon: MessageCircle,   label: 'Campañas',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/configuracion',  icon: Settings,        label: 'Configuracion', adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
 ];
 
 // Contenido reutilizable en desktop y mobile
@@ -96,8 +99,9 @@ const SidebarContent = ({
 
       {/* Links */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {menuItems.map(({ path, icon: Icon, label, adminOnly, hideSuperAdmin }) => {
+        {menuItems.map(({ path, icon: Icon, label, adminOnly, hideSuperAdmin, superAdminOnly }) => {
           const isSuperAdmin = roles.includes('super_admin');
+          if (superAdminOnly && !isSuperAdmin) return null;
           if (adminOnly && !roles.includes('admin') && !isSuperAdmin) return null;
           if (hideSuperAdmin && isSuperAdmin) return null;
 

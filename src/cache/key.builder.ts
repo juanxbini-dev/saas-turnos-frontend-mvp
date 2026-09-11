@@ -20,7 +20,8 @@ export const ENTITIES = {
   CALENDARIO: 'calendario',
   BLOQUEOS: 'bloqueos',
   FINANZAS: 'finanzas',
-  METRICAS: 'metricas'
+  METRICAS: 'metricas',
+  GASTOS: 'gastos'
 } as const;
 
 function decodeJWT(token: string): any | null {
