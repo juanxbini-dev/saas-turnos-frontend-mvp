@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast';
 import { CampaniasMetricasTab } from '../components/campanias/CampaniasMetricasTab';
 import { CampaniasVistaPreviaTab } from '../components/campanias/CampaniasVistaPreviaTab';
 import { PrioridadBadge } from '../components/campanias/PrioridadBadge';
+import { InfoCampania, InfoReglasGenerales } from '../components/campanias/InfoCampania';
 import { ordenarPorPrioridad } from '../components/campanias/prioridad';
 import {
   EstadoCampania,
@@ -255,6 +256,10 @@ function CampaniaCard({
         </button>
       </div>
 
+      <div className="mt-3">
+        <InfoCampania tipo={config.tipo} titulo={labels.titulo} />
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         {config.tipo === 'recencia' && (
           <>
@@ -497,10 +502,13 @@ function CampaniasPage() {
           </div>
         ) : (
           <>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-600 mb-2">
               Si un cliente califica para dos campañas el mismo día, recibe la de mayor prioridad; la otra lo intenta de
               nuevo al día siguiente.
             </p>
+            <div className="mb-4">
+              <InfoReglasGenerales />
+            </div>
             <div className="space-y-4">
               {campaniasOrdenadas.map((config) => (
                 <CampaniaCard
