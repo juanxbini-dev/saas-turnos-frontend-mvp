@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useId } from 'react';
 import { LucideIcon } from 'lucide-react';
 
 export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'prefix'> {
@@ -8,7 +8,10 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
   prefix?: string | LucideIcon;
 }
 
-// Input de texto con label, errores y soporte para prefix
+// Input de texto con label, errores y soporte para prefix.
+// El label queda asociado al input (htmlFor/id): si no viene `id` por props se
+// genera uno estable con useId, así los lectores de pantalla y getByLabelText
+// lo encuentran sin que los usuarios del kit tengan que hacer nada.
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ 
     label, 
@@ -16,8 +19,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     help, 
     prefix: Prefix, 
     className = '',
+    id,
     ...props 
   }, ref) => {
+    const generatedId = useId();
+    const inputId = id ?? generatedId;
     const hasPrefix = !!Prefix;
     const isIconPrefix = typeof Prefix !== 'string';
     
@@ -35,7 +41,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">
             {label}
           </label>
         )}
@@ -53,6 +59,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           
           <input
             ref={ref}
+            id={inputId}
             className={inputClasses}
             {...props}
           />
