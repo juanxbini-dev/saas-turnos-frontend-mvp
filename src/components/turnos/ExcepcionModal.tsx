@@ -9,6 +9,16 @@ import { cacheService } from '../../cache/cache.service';
 const excepcionLogger = createLogger('ExcepcionModal');
 import { buildKey } from '../../cache/key.builder';
 import { ENTITIES } from '../../cache/key.builder';
+import { DateHelper } from '../../shared/utils/DateHelper';
+
+// `fecha` puede llegar como ISO UTC desde el backend; el <input type="date"> solo acepta YYYY-MM-DD
+const fechaParaInput = (fecha?: string | null): string => (fecha ? DateHelper.normalizeDate(fecha) : '');
+
+// Hoy en YYYY-MM-DD local (toISOString daría el día siguiente después de las 21:00 en Argentina)
+const hoyLocal = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 interface ExcepcionModalProps {
   excepcion: ExcepcionDia | null;
@@ -28,7 +38,7 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
   const { state: authUser } = useAuth();
   
   const [formData, setFormData] = useState({
-    fecha: excepcion?.fecha || '',
+    fecha: fechaParaInput(excepcion?.fecha),
     disponible: excepcion?.disponible ?? true,
     hora_inicio: excepcion?.hora_inicio || '',
     hora_fin: excepcion?.hora_fin || '',
@@ -42,7 +52,7 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
   // Reset form data when excepcion prop changes
   useEffect(() => {
     setFormData({
-      fecha: excepcion?.fecha || '',
+      fecha: fechaParaInput(excepcion?.fecha),
       disponible: excepcion?.disponible ?? true,
       hora_inicio: excepcion?.hora_inicio || '',
       hora_fin: excepcion?.hora_fin || '',
@@ -212,7 +222,7 @@ export const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
             type="date"
             value={formData.fecha}
             onChange={(e) => handleChange('fecha', e.target.value)}
-            min={new Date().toISOString().split('T')[0]}
+            min={hoyLocal()}
           />
           {errors.fecha && (
             <p className="text-red-500 text-xs mt-1">{errors.fecha}</p>
