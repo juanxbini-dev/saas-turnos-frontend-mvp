@@ -3,6 +3,12 @@ import { Card, Button, Badge, ConfirmDialog } from '../ui';
 import { ExcepcionDia } from '../../types/turno.types';
 import { ExcepcionModal } from './ExcepcionModal';
 import { disponibilidadService } from '../../services/disponibilidad.service';
+import { DateHelper } from '../../shared/utils/DateHelper';
+
+// El backend manda `fecha` como ISO en UTC (Date de node-pg serializado) o como YYYY-MM-DD.
+// Se compara y se muestra siempre por la parte de fecha; NUNCA con `new Date(iso)`,
+// que en Argentina corre el día hacia atrás.
+const fechaDe = (e: ExcepcionDia): string => DateHelper.normalizeDate(e.fecha || '');
 
 interface ExcepcionesTabProps {
   excepciones: ExcepcionDia[];
@@ -21,6 +27,18 @@ export const ExcepcionesTab: React.FC<ExcepcionesTabProps> = ({
   const [selectedExcepcion, setSelectedExcepcion] = useState<ExcepcionDia | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [mostrarPasadas, setMostrarPasadas] = useState(false);
+
+  // Hoy en formato YYYY-MM-DD local (sin pasar por toISOString, que corre el día en UTC)
+  const hoy = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+
+  // De la más reciente a la más vieja; las de días pasados quedan aparte y ocultas por defecto
+  const ordenadas = [...excepciones].sort((a, b) => fechaDe(b).localeCompare(fechaDe(a)));
+  const vigentes = ordenadas.filter(e => fechaDe(e) >= hoy);
+  const pasadas = ordenadas.filter(e => fechaDe(e) < hoy);
 
   const handleOpenModal = (excepcion: ExcepcionDia | null) => {
     setSelectedExcepcion(excepcion);
@@ -61,15 +79,9 @@ export const ExcepcionesTab: React.FC<ExcepcionesTabProps> = ({
     console.log('🔍 [ExcepcionesTab] Formateando fecha:', fecha);
     
     try {
-      // Intentar diferentes formatos de fecha
-      let date: Date;
-      
-      // Si la fecha tiene formato YYYY-MM-DD, agregar tiempo para evitar problemas de timezone
-      if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        date = new Date(fecha + 'T12:00:00');
-      } else {
-        date = new Date(fecha);
-      }
+      // Tanto para YYYY-MM-DD como para ISO UTC: quedarse con la fecha y armarla al mediodía
+      // local, para que no cambie de día por la zona horaria
+      const date = new Date(DateHelper.normalizeDate(fecha) + 'T12:00:00');
       
       console.log('🔍 [ExcepcionesTab] Fecha parseada:', date, 'getTime():', date.getTime());
       
@@ -120,8 +132,27 @@ export const ExcepcionesTab: React.FC<ExcepcionesTabProps> = ({
         </Card>
       ) : (
         <div className="space-y-3">
-          {excepciones.map((excepcion) => (
-            <Card key={excepcion.id} className="p-4">
+          {vigentes.length === 0 && (
+            <Card className="text-center py-6">
+              <p className="text-gray-500">No hay excepciones para los próximos días</p>
+            </Card>
+          )}
+
+          {pasadas.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setMostrarPasadas(v => !v)}
+              aria-expanded={mostrarPasadas}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              {mostrarPasadas
+                ? 'Ocultar excepciones de días pasados'
+                : `Ver excepciones de días pasados (${pasadas.length})`}
+            </button>
+          )}
+
+          {(mostrarPasadas ? [...vigentes, ...pasadas] : vigentes).map((excepcion) => (
+            <Card key={excepcion.id} className={`p-4${fechaDe(excepcion) < hoy ? ' opacity-60' : ''}`}>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="font-medium text-gray-900">
