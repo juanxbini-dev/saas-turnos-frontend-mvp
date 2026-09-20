@@ -29,6 +29,9 @@ export interface CreateTurnoPublicRequest {
   };
   cliente_id?: string;
   notas?: string;
+  // Tilde "Quiero recibir novedades…" de la reserva. Viaja SIEMPRE: true
+  // registra la aceptación (y levanta una baja previa), false registra la baja.
+  marketing_consentimiento: boolean;
 }
 
 export interface CreateTurnoPublicResponse {

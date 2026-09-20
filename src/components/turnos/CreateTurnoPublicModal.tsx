@@ -65,6 +65,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     telefono: ''
   });
   const [notas, setNotas] = useState('');
+  // Novedades por WhatsApp: tildado por defecto, opcional, y viaja siempre
+  const [quiereNovedades, setQuiereNovedades] = useState(true);
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -187,7 +189,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         hora: selectedSlot,
         cliente_data: buildClientePayload(),
         cliente_id: useExisting ? existingCliente?.id : undefined,
-        notas
+        notas,
+        marketing_consentimiento: quiereNovedades
       };
 
       await turnoPublicService.createTurno(turnoData);
@@ -224,6 +227,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setSelectedServicio(null);
     setClienteData({ nombre: '', apellido: '', email: '', telefono: '' });
     setNotas('');
+    setQuiereNovedades(true);
     setExistingCliente(null);
     setShowMatchModal(false);
     setShowSuccessModal(false);
@@ -505,6 +509,21 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                     ))}
                   </div>
                 </div>
+
+                {/* Novedades por WhatsApp: justo antes de confirmar. Opcional,
+                    no bloquea la reserva. */}
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={quiereNovedades}
+                    onChange={(e) => setQuiereNovedades(e.target.checked)}
+                    disabled={loading}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-white disabled:opacity-40"
+                  />
+                  <span className="text-sm text-white/70 leading-snug">
+                    Quiero recibir novedades de DEB Salón por WhatsApp. Puedo darme de baja cuando quiera.
+                  </span>
+                </label>
               </div>
             )}
           </div>
