@@ -40,7 +40,7 @@ vi.mock('../../hooks/useDisponibilidad', () => ({
   }),
 }));
 
-const TEXTO_TILDE = 'Quiero recibir novedades de DEB Salón por WhatsApp. Puedo darme de baja cuando quiera.';
+const TEXTO_TILDE = 'Quiero recibir novedades de DEB Salón por WhatsApp.';
 
 const SERVICIO = { id: 'srv-1', nombre: 'Corte', descripcion: '', precio: 10000, duracion_minutos: 30 };
 

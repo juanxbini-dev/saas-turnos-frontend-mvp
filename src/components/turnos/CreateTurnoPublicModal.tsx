@@ -588,7 +588,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-white disabled:opacity-40"
                 />
                 <span className="text-sm text-white/70 leading-snug">
-                  Quiero recibir novedades de DEB Salón por WhatsApp. Puedo darme de baja cuando quiera.
+                  Quiero recibir novedades de DEB Salón por WhatsApp.
                 </span>
               </label>
               {/* Fuera del <label>: tocarlo no cambia el tilde. Pestaña nueva:

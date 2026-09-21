@@ -63,11 +63,11 @@ export const PrivacidadPage: React.FC<PrivacidadPageProps> = ({ contacto = CONTA
           </Seccion>
 
           <Seccion titulo="Para qué los usamos.">
-            Para reservar y gestionar tus turnos; para enviarte por WhatsApp la confirmación y el recordatorio de cada turno; y, solo si aceptaste recibirlas, para enviarte novedades por WhatsApp, por ejemplo avisarte cuando ya pasó un tiempo desde tu última visita.
+            Para reservar y gestionar tus turnos; para enviarte por WhatsApp la confirmación y el recordatorio de cada turno; y, solo si aceptaste recibirlas, para enviarte novedades por WhatsApp.
           </Seccion>
 
           <Seccion titulo="Cómo dejar de recibir novedades.">
-            Podés tocar el botón "No recibir más" en cualquiera de esos mensajes, destildar la opción de novedades la próxima vez que reserves, o pedirlo en el salón. Los avisos de tus turnos (confirmación y recordatorio) te van a seguir llegando, porque son parte del servicio.
+            Podés escribirnos BAJA por WhatsApp en cualquier momento, destildar la opción de novedades la próxima vez que reserves, o pedirlo en el salón. Si volvés a reservar por la web, el tilde de novedades aparece marcado de nuevo: si no querés recibirlas, destildalo antes de confirmar. Los avisos de tus turnos (confirmación y recordatorio) te van a seguir llegando, porque son parte del servicio.
           </Seccion>
 
           <Seccion titulo="Con quién los compartimos.">
