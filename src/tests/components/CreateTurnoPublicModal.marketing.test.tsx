@@ -100,6 +100,24 @@ describe('CreateTurnoPublicModal — novedades por WhatsApp', () => {
     expect(tilde().compareDocumentPosition(confirmar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('el tilde está FIJO junto al botón de confirmar, fuera de la zona que se desplaza', async () => {
+    // Viene tildado: si quedara al final del contenido desplazable, en una pantalla
+    // chica se podría confirmar sin haberlo visto nunca (le pasó a Juan probando).
+    renderModal();
+    await irAlPaso3();
+
+    expect(tilde().closest('.overflow-y-auto')).toBeNull();
+    const enlace = screen.getByRole('link', { name: 'Ver política de privacidad' });
+    expect(enlace.closest('.overflow-y-auto')).toBeNull();
+    // El resumen sí sigue dentro de la zona desplazable
+    expect(screen.getByText('Resumen del turno').closest('.overflow-y-auto')).not.toBeNull();
+  });
+
+  it('el tilde no aparece en los pasos 1 y 2', async () => {
+    renderModal();
+    await waitFor(() => expect(screen.queryByText(/Quiero recibir novedades/)).toBeNull());
+  });
+
   it('con el tilde marcado manda marketing_consentimiento: true', async () => {
     renderModal();
     await irAlPaso3();

@@ -569,36 +569,43 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   </div>
                 </div>
 
-                {/* Novedades por WhatsApp: justo antes de confirmar. Opcional,
-                    no bloquea la reserva. */}
-                <label className="flex items-start gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={quiereNovedades}
-                    onChange={(e) => setQuiereNovedades(e.target.checked)}
-                    disabled={loading}
-                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-white disabled:opacity-40"
-                  />
-                  <span className="text-sm text-white/70 leading-snug">
-                    Quiero recibir novedades de DEB Salón por WhatsApp. Puedo darme de baja cuando quiera.
-                  </span>
-                </label>
-                {/* Fuera del <label>: tocarlo no cambia el tilde. Pestaña nueva:
-                    el asistente queda abierto con todo lo cargado. */}
-                <a
-                  href={RUTA_PRIVACIDAD}
-                  target="_blank"
-                  rel="noopener"
-                  className="block pl-7 -mt-2 text-xs text-white/40 underline underline-offset-2 hover:text-white transition-colors"
-                >
-                  Ver política de privacidad
-                </a>
               </div>
             )}
           </div>
 
+          {/* Novedades por WhatsApp: FIJO sobre el botón de confirmar, fuera de la
+              zona que se desplaza. Viene tildado, así que tiene que verse siempre:
+              nadie debe poder confirmar sin haberlo tenido a la vista. Opcional,
+              no bloquea la reserva. */}
+          {step === 3 && (
+            <div className="px-6 pt-4 border-t border-white/10 flex-shrink-0">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={quiereNovedades}
+                  onChange={(e) => setQuiereNovedades(e.target.checked)}
+                  disabled={loading}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-white disabled:opacity-40"
+                />
+                <span className="text-sm text-white/70 leading-snug">
+                  Quiero recibir novedades de DEB Salón por WhatsApp. Puedo darme de baja cuando quiera.
+                </span>
+              </label>
+              {/* Fuera del <label>: tocarlo no cambia el tilde. Pestaña nueva:
+                  el asistente queda abierto con todo lo cargado. */}
+              <a
+                href={RUTA_PRIVACIDAD}
+                target="_blank"
+                rel="noopener"
+                className="inline-block pl-7 mt-1 text-xs text-white/40 underline underline-offset-2 hover:text-white transition-colors"
+              >
+                Ver política de privacidad
+              </a>
+            </div>
+          )}
+
           {/* Footer / Navigation */}
-          <div className="flex justify-between px-6 py-4 border-t border-white/10 flex-shrink-0 gap-3">
+          <div className={`flex justify-between px-6 py-4 flex-shrink-0 gap-3 ${step === 3 ? '' : 'border-t border-white/10'}`}>
             <button
               onClick={handlePrevStep}
               disabled={step === 1}
