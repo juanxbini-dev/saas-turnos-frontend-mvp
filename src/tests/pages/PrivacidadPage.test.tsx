@@ -68,7 +68,7 @@ describe('/privacidad', () => {
     const texto = document.body.textContent ?? '';
     expect(texto).toContain('Somos responsables de los datos personales que nos dejás cuando reservás o te atendés con nosotros.');
     expect(texto).toContain('Si pagás en el salón, guardamos el registro del cobro, no los datos de tu tarjeta.');
-    expect(texto).toContain('Podés tocar el botón "No recibir más" en cualquiera de esos mensajes, destildar la opción de novedades la próxima vez que reserves, o pedirlo en el salón.');
+    expect(texto).toContain('Podés escribirnos BAJA por WhatsApp en cualquier momento, destildar la opción de novedades la próxima vez que reserves, o pedirlo en el salón.');
     expect(texto).toContain('WhatsApp (Meta Platforms) para el envío de los mensajes');
     expect(texto).toContain('de acuerdo con la Ley 25.326 de Protección de los Datos Personales');
     expect(texto).toContain('La Agencia de Acceso a la Información Pública (AAIP)');
