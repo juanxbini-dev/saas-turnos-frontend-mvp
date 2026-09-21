@@ -124,7 +124,10 @@ axiosInstance.interceptors.response.use(
     // Los 4xx (400/403/404/409/422...) son errores de negocio/validación esperados
     // que cada componente maneja localmente (toast o modal), así que no deben
     // disparar el modal global de "reportá esto a soporte".
-    if (error.response && error.response.status >= 500) {
+    // Un request puede pedir no dispararlo (`_sinReporteGlobal` en su config):
+    // es para pedidos de fondo cuya falla el usuario no debe notar, como resolver
+    // el enlace de una campaña al abrir la landing.
+    if (error.response && error.response.status >= 500 && !(error.config as any)?._sinReporteGlobal) {
       const requestId =
         error.response?.data?.requestId ||
         error.response?.headers?.['x-request-id'] ||

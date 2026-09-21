@@ -13,6 +13,9 @@ import type { Campania, CampaniaMetricas, EnviosRespuesta, VistaPreviaRespuesta 
 // La pantalla monta cinco secciones con sus pedidos: con la suite completa en
 // paralelo el segundo por defecto de findBy* queda corto.
 configure({ asyncUtilTimeout: 5000 });
+// …y por lo mismo los 5 s por test tampoco alcanzan cuando corre toda la suite
+// en paralelo (acá cada test monta la pantalla entera).
+vi.setConfig({ testTimeout: 20000 });
 
 const verificarAcceso = vi.fn();
 const validarAcceso = vi.fn();
@@ -160,10 +163,10 @@ describe('CampaniasPage', () => {
     expect(badgeFallido?.getAttribute('title')).toBe('El número no tiene WhatsApp o no puede recibir el mensaje');
     expect(document.body.innerHTML).not.toContain('Message undeliverable');
 
-    // E: mes sin datos → ceros y rayas
+    // E: mes sin datos → ceros y rayas (3 porcentajes + "Tocaron el botón", que este backend no manda)
     expect(await screen.findByText('No hay mensajes enviados en este mes.')).toBeTruthy();
     const resultados = screen.getByRole('region', { name: 'Resultados' });
-    expect(within(resultados).getAllByText('—').length).toBe(3);
+    expect(within(resultados).getAllByText('—').length).toBe(4);
     expect(within(resultados).queryByText(/NaN/)).toBeNull();
   });
 
@@ -205,6 +208,111 @@ describe('CampaniasPage', () => {
 
     expect(await screen.findByText('Hoy salieron 12 de 30 mensajes.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeTruthy();
+  });
+
+  // ---- Botón "Reservar turno" del mensaje: clics y reserva directa (spec §15.4 y §17 T2-Q7) ----
+
+  const tarjeta = (titulo: string) => screen.getByText(titulo).parentElement as HTMLElement;
+
+  const METRICAS_CON_CLICS: CampaniaMetricas = {
+    ...METRICAS_VACIAS,
+    totales: {
+      ...METRICAS_VACIAS.totales,
+      enviados: 120, entregados: 110, leidos: 80, conversiones: 19, clics: 42, conversiones_directas: 11,
+      tasa_entrega: 91.7, tasa_lectura: 66.7, tasa_conversion: 15.8, tasa_clic: 38.2,
+    },
+    serie: [{ fecha: '2026-09-21', enviados: 30, conversiones: 4, clics: 9 }],
+  };
+
+  it('Resultados: "Tocaron el botón" va entre "Los leyeron" y "Reservaron turno", con cantidad y porcentaje', async () => {
+    getMetricas.mockResolvedValue(METRICAS_CON_CLICS);
+    renderPage();
+
+    const clics = await screen.findByText('Tocaron el botón');
+    const leyeron = screen.getByText('Los leyeron');
+    const reservaron = screen.getByText('Reservaron turno');
+    expect(leyeron.compareDocumentPosition(clics) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(clics.compareDocumentPosition(reservaron) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await waitFor(() => expect(within(tarjeta('Tocaron el botón')).getByText('42')).toBeTruthy());
+    expect(within(tarjeta('Tocaron el botón')).getByText('38,2 %')).toBeTruthy();
+  });
+
+  it('Resultados: si el backend no manda clics ni tasa_clic, la tarjeta muestra una raya y nada más', async () => {
+    getMetricas.mockResolvedValue({
+      ...METRICAS_CON_CLICS,
+      totales: { ...METRICAS_CON_CLICS.totales, clics: undefined, tasa_clic: undefined },
+      serie: [{ fecha: '2026-09-21', enviados: 30, conversiones: 4 }],
+    });
+    renderPage();
+
+    await waitFor(() => expect(within(tarjeta('Mensajes enviados')).getByText('120')).toBeTruthy());
+    expect(within(tarjeta('Tocaron el botón')).getByText('—')).toBeTruthy();
+    expect(within(tarjeta('Tocaron el botón')).queryByText(/%/)).toBeNull();
+    expect(within(tarjeta('Tocaron el botón')).queryByText(/NaN|undefined/)).toBeNull();
+  });
+
+  it('Resultados: clics en 0 y tasa_clic null (mes sin entregas) → 0 y raya, sin NaN', async () => {
+    getMetricas.mockResolvedValue({
+      ...METRICAS_VACIAS,
+      totales: { ...METRICAS_VACIAS.totales, clics: 0, conversiones_directas: 0, tasa_clic: null },
+    });
+    renderPage();
+
+    await screen.findByText('No hay mensajes enviados en este mes.');
+    expect(within(tarjeta('Tocaron el botón')).getByText('0')).toBeTruthy();
+    expect(within(tarjeta('Tocaron el botón')).getByText('—')).toBeTruthy();
+  });
+
+  it('Resultados: la nota aclara que los toques pueden superar a las lecturas', async () => {
+    renderPage();
+    expect(await screen.findByText(
+      'Tocaron el botón puede ser mayor que Los leyeron: hay personas que tienen desactivado el aviso de lectura.'
+    )).toBeTruthy();
+  });
+
+  it('Historial, ¿Reservó?: "Sí, desde el mensaje" / "Sí" / "No", y sin `conversion` cae al booleano de antes', async () => {
+    const base = { ...ENVIOS.items[0], estado: 'leido' as const, error: null, error_codigo: null };
+    const turno = { id: 'tur-1', fecha: '2026-09-25', hora: '15:00:00' };
+    getEnvios.mockResolvedValue({
+      ...ENVIOS,
+      items: [
+        { ...base, id: 'e-directa', cliente_nombre: 'Cliente Directa', conversion: 'directa', convirtio: true, turno_conversion: turno },
+        { ...base, id: 'e-ventana', cliente_nombre: 'Cliente Ventana', conversion: 'ventana', convirtio: true, turno_conversion: turno },
+        { ...base, id: 'e-no', cliente_nombre: 'Cliente No', conversion: null, convirtio: false },
+        // `conversion` manda sobre el booleano viejo si se contradicen
+        { ...base, id: 'e-manda', cliente_nombre: 'Cliente Manda', conversion: null, convirtio: true },
+        // Backend anterior: no manda `conversion`
+        { ...base, id: 'e-viejo-si', cliente_nombre: 'Cliente Viejo Si', convirtio: true, turno_conversion: turno },
+        { ...base, id: 'e-viejo-no', cliente_nombre: 'Cliente Viejo No', convirtio: false },
+      ],
+    });
+    renderPage();
+
+    const celda = async (cliente: string) => {
+      const fila = (await screen.findByText(cliente)).closest('tr') as HTMLElement;
+      return (fila.lastElementChild as HTMLElement).textContent?.trim();
+    };
+
+    // La fecha del turno se arma partiendo el string: no se corre un día
+    expect(await celda('Cliente Directa')).toBe('Sí, desde el mensaje · turno del 25/09/2026 15:00');
+    expect(await celda('Cliente Ventana')).toBe('Sí · turno del 25/09/2026 15:00');
+    expect(await celda('Cliente No')).toBe('No');
+    expect(await celda('Cliente Manda')).toBe('No');
+    expect(await celda('Cliente Viejo Si')).toBe('Sí · turno del 25/09/2026 15:00');
+    expect(await celda('Cliente Viejo No')).toBe('No');
+  });
+
+  it('el tipo de campaña se define una sola vez: todos los pedidos de la pantalla salen con el mismo', async () => {
+    renderPage();
+    await screen.findByText('Juan Pérez');
+    await screen.findByText('Ana Gómez');
+    await screen.findByText('No hay mensajes enviados en este mes.');
+
+    for (const pedido of [getCampania, getVistaPrevia, getEnvios, getMetricas]) {
+      expect(pedido).toHaveBeenCalled();
+      for (const llamada of pedido.mock.calls) expect(llamada[0]).toBe('recencia');
+    }
   });
 
   it('"No reciben" pide el grupo al backend y ofrece el select de motivos, sin preseleccionar ninguno', async () => {

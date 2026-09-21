@@ -8,9 +8,10 @@ import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
 import { MOTIVOS_ORDEN, MOTIVO_TEXTO, TEXTO_EN_ESPERA, formatFechaDia, textoMotivo } from './campanias.utils';
-import type { MotivoExclusion, VistaPreviaGrupo, VistaPreviaResumen } from '../../types/campanias.types';
+import type { CampaniaTipo, MotivoExclusion, VistaPreviaGrupo, VistaPreviaResumen } from '../../types/campanias.types';
 
 interface CampaniaVistaPreviaProps {
+  tipo: CampaniaTipo;
   // Cambia cuando se guarda la campaña: la lista se recalcula al instante
   refresco: number;
 }
@@ -24,19 +25,19 @@ const GRUPOS: { id: VistaPreviaGrupo; label: string; vacio: string }[] = [
 ];
 
 // C. Vista previa: "A quién le llegaría hoy". Textos: spec §4.3 C y §2.3.
-export function CampaniaVistaPrevia({ refresco }: CampaniaVistaPreviaProps) {
+export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps) {
   const [grupo, setGrupo] = useState<VistaPreviaGrupo>('sale_hoy');
   const [motivo, setMotivo] = useState<MotivoExclusion | ''>('');
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
-  const [resumen, setResumen] = useState<VistaPreviaResumen | null>(null);
+  const [ultimoResumen, setUltimoResumen] = useState<VistaPreviaResumen | null>(null);
 
   const busquedaFinal = useDebounce(busqueda.trim(), 350);
   const motivoFinal = grupo === 'no_recibe' ? motivo : '';
 
   const { data, loading, error, revalidate } = useFetchVigente(
-    buildKey(ENTITIES.CAMPANIAS, 'recencia', 'preview', grupo, motivoFinal || 'todos', String(pagina), busquedaFinal),
-    () => campaniasService.getVistaPrevia('recencia', {
+    buildKey(ENTITIES.CAMPANIAS, tipo, 'preview', grupo, motivoFinal || 'todos', String(pagina), busquedaFinal),
+    () => campaniasService.getVistaPrevia(tipo, {
       grupo, motivo: motivoFinal, busqueda: busquedaFinal, pagina, por_pagina: POR_PAGINA,
     }),
     { ttl: TTL.SHORT }
@@ -44,10 +45,14 @@ export function CampaniaVistaPrevia({ refresco }: CampaniaVistaPreviaProps) {
 
   const tokenRechazado = useBloqueoPorToken(error);
 
-  // Los contadores de las pestañas se conservan mientras carga otra página
+  // Contadores de las pestañas: salen de la respuesta vigente, en el MISMO render
+  // que las filas (si pasaran por un efecto llegarían un render después y por un
+  // instante se verían filas nuevas con contadores viejos). El último resumen se
+  // guarda solo para no vaciar las pestañas mientras carga otra página.
   useEffect(() => {
-    if (data?.resumen) setResumen(data.resumen);
+    if (data?.resumen) setUltimoResumen(data.resumen);
   }, [data]);
+  const resumen = data?.resumen ?? ultimoResumen;
 
   // Se guardó la campaña (o se encendió/apagó): recalcular
   useEffect(() => {

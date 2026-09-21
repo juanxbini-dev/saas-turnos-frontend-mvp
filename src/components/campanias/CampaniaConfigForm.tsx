@@ -115,12 +115,12 @@ export function CampaniaConfigForm({ campania, loading, error, onReintentar, onG
   }, [firma, reset]);
 
   const onSubmit = async (valores: CampaniaConfigValores) => {
-    if (!valoresServidor) return;
+    if (!valoresServidor || !campania) return;
     const patch = armarPatch(valores, valoresServidor);
     if (Object.keys(patch).length === 0) return;
 
     try {
-      const actualizada = await campaniasService.actualizarCampania('recencia', patch);
+      const actualizada = await campaniasService.actualizarCampania(campania.tipo, patch);
       reset(valoresDe(actualizada));
       onGuardado(actualizada);
       toastService.success('Cambios guardados');

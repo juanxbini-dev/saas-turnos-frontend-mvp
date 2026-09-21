@@ -134,6 +134,10 @@ export interface VistaPreviaFiltros {
 
 export type EstadoEnvio = 'reservado' | 'enviado' | 'entregado' | 'leido' | 'fallido' | 'liberado';
 
+// Cómo se atribuyó la reserva (spec §15.4): 'directa' = reservó entrando por el
+// botón del mensaje; 'ventana' = sacó turno dentro de los días de la ventana.
+export type ConversionEnvio = 'directa' | 'ventana';
+
 export interface TurnoConversion {
   id: string;
   fecha: string;   // 'YYYY-MM-DD'
@@ -154,7 +158,11 @@ export interface CampaniaEnvio {
   enviado_at: string | null;
   entregado_at: string | null;
   leido_at: string | null;
+  // `conversion` reemplaza al booleano; `convirtio` se mantiene por compatibilidad
   convirtio: boolean;
+  conversion?: ConversionEnvio | null;
+  primer_clic_at?: string | null;
+  clics?: number;
   turno_conversion: TurnoConversion | null;
 }
 
@@ -187,6 +195,11 @@ export interface CampaniaMetricasTotales {
   bajas: number;
   conversiones: number;
   con_ventana_abierta: number;
+  // Botón "Reservar turno" del mensaje (§15.4). Opcionales: un backend anterior
+  // no los manda y la pantalla muestra una raya.
+  clics?: number;
+  conversiones_directas?: number;
+  tasa_clic?: number | null;
   tasa_entrega: number | null;
   tasa_lectura: number | null;
   tasa_conversion: number | null;
@@ -196,6 +209,7 @@ export interface CampaniaMetricasPunto {
   fecha: string;   // 'YYYY-MM-DD'
   enviados: number;
   conversiones: number;
+  clics?: number;
 }
 
 export interface CampaniaMetricas {

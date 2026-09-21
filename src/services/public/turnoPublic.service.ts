@@ -32,6 +32,10 @@ export interface CreateTurnoPublicRequest {
   // Tilde "Quiero recibir novedades…" de la reserva. Viaja SIEMPRE: true
   // registra la aceptación (y levanta una baja previa), false registra la baja.
   marketing_consentimiento: boolean;
+  // Código del enlace `?r=` si la persona llegó desde un mensaje de WhatsApp. Sin
+  // código el campo NO se manda. El backend lo usa para atribuir la reserva al
+  // mensaje; un código inválido o vencido se ignora y la reserva se crea igual.
+  campania_codigo?: string;
 }
 
 export interface CreateTurnoPublicResponse {

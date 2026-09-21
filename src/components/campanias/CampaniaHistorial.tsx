@@ -9,7 +9,11 @@ import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
 import { formatFechaDia, formatFechaHoraAR } from './campanias.utils';
-import type { CampaniaEnvio, EstadoEnvio } from '../../types/campanias.types';
+import type { CampaniaEnvio, CampaniaTipo, EstadoEnvio } from '../../types/campanias.types';
+
+interface CampaniaHistorialProps {
+  tipo: CampaniaTipo;
+}
 
 const POR_PAGINA = 20;
 
@@ -23,12 +27,19 @@ const OPCIONES_ESTADO = [
 
 const ESTADOS_QUE_SALIERON: EstadoEnvio[] = ['enviado', 'entregado', 'leido'];
 
+// ¿Reservó? (spec §15.4). `conversion` manda cuando viene:
+//   'directa' → "Sí, desde el mensaje" (entró por el botón y reservó)
+//   'ventana' → "Sí" (sacó turno dentro de los días de la ventana)
+//   null      → "No"
+// Si el backend todavía no la manda, se cae al booleano `convirtio`.
 function Reservo({ envio }: { envio: CampaniaEnvio }) {
-  if (envio.convirtio) {
+  const reservo = envio.conversion !== undefined ? envio.conversion !== null : envio.convirtio;
+
+  if (reservo) {
     const turno = envio.turno_conversion;
     return (
       <span className="text-green-700 font-medium">
-        Sí
+        {envio.conversion === 'directa' ? 'Sí, desde el mensaje' : 'Sí'}
         {turno && (
           <span className="text-gray-500 font-normal">
             {' '}· turno del {formatFechaDia(turno.fecha)}{turno.hora ? ` ${turno.hora.slice(0, 5)}` : ''}
@@ -42,7 +53,7 @@ function Reservo({ envio }: { envio: CampaniaEnvio }) {
 }
 
 // D. Historial de mensajes. Textos: spec §4.3 D.
-export function CampaniaHistorial() {
+export function CampaniaHistorial({ tipo }: CampaniaHistorialProps) {
   const [estado, setEstado] = useState<EstadoEnvio | ''>('');
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
@@ -50,8 +61,8 @@ export function CampaniaHistorial() {
   const busquedaFinal = useDebounce(busqueda.trim(), 350);
 
   const { data, loading, error, revalidate } = useFetchVigente(
-    buildKey(ENTITIES.CAMPANIAS, 'recencia', 'envios', estado || 'todos', String(pagina), busquedaFinal),
-    () => campaniasService.getEnvios('recencia', { estado, busqueda: busquedaFinal, pagina, por_pagina: POR_PAGINA }),
+    buildKey(ENTITIES.CAMPANIAS, tipo, 'envios', estado || 'todos', String(pagina), busquedaFinal),
+    () => campaniasService.getEnvios(tipo, { estado, busqueda: busquedaFinal, pagina, por_pagina: POR_PAGINA }),
     { ttl: TTL.SHORT }
   );
 

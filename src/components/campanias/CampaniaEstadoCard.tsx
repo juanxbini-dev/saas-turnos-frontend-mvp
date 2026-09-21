@@ -24,10 +24,10 @@ export function CampaniaEstadoCard({ campania, loading, error, onReintentar, onC
   const [guardando, setGuardando] = useState(false);
 
   const cambiarEstado = async (activa: boolean) => {
-    if (guardando) return;
+    if (guardando || !campania) return;
     setGuardando(true);
     try {
-      const actualizada = await campaniasService.actualizarCampania('recencia', { activa });
+      const actualizada = await campaniasService.actualizarCampania(campania.tipo, { activa });
       onCambio(actualizada);
       setConfirmando(false);
       toastService.success(activa

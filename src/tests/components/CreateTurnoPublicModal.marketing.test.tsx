@@ -44,9 +44,10 @@ const TEXTO_TILDE = 'Quiero recibir novedades de DEB Salón por WhatsApp. Puedo 
 
 const SERVICIO = { id: 'srv-1', nombre: 'Corte', descripcion: '', precio: 10000, duracion_minutos: 30 };
 
-function renderModal() {
+function renderModal(extra: Partial<React.ComponentProps<typeof CreateTurnoPublicModal>> = {}) {
   return render(
     <CreateTurnoPublicModal
+      {...extra}
       isOpen
       onClose={vi.fn()}
       onSuccess={vi.fn()}
@@ -108,6 +109,8 @@ describe('CreateTurnoPublicModal — novedades por WhatsApp', () => {
 
     await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
     expect(createTurno.mock.calls[0][0]).toMatchObject({ marketing_consentimiento: true });
+    // Reserva común, sin mensaje de por medio: el campo de campaña NO viaja
+    expect(createTurno.mock.calls[0][0]).not.toHaveProperty('campania_codigo');
   });
 
   it('si lo destilda manda marketing_consentimiento: false (no lo omite) y reserva igual', async () => {
@@ -123,6 +126,102 @@ describe('CreateTurnoPublicModal — novedades por WhatsApp', () => {
     await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
     const payload = createTurno.mock.calls[0][0];
     expect(payload).toHaveProperty('marketing_consentimiento', false);
+  });
+
+  // ---- Política de privacidad junto al tilde (spec §16 y §17) ----
+
+  it('"Ver política de privacidad" abre /privacidad en pestaña nueva y está FUERA del label del tilde', async () => {
+    renderModal();
+    await irAlPaso3();
+
+    const enlace = screen.getByRole('link', { name: 'Ver política de privacidad' });
+    expect(enlace.getAttribute('href')).toBe('/privacidad');
+    expect(enlace.getAttribute('target')).toBe('_blank');
+    expect(enlace.getAttribute('rel')).toContain('noopener');
+    expect(enlace.closest('label')).toBeNull();
+    // Y antes del botón de confirmar, al lado del tilde
+    const confirmar = screen.getByRole('button', { name: 'Confirmar turno' });
+    expect(tilde().compareDocumentPosition(enlace) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(enlace.compareDocumentPosition(confirmar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('tocar el enlace NO cambia el tilde ni pierde lo cargado (destildarlo registraría una baja)', async () => {
+    renderModal();
+    await irAlPaso3();
+    completarDatos();
+    expect(tilde().checked).toBe(true);
+
+    fireEvent.click(screen.getByRole('link', { name: 'Ver política de privacidad' }));
+
+    expect(tilde().checked).toBe(true);
+    expect((screen.getByPlaceholderText('Tu nombre') as HTMLInputElement).value).toBe('Juan');
+    expect(screen.getByText('Resumen del turno')).toBeTruthy();
+
+    // Y al revés: con el tilde sacado a propósito, el enlace tampoco lo vuelve a marcar
+    fireEvent.click(tilde());
+    fireEvent.click(screen.getByRole('link', { name: 'Ver política de privacidad' }));
+    expect(tilde().checked).toBe(false);
+  });
+
+  // ---- Llegada desde el botón del mensaje (spec §15.5) ----
+
+  it('con servicioInicialId válido arranca en el paso de horario con "Servicio con Profesional · duración · precio"', async () => {
+    renderModal({ servicioInicialId: 'srv-1' });
+
+    expect(await screen.findByText('Fecha y hora')).toBeTruthy();
+    expect(screen.getByText('Corte con Dani')).toBeTruthy();
+    expect(screen.getByText('30 min · $10000')).toBeTruthy();
+
+    // "Anterior" vuelve al paso de servicios y no salta de nuevo
+    fireEvent.click(screen.getByRole('button', { name: 'Anterior' }));
+    expect(await screen.findByText('Elegí tu servicio')).toBeTruthy();
+    expect(screen.getByText('Corte')).toBeTruthy();
+  });
+
+  it.each([[null], [undefined], ['srv-que-no-existe']])('con servicioInicialId = %s queda en el paso 1 normal', async (servicioInicialId) => {
+    renderModal({ servicioInicialId });
+
+    expect(await screen.findByText('Corte')).toBeTruthy();
+    expect(screen.getByText('Elegí tu servicio')).toBeTruthy();
+    expect(screen.queryByText('Fecha y hora')).toBeNull();
+  });
+
+  it('si la lista de servicios no carga, no se queda esperando: paso 1 normal', async () => {
+    getServiciosProfesional.mockRejectedValue(new Error('Network Error'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    renderModal({ servicioInicialId: 'srv-1' });
+
+    expect(await screen.findByText('Sin servicios configurados por el momento.')).toBeTruthy();
+    expect(screen.getByText('Elegí tu servicio')).toBeTruthy();
+  });
+
+  it('con campaniaCodigo la reserva lleva campania_codigo; el tilde de novedades sigue viajando', async () => {
+    renderModal({ servicioInicialId: 'srv-1', campaniaCodigo: 'Xk92mPq7Lt' });
+    await screen.findByText('Fecha y hora');
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    await screen.findByText('Resumen del turno');
+    completarDatos();
+    fireEvent.click(tilde());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
+
+    await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+    expect(createTurno.mock.calls[0][0]).toMatchObject({
+      servicio_id: 'srv-1',
+      campania_codigo: 'Xk92mPq7Lt',
+      marketing_consentimiento: false,
+    });
+  });
+
+  it.each([[null], [''], [undefined]])('con campaniaCodigo = %s el campo no se manda', async (campaniaCodigo) => {
+    renderModal({ campaniaCodigo });
+    await irAlPaso3();
+    completarDatos();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
+
+    await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+    expect(createTurno.mock.calls[0][0]).not.toHaveProperty('campania_codigo');
   });
 
   it('al cerrar y volver a abrir, el tilde vuelve a estar marcado', async () => {
