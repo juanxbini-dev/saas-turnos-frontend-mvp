@@ -12,6 +12,7 @@ import { FinanzasPage } from '../pages/FinanzasPage';
 import MetricasPage from '../pages/MetricasPage';
 import GastosPage from '../pages/GastosPage';
 import { DebSalonLandingPage } from '../pages/public/DebSalonLandingPage';
+import { PrivacidadPage } from '../pages/public/PrivacidadPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
@@ -31,6 +32,8 @@ const AppRouter = () => {
   return (
     <Routes>
       <Route path="/" element={<DebSalonLandingPage />} />
+      {/* Pública, sin login: la pide Meta y respalda el tilde de novedades de la reserva */}
+      <Route path="/privacidad" element={<PrivacidadPage />} />
       <Route path="/login" element={<LoginPage />} />
 
       {/* Rutas privadas */}
