@@ -1,7 +1,15 @@
 export { empresaPublicService } from './empresaPublic.service';
 export { servicioPublicService } from './servicioPublic.service';
 export { turnoPublicService } from './turnoPublic.service';
-export type { 
+export {
+  campaniaPublicService,
+  esCodigoDeEnlace,
+  guardarCodigoDeVisita,
+  leerCodigoDeVisita,
+  olvidarCodigoDeVisita,
+} from './campaniaPublic.service';
+export type { EnlaceCampania, DestinoEnlaceCampania } from './campaniaPublic.service';
+export type {
   EmpresaPublica, 
   ProfesionalPublic, 
   ServicioProfesional 

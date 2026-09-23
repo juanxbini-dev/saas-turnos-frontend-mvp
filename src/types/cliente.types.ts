@@ -7,12 +7,32 @@ export interface Cliente {
   activo: boolean
   created_at: string
   updated_at: string
+  // Novedades por WhatsApp. Solo vienen en el perfil (GET /clientes/:id/perfil),
+  // no en los listados.
+  marketing_consentimiento_at?: string | null
+  marketing_consentimiento_origen?: string | null
+  marketing_baja_at?: string | null
+  marketing_baja_origen?: MarketingBajaOrigen | null
+  recibe_campanias?: boolean
+}
+
+export type MarketingBajaOrigen = 'whatsapp' | 'panel' | 'reserva_web'
+
+// Respuesta de PATCH /api/clientes/:id/marketing
+export interface ClienteMarketing {
+  marketing_consentimiento_at: string | null
+  marketing_consentimiento_origen: string | null
+  marketing_baja_at: string | null
+  marketing_baja_origen: MarketingBajaOrigen | null
+  recibe_campanias: boolean
 }
 
 export interface CreateClienteData {
   nombre: string
   email?: string
   telefono?: string
+  // Solo en el alta: "Me autorizó a enviarle novedades por WhatsApp"
+  marketing_consentimiento?: boolean
 }
 
 export interface UpdateClienteData {

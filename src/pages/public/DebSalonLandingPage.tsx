@@ -4,7 +4,13 @@ import { Spinner } from '../../components/ui';
 import { CreateTurnoPublicModal } from '../../components/turnos/CreateTurnoPublicModal';
 import { TurnosPublicModal } from '../../components/turnos/TurnosPublicModal';
 import { configuracionService } from '../../services/configuracion.service';
-import { empresaPublicService, ProfesionalPublic, ServicioProfesional } from '../../services/public';
+import { Link } from 'react-router-dom';
+import {
+  empresaPublicService, campaniaPublicService, esCodigoDeEnlace,
+  guardarCodigoDeVisita, leerCodigoDeVisita, olvidarCodigoDeVisita,
+  ProfesionalPublic, ServicioProfesional, DestinoEnlaceCampania,
+} from '../../services/public';
+import { RUTA_PRIVACIDAD } from '../../config/privacidad';
 import { servicioPublicService } from '../../services/public/servicioPublic.service';
 import { LandingConfig, LandingProfesional } from '../../types/landing.types';
 
@@ -509,9 +515,81 @@ export const DebSalonLandingPage: React.FC = () => {
   const [showServiciosModal, setShowServiciosModal] = useState(false);
   const [selectedProfesional, setSelectedProfesional] = useState<ProfesionalPublic | null>(null);
 
+  // Botón "Reservar turno" de los mensajes de WhatsApp: la landing llega con
+  // `?r=<codigo>` (spec campanias-n8n §15.5 y §17).
+  //   - destinoEnlace: lo que respondió el backend; solo sirve para la apertura
+  //     automática del asistente (null = nada que abrir).
+  //   - servicioInicialId: solo para esa apertura automática.
+  //   - campaniaCodigo: el código que viaja en la reserva. Dura TODA la visita:
+  //     si la persona cierra el asistente y reserva a mano con otro profesional,
+  //     o se va a /privacidad y vuelve (la landing se remonta), la reserva sigue
+  //     viniendo del mensaje. Por eso, además del estado, se guarda en
+  //     sessionStorage. Al montar sin `?r=` se levanta de ahí SIN llamar al
+  //     resolver ni reabrir el asistente: el clic ya se contó.
+  //     Un `?r=` nuevo y bien formado reemplaza al código guardado.
+  const [destinoEnlace, setDestinoEnlace] = useState<DestinoEnlaceCampania | null>(null);
+  const [servicioInicialId, setServicioInicialId] = useState<string | null>(null);
+  const [campaniaCodigo, setCampaniaCodigo] = useState<string | null>(() => (
+    esCodigoDeEnlace(new URLSearchParams(window.location.search).get('r')) ? null : leerCodigoDeVisita()
+  ));
+  const enlaceConsultadoRef = useRef(false);
+  const enlaceAplicadoRef = useRef(false);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Resolver el código UNA sola vez: cada llamada cuenta un clic. El guard es un
+  // ref (y no un flag de cleanup) porque StrictMode monta el efecto dos veces en
+  // desarrollo y con un flag de cleanup la única respuesta se descartaría.
+  useEffect(() => {
+    if (enlaceConsultadoRef.current) return;
+    enlaceConsultadoRef.current = true;
+
+    const codigo = new URLSearchParams(window.location.search).get('r');
+    if (codigo === null) return;
+
+    // El código sale de la barra APENAS se lee (ya está en la variable), no
+    // cuando responde el backend: una recarga durante la espera, o compartir la
+    // página, no debe volver a contar clics.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('r');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+
+    // Si no tiene forma de código (exactamente 10 alfanuméricos) ni se consulta
+    if (!esCodigoDeEnlace(codigo)) return;
+
+    // Un enlace nuevo reemplaza al código que hubiera quedado de antes
+    olvidarCodigoDeVisita();
+
+    // resolverEnlace nunca rechaza: ante cualquier falla devuelve null
+    campaniaPublicService.resolverEnlace(codigo).then((destino) => {
+      if (!destino) return;
+      guardarCodigoDeVisita(destino.codigo);
+      setCampaniaCodigo(destino.codigo);
+      setDestinoEnlace(destino);
+    });
+  }, []);
+
+  // Con el enlace resuelto Y la lista de profesionales cargada, se dispara el
+  // mismo handleReservar de siempre. Si el profesional no está en la lista, no
+  // pasa nada: landing normal, sin mensaje.
+  useEffect(() => {
+    if (!destinoEnlace || loading || enlaceAplicadoRef.current) return;
+    enlaceAplicadoRef.current = true;   // la apertura automática se intenta UNA vez
+
+    // Si el resolver tardó (base fría) la persona pudo haber abierto ya "Turnos",
+    // "Servicios" o el asistente con otro profesional: no se le pisa lo que está
+    // haciendo ni se le desmonta lo que cargó. La oportunidad de abrir sola se
+    // pierde, pero el código sigue viajando igual (campaniaCodigo ya quedó).
+    if (showTurnoModal || showTurnosModal || showServiciosModal) return;
+
+    const profesional = profesionales.find((p) => p.id === destinoEnlace.profesionalId);
+    if (!profesional) return;
+
+    handleReservar(profesional, destinoEnlace.servicioId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destinoEnlace, loading, profesionales]);
 
   const loadData = async () => {
     try {
@@ -557,7 +635,10 @@ export const DebSalonLandingPage: React.FC = () => {
     setShowTurnosModal(true);
   };
 
-  const handleReservar = (profesional: ProfesionalPublic) => {
+  // `servicioInicial` solo lo pasa la apertura automática desde un mensaje; una
+  // reserva iniciada a mano arranca siempre en el paso de servicios.
+  const handleReservar = (profesional: ProfesionalPublic, servicioInicial: string | null = null) => {
+    setServicioInicialId(servicioInicial);
     setSelectedProfesional(profesional);
     setShowServiciosModal(false);
     setShowTurnosModal(false);
@@ -572,6 +653,13 @@ export const DebSalonLandingPage: React.FC = () => {
   const handleTurnoSuccess = () => {
     setShowTurnoModal(false);
     setSelectedProfesional(null);
+  };
+
+  // El código ya se usó en una reserva exitosa: un envío, una conversión. No
+  // vuelve a viajar en otra reserva de esta visita ni queda guardado.
+  const handleCampaniaCodigoUsado = () => {
+    olvidarCodigoDeVisita();
+    setCampaniaCodigo(null);
   };
 
   const titulo = landingConfig?.titulo || null;
@@ -854,6 +942,13 @@ export const DebSalonLandingPage: React.FC = () => {
           >
             © {new Date().getFullYear()} DEB Salon — Todos los derechos reservados
           </p>
+
+          <Link
+            to={RUTA_PRIVACIDAD}
+            className="inline-block mt-4 text-xs tracking-[0.15em] uppercase text-white/40 hover:text-white underline-offset-4 hover:underline transition-colors"
+          >
+            Política de privacidad
+          </Link>
         </div>
         </Reveal>
       </footer>
@@ -886,6 +981,9 @@ export const DebSalonLandingPage: React.FC = () => {
           profesionalNombre={selectedProfesional.nombre}
           empresaSlug={EMPRESA_SLUG}
           empresaId={EMPRESA_ID}
+          servicioInicialId={servicioInicialId}
+          campaniaCodigo={campaniaCodigo}
+          onCampaniaCodigoUsado={handleCampaniaCodigoUsado}
         />
       )}
     </div>

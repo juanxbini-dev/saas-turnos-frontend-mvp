@@ -6,6 +6,8 @@ export interface Servicio {
   precio_base: number | null
   precio_minimo: number | null
   precio_maximo: number | null
+  // Cada cuántos días se repite (1 a 730). null = no participa de los avisos de WhatsApp
+  frecuencia_dias?: number | null
   empresa_id: string
   activo: boolean
   created_at: string
@@ -42,6 +44,8 @@ export interface CreateServicioData {
   precio_base?: number
   precio_minimo?: number
   precio_maximo?: number
+  // undefined = no tocar el campo · null = vaciarlo (deja de participar de los avisos)
+  frecuencia_dias?: number | null
 }
 
 export interface UpdateServicioData extends Partial<CreateServicioData> {}

@@ -11,6 +11,7 @@ import ServiciosPage from '../pages/ServiciosPage';
 import { FinanzasPage } from '../pages/FinanzasPage';
 import MetricasPage from '../pages/MetricasPage';
 import GastosPage from '../pages/GastosPage';
+import CampaniasPage from '../pages/CampaniasPage';
 import { DebSalonLandingPage } from '../pages/public/DebSalonLandingPage';
 import { PrivacidadPage } from '../pages/public/PrivacidadPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
@@ -32,7 +33,7 @@ const AppRouter = () => {
   return (
     <Routes>
       <Route path="/" element={<DebSalonLandingPage />} />
-      {/* Pública, sin login: la pide Meta y respalda el tilde de novedades de la reserva */}
+      {/* Pública, sin login: la pide Meta y la enlaza el tilde de novedades de la reserva */}
       <Route path="/privacidad" element={<PrivacidadPage />} />
       <Route path="/login" element={<LoginPage />} />
 
@@ -50,6 +51,11 @@ const AppRouter = () => {
           <Route path="/gastos" element={
             <SuperAdminRoute>
               <GastosPage />
+            </SuperAdminRoute>
+          } />
+          <Route path="/campanias" element={
+            <SuperAdminRoute>
+              <CampaniasPage />
             </SuperAdminRoute>
           } />
           <Route path="/usuarios" element={

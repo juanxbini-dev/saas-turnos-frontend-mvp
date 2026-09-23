@@ -8,6 +8,7 @@ import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { cacheService } from '../../cache/cache.service';
 import { turnoPublicService, servicioPublicService } from '../../services/public';
 import { DateHelper } from '../../shared/utils/DateHelper';
+import { RUTA_PRIVACIDAD } from '../../config/privacidad';
 
 interface CreateTurnoPublicModalProps {
   isOpen: boolean;
@@ -17,6 +18,17 @@ interface CreateTurnoPublicModalProps {
   profesionalNombre: string;
   empresaSlug: string;
   empresaId: string;
+  // Llegada desde el botón "Reservar turno" de un mensaje de WhatsApp (spec
+  // campanias-n8n §15.5). Las dos son opcionales: sin ellas, el flujo de siempre.
+  //   - servicioInicialId: si ese servicio está entre los de este profesional,
+  //     el asistente arranca en el paso de horario con el servicio ya elegido.
+  //   - campaniaCodigo: viaja como `campania_codigo` en la reserva, para saber
+  //     que ese turno salió del mensaje.
+  //   - onCampaniaCodigoUsado: avisa, apenas la reserva se creó bien, que ese
+  //     código ya se usó (la landing lo olvida: un envío, una conversión).
+  servicioInicialId?: string | null;
+  campaniaCodigo?: string | null;
+  onCampaniaCodigoUsado?: () => void;
 }
 
 interface ClienteFormData {
@@ -54,7 +66,10 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   onSuccess,
   profesionalId,
   profesionalNombre,
-  empresaId
+  empresaId,
+  servicioInicialId = null,
+  campaniaCodigo = null,
+  onCampaniaCodigoUsado
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedServicio, setSelectedServicio] = useState<ServicioProfesional | null>(null);
@@ -65,6 +80,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     telefono: ''
   });
   const [notas, setNotas] = useState('');
+  // Novedades por WhatsApp: tildado por defecto, opcional, y viaja siempre
+  const [quiereNovedades, setQuiereNovedades] = useState(true);
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -111,13 +128,48 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
   const {
     data: serviciosResponse,
-    loading: loadingServicios
+    loading: loadingServicios,
+    error: errorServicios
   } = useFetch(
     profesionalId ? buildKey(ENTITIES.SERVICIOS, profesionalId) : null,
     () => profesionalId ? servicioPublicService.getServiciosProfesional(profesionalId) : Promise.resolve([])
   );
 
   const servicios = serviciosResponse ? (serviciosResponse as any).data?.data || [] : [];
+
+  // Servicio inicial: se aplica UNA vez por servicio pedido, cuando la lista de
+  // servicios del profesional ya cargó. Mientras tanto el paso 1 muestra el
+  // spinner en lugar de la lista, para que no parpadee antes de saltar al paso 2.
+  // Si el servicio no está en la lista (o la lista no cargó), queda el paso 1
+  // normal. Después de aplicado, "Anterior" vuelve al paso de servicios como
+  // siempre y no se vuelve a saltar.
+  const [esperandoServicioInicial, setEsperandoServicioInicial] = useState(!!servicioInicialId);
+  const servicioInicialAplicadoRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !servicioInicialId || servicioInicialAplicadoRef.current === servicioInicialId) {
+      setEsperandoServicioInicial(false);
+      return;
+    }
+    if (errorServicios) {
+      servicioInicialAplicadoRef.current = servicioInicialId;
+      setEsperandoServicioInicial(false);
+      return;
+    }
+    if (loadingServicios || !serviciosResponse) {
+      setEsperandoServicioInicial(true);
+      return;
+    }
+
+    servicioInicialAplicadoRef.current = servicioInicialId;
+    const inicial = (servicios as ServicioProfesional[]).find((sv) => sv.id === servicioInicialId);
+    if (inicial) {
+      setSelectedServicio(inicial);
+      setStep(2);
+    }
+    setEsperandoServicioInicial(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, servicioInicialId, loadingServicios, serviciosResponse, errorServicios]);
 
   const clearFieldError = (field: keyof FieldErrors) => {
     setFieldErrors(prev => ({ ...prev, [field]: undefined }));
@@ -187,10 +239,15 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         hora: selectedSlot,
         cliente_data: buildClientePayload(),
         cliente_id: useExisting ? existingCliente?.id : undefined,
-        notas
+        notas,
+        marketing_consentimiento: quiereNovedades,
+        // Solo si la persona llegó desde un mensaje; si no, el campo no viaja
+        ...(campaniaCodigo ? { campania_codigo: campaniaCodigo } : {})
       };
 
       await turnoPublicService.createTurno(turnoData);
+
+      if (campaniaCodigo) onCampaniaCodigoUsado?.();
 
       if (profesionalId && selectedDate) {
         cacheService.invalidate(buildKey(ENTITIES.SLOTS, profesionalId, selectedDate));
@@ -224,6 +281,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setSelectedServicio(null);
     setClienteData({ nombre: '', apellido: '', email: '', telefono: '' });
     setNotas('');
+    setQuiereNovedades(true);
     setExistingCliente(null);
     setShowMatchModal(false);
     setShowSuccessModal(false);
@@ -331,7 +389,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
               {/* Step 1 - Servicio */}
             {step === 1 && (
               <div className="space-y-3">
-                {loadingServicios ? (
+                {loadingServicios || esperandoServicioInicial ? (
                   <div className="flex justify-center py-8"><Spinner /></div>
                 ) : servicios?.length === 0 ? (
                   <p className="text-center text-white/40 text-sm py-8">
@@ -371,7 +429,12 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
               <div className="space-y-5">
                 <div className={darkCard}>
                   <p className={darkLabel}>Servicio</p>
-                  <p className="text-sm text-white font-medium">{selectedServicio?.nombre}</p>
+                  <p className="text-sm text-white font-medium">
+                    {selectedServicio?.nombre} con {profesionalNombre}
+                  </p>
+                  <p className="text-xs text-white/50 mt-1">
+                    {selectedServicio?.duracion_minutos || 0} min · ${selectedServicio?.precio || 0}
+                  </p>
                 </div>
 
                 <Calendar
@@ -505,12 +568,44 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                     ))}
                   </div>
                 </div>
+
               </div>
             )}
           </div>
 
+          {/* Novedades por WhatsApp: FIJO sobre el botón de confirmar, fuera de la
+              zona que se desplaza. Viene tildado, así que tiene que verse siempre:
+              nadie debe poder confirmar sin haberlo tenido a la vista. Opcional,
+              no bloquea la reserva. */}
+          {step === 3 && (
+            <div className="px-6 pt-4 border-t border-white/10 flex-shrink-0">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={quiereNovedades}
+                  onChange={(e) => setQuiereNovedades(e.target.checked)}
+                  disabled={loading}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-white disabled:opacity-40"
+                />
+                <span className="text-sm text-white/70 leading-snug">
+                  Quiero recibir novedades de DEB Salón por WhatsApp.
+                </span>
+              </label>
+              {/* Fuera del <label>: tocarlo no cambia el tilde. Pestaña nueva:
+                  el asistente queda abierto con todo lo cargado. */}
+              <a
+                href={RUTA_PRIVACIDAD}
+                target="_blank"
+                rel="noopener"
+                className="inline-block pl-7 mt-1 text-xs text-white/40 underline underline-offset-2 hover:text-white transition-colors"
+              >
+                Ver política de privacidad
+              </a>
+            </div>
+          )}
+
           {/* Footer / Navigation */}
-          <div className="flex justify-between px-6 py-4 border-t border-white/10 flex-shrink-0 gap-3">
+          <div className={`flex justify-between px-6 py-4 flex-shrink-0 gap-3 ${step === 3 ? '' : 'border-t border-white/10'}`}>
             <button
               onClick={handlePrevStep}
               disabled={step === 1}

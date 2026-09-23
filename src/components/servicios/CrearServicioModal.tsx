@@ -3,6 +3,7 @@ import { Button, Input, Textarea } from '../ui';
 import { servicioService } from '../../services/servicio.service';
 import { CreateServicioData } from '../../types/servicio.types';
 import { useToast } from '../../hooks/useToast';
+import { FRECUENCIA_AYUDA, FRECUENCIA_ERROR, FRECUENCIA_LABEL, parsearFrecuencia } from './frecuencia.utils';
 
 interface CrearServicioModalProps {
   onClose: () => void;
@@ -23,6 +24,8 @@ export const CrearServicioModal: React.FC<CrearServicioModalProps> = ({
     precio_minimo: undefined,
     precio_maximo: undefined
   });
+  const [frecuenciaTexto, setFrecuenciaTexto] = useState('');
+  const [frecuenciaError, setFrecuenciaError] = useState<string | undefined>(undefined);
 
   const handleChange = (field: keyof CreateServicioData, value: any) => {
     setFormData(prev => ({
@@ -45,10 +48,17 @@ export const CrearServicioModal: React.FC<CrearServicioModalProps> = ({
       return;
     }
 
+    const frecuencia = parsearFrecuencia(frecuenciaTexto);
+    if (!frecuencia.valida) {
+      setFrecuenciaError(FRECUENCIA_ERROR);
+      return;
+    }
+
     setLoading(true);
-    
+
     try {
-      await servicioService.createServicio(formData);
+      // Sin frecuencia viaja null explícito: el servicio no participa de los avisos
+      await servicioService.createServicio({ ...formData, frecuencia_dias: frecuencia.valor });
       toastSuccess('Servicio creado correctamente');
       onServicioCreado();
     } catch (error: any) {
@@ -117,6 +127,20 @@ export const CrearServicioModal: React.FC<CrearServicioModalProps> = ({
           min="0"
         />
       </div>
+
+      <Input
+        label={FRECUENCIA_LABEL}
+        // type="text" a propósito: un input number con texto inválido entrega ''
+        // y se confundiría con "sin frecuencia"
+        type="text"
+        inputMode="numeric"
+        value={frecuenciaTexto}
+        onChange={(e) => { setFrecuenciaTexto(e.target.value); setFrecuenciaError(undefined); }}
+        placeholder="Ej: 30"
+        maxLength={3}
+        help={FRECUENCIA_AYUDA}
+        error={frecuenciaError}
+      />
 
       <div className="flex justify-end space-x-3 pt-4">
         <Button
