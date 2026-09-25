@@ -1,6 +1,10 @@
 import axiosInstance from '../api/axiosInstance';
 import { Servicio, UsuarioServicio, CreateServicioData, UpdateServicioData, UpdateMiServicioData } from '../types/servicio.types';
+import { invalidarCacheCampanias } from './campanias.service';
 
+// El catálogo define a quién le llega la campaña de WhatsApp (frecuencia del
+// servicio, si está activo, si existe): toda mutación del catálogo tira el
+// cache de Campañas. El prefijo SERVICIOS lo sigue invalidando ServiciosPage.
 export const servicioService = {
   async getServicios(): Promise<Servicio[]> {
     const response = await axiosInstance.get('/api/servicios');
@@ -9,21 +13,25 @@ export const servicioService = {
 
   async createServicio(data: CreateServicioData): Promise<Servicio> {
     const response = await axiosInstance.post('/api/servicios', data);
+    invalidarCacheCampanias();
     return response.data.data;
   },
 
   async updateServicio(id: string, data: UpdateServicioData): Promise<Servicio> {
     const response = await axiosInstance.put(`/api/servicios/${id}`, data);
+    invalidarCacheCampanias();
     return response.data.data;
   },
 
   async toggleActivo(id: string, activo: boolean): Promise<Servicio> {
     const response = await axiosInstance.put(`/api/servicios/${id}/activo`, { activo });
+    invalidarCacheCampanias();
     return response.data.data;
   },
 
   async deleteServicio(id: string): Promise<void> {
     await axiosInstance.delete(`/api/servicios/${id}`);
+    invalidarCacheCampanias();
   },
 
   async suscribirse(servicioId: string, usuarioId?: string): Promise<UsuarioServicio> {

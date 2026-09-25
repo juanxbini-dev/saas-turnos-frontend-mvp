@@ -28,6 +28,8 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
     email: '',
     telefono: ''
   });
+  // Solo en el alta: el cliente autorizó de palabra las novedades por WhatsApp
+  const [autorizoNovedades, setAutorizoNovedades] = useState(false);
   const [duplicado, setDuplicado] = useState<{ isOpen: boolean; cliente: Cliente | null; mensaje: string }>({
     isOpen: false,
     cliente: null,
@@ -55,6 +57,12 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
     }
   }, [cliente, isEditing]);
 
+  // El tilde nunca se hereda de un alta anterior: quedaría registrado un
+  // permiso que esta persona no dio.
+  useEffect(() => {
+    if (isOpen) setAutorizoNovedades(false);
+  }, [isOpen, cliente]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -77,14 +85,19 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
         const createData: CreateClienteData = {
           nombre: formData.nombre,
           email: formData.email.trim() || undefined,
-          telefono: formData.telefono || undefined
+          telefono: formData.telefono || undefined,
+          // Solo viaja si lo tildaron: sin tilde no se afirma nada sobre la
+          // persona (ni permiso ni baja).
+          marketing_consentimiento: autorizoNovedades ? true : undefined
         };
         await clienteService.createCliente(createData);
         toast.success('Cliente creado');
       }
 
-      // Invalidar caché
+      // Invalidar caché. Un cambio de teléfono cambia a quién le llega la
+      // campaña de WhatsApp, así que también se tira lo de Campañas.
       cacheService.invalidateByPrefix(buildKey(ENTITIES.CLIENTES));
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.CAMPANIAS));
       
       onSuccess();
       onClose();
@@ -154,6 +167,19 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
             disabled={loading}
           />
         </div>
+
+        {!isEditing && (
+          <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autorizoNovedades}
+              onChange={(e) => setAutorizoNovedades(e.target.checked)}
+              disabled={loading}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>Me autorizó a enviarle novedades por WhatsApp</span>
+          </label>
+        )}
 
         <div className="flex justify-end space-x-3 pt-4">
           <Button

@@ -1,5 +1,8 @@
 import axiosInstance from '../api/axiosInstance';
-import { Cliente, CreateClienteData, UpdateClienteData, ClientePerfil } from '../types/cliente.types';
+import { Cliente, CreateClienteData, UpdateClienteData, ClientePerfil, ClienteMarketing } from '../types/cliente.types';
+import { cacheService } from '../cache/cache.service';
+import { buildKey, ENTITIES } from '../cache/key.builder';
+import { invalidarCacheCampanias } from './campanias.service';
 
 export interface ClientesPaginadosResponse {
   items: Cliente[];
@@ -55,11 +58,23 @@ export const clienteService = {
 
   async updateCliente(id: string, data: UpdateClienteData): Promise<Cliente> {
     const response = await axiosInstance.put(`/api/clientes/${id}`, data);
+    // Un cambio de teléfono o de nombre cambia a quién le llega la campaña
+    invalidarCacheCampanias();
     return response.data.data;
   },
 
   async deleteCliente(id: string): Promise<void> {
     await axiosInstance.delete(`/api/clientes/${id}`);
+    invalidarCacheCampanias();
+  },
+
+  // Alta y baja manual de las novedades por WhatsApp. recibe:false lo puede
+  // hacer cualquiera del equipo; recibe:true solo admin o super_admin (403).
+  async actualizarMarketing(id: string, recibe: boolean): Promise<ClienteMarketing> {
+    const response = await axiosInstance.patch(`/api/clientes/${id}/marketing`, { recibe });
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.CLIENTES));
+    invalidarCacheCampanias();
+    return response.data.data;
   },
 
   async getPerfilCliente(id: string): Promise<ClientePerfil> {

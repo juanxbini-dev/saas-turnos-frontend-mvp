@@ -3,6 +3,7 @@ import { Button, Input, Textarea } from '../ui';
 import { servicioService } from '../../services/servicio.service';
 import { Servicio, UpdateServicioData } from '../../types/servicio.types';
 import { useToast } from '../../hooks/useToast';
+import { FRECUENCIA_AYUDA, FRECUENCIA_ERROR, FRECUENCIA_LABEL, parsearFrecuencia } from './frecuencia.utils';
 
 interface EditarServicioModalProps {
   servicio: Servicio;
@@ -25,6 +26,11 @@ export const EditarServicioModal: React.FC<EditarServicioModalProps> = ({
     precio_minimo: servicio.precio_minimo || undefined,
     precio_maximo: servicio.precio_maximo || undefined
   });
+  // Se maneja como texto para distinguir "vacío" (→ null) de un número
+  const [frecuenciaTexto, setFrecuenciaTexto] = useState(
+    servicio.frecuencia_dias != null ? String(servicio.frecuencia_dias) : ''
+  );
+  const [frecuenciaError, setFrecuenciaError] = useState<string | undefined>(undefined);
 
   const handleChange = (field: keyof UpdateServicioData, value: any) => {
     setFormData(prev => ({
@@ -47,10 +53,17 @@ export const EditarServicioModal: React.FC<EditarServicioModalProps> = ({
       return;
     }
 
+    const frecuencia = parsearFrecuencia(frecuenciaTexto);
+    if (!frecuencia.valida) {
+      setFrecuenciaError(FRECUENCIA_ERROR);
+      return;
+    }
+
     setLoading(true);
-    
+
     try {
-      await servicioService.updateServicio(servicio.id, formData);
+      // Vaciar el campo manda null explícito (undefined sería "no tocar")
+      await servicioService.updateServicio(servicio.id, { ...formData, frecuencia_dias: frecuencia.valor });
       toastSuccess('Servicio actualizado correctamente');
       onServicioActualizado();
     } catch (error: any) {
@@ -119,6 +132,20 @@ export const EditarServicioModal: React.FC<EditarServicioModalProps> = ({
           min="0"
         />
       </div>
+
+      <Input
+        label={FRECUENCIA_LABEL}
+        // type="text" a propósito: un input number con texto inválido ("e", "1-")
+        // entrega '' y se confundiría con "vaciar el campo" (→ null)
+        type="text"
+        inputMode="numeric"
+        value={frecuenciaTexto}
+        onChange={(e) => { setFrecuenciaTexto(e.target.value); setFrecuenciaError(undefined); }}
+        placeholder="Ej: 30"
+        maxLength={3}
+        help={FRECUENCIA_AYUDA}
+        error={frecuenciaError}
+      />
 
       <div className="flex justify-end space-x-3 pt-4">
         <Button

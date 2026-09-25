@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Table, Button, Badge, Card } from '../ui';
 import { Servicio, UsuarioServicio } from '../../types/servicio.types';
 import { Edit, Trash2, Plus } from 'lucide-react';
+import { etiquetaFrecuencia } from './frecuencia.utils';
 
 interface ServiciosCatalogoProps {
   servicios: Servicio[];
@@ -61,6 +62,11 @@ export const ServiciosCatalogo: React.FC<ServiciosCatalogoProps> = ({
         return (
           <div className="font-medium text-gray-900">
             {nombre}
+            {servicio.frecuencia_dias != null && (
+              <Badge variant="blue" size="sm" className="ml-2 align-middle whitespace-nowrap">
+                {etiquetaFrecuencia(servicio.frecuencia_dias)}
+              </Badge>
+            )}
           </div>
         );
       }
@@ -190,6 +196,12 @@ export const ServiciosCatalogo: React.FC<ServiciosCatalogoProps> = ({
           <span><span className="font-medium">Duración:</span> {servicio.duracion} min</span>
           <span><span className="font-medium">Precio:</span> {formatearPrecio(servicio.precio_base)}</span>
         </div>
+
+        {servicio.frecuencia_dias != null && (
+          <div>
+            <Badge variant="blue" size="sm">{etiquetaFrecuencia(servicio.frecuencia_dias)}</Badge>
+          </div>
+        )}
 
         <div className="pt-2 border-t border-gray-100">
           <button

@@ -3,6 +3,7 @@ import { Calendar, Clock, DollarSign, User, Mail, Phone, TrendingUp, ShoppingBag
 import { Modal, Avatar, TurnoEstadoBadge, Spinner } from '../ui';
 import { clienteService } from '../../services/cliente.service';
 import { ClientePerfil, TurnoResumen, ProductoComprado, Cliente } from '../../types/cliente.types';
+import { ClienteMarketingRow } from './ClienteMarketingRow';
 
 interface ClientePerfilDrawerProps {
   cliente: Cliente | null;
@@ -206,6 +207,14 @@ export const ClientePerfilDrawer: React.FC<ClientePerfilDrawerProps> = ({ client
               </div>
             </div>
           </div>
+
+          {/* Novedades por WhatsApp: baja y reactivación manual */}
+          <ClienteMarketingRow
+            cliente={perfil.cliente}
+            onCambio={(marketing) => setPerfil((previo) => (
+              previo ? { ...previo, cliente: { ...previo.cliente, ...marketing } } : previo
+            ))}
+          />
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">

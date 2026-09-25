@@ -119,8 +119,13 @@ export const TurnosPublicModal: React.FC<TurnosPublicModalProps> = ({
       setCliente(foundCliente);
       setTurnos(foundTurnos);
       setView(flowType === 'cancelar' ? 'cancelar-list' : 'mis-turnos');
-    } catch {
-      setError('No se pudo buscar tus turnos. Intentá nuevamente.');
+    } catch (err: any) {
+      // 429: el backend frenó demasiadas búsquedas seguidas y manda un mensaje para mostrar tal cual
+      setError(
+        err.response?.status === 429 && err.response.data?.message
+          ? err.response.data.message
+          : 'No se pudo buscar tus turnos. Intentá nuevamente.'
+      );
     } finally {
       setLoading(false);
     }

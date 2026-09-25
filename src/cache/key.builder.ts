@@ -21,7 +21,8 @@ export const ENTITIES = {
   BLOQUEOS: 'bloqueos',
   FINANZAS: 'finanzas',
   METRICAS: 'metricas',
-  GASTOS: 'gastos'
+  GASTOS: 'gastos',
+  CAMPANIAS: 'campanias'
 } as const;
 
 function decodeJWT(token: string): any | null {
