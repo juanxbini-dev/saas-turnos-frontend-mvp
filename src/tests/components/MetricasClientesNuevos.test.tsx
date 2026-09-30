@@ -343,6 +343,21 @@ describe('MetricasClientesNuevos · posibles duplicados', () => {
     expect(screen.queryByText('Ficha Vieja B1')).toBeNull();
   });
 
+  it('D7b · cambiar el filtro cierra los detalles: al volver a "todos" no reaparecen abiertos', () => {
+    renderizar();
+    fireEvent.click(within(filaCliente('Cliente B1')).getByRole('button', { name: 'Ver posibles duplicados de Cliente B1' }));
+    expect(screen.getByText('Ficha Vieja B1')).toBeInTheDocument();
+
+    fireEvent.click(filaProfesional('Ana'));
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar filtro' }));
+
+    expect(screen.getByText('Cliente B1')).toBeInTheDocument();
+    expect(screen.queryByText('Ficha Vieja B1')).toBeNull();
+    expect(
+      within(filaCliente('Cliente B1')).getByRole('button', { name: 'Ver posibles duplicados de Cliente B1' })
+    ).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('D8 · nunca aparece "Turnos 2.0" en pantalla', () => {
     const { container } = renderizar();
     fireEvent.click(filaProfesional('Ana'));

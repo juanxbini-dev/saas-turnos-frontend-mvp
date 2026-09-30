@@ -47,6 +47,7 @@ export const MetricasClientesNuevos: React.FC<MetricasClientesNuevosProps> = ({
   ) {
     setProfesionalFiltro(null);
     setVerTodos(false);
+    setDuplicadosAbiertos(new Set());
   }
 
   if (isLoading) {
@@ -74,15 +75,18 @@ export const MetricasClientesNuevos: React.FC<MetricasClientesNuevosProps> = ({
     );
   }
 
-  const seleccionarProfesional = (profesionalId: string) => {
-    setProfesionalFiltro((actual) => (actual === profesionalId ? null : profesionalId));
+  // Cambiar el filtro vuelve a "ver menos" y cierra los detalles de duplicado abiertos
+  const cambiarFiltro = (nuevo: string | null) => {
+    setProfesionalFiltro(nuevo);
     setVerTodos(false);
+    setDuplicadosAbiertos(new Set());
   };
 
-  const quitarFiltro = () => {
-    setProfesionalFiltro(null);
-    setVerTodos(false);
+  const seleccionarProfesional = (profesionalId: string) => {
+    cambiarFiltro(profesionalFiltro === profesionalId ? null : profesionalId);
   };
+
+  const quitarFiltro = () => cambiarFiltro(null);
 
   const toggleDuplicados = (clienteId: string) => {
     setDuplicadosAbiertos((prev) => {
