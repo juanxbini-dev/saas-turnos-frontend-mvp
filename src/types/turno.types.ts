@@ -12,6 +12,8 @@ export interface Turno {
   notas: string | null;
   servicio: string;
   precio: number;
+  // Columna cruda de la DB; el backend la manda junto con su alias `precio` en algunos endpoints
+  servicio_precio?: number;
   duracion_minutos: number;
   empresa_id: string;
   created_at: string;
