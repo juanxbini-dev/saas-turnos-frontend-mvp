@@ -38,7 +38,7 @@ class ToastService {
       return; // No auto-dismiss para toasts persistentes
     }
 
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       this.dismiss(toast.id);
     }, toast.duration);
 
