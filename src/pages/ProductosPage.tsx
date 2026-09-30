@@ -525,7 +525,7 @@ function ProductosPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <Badge variant={p.activo ? 'success' : 'default'}>
+                            <Badge variant={p.activo ? 'green' : 'gray'}>
                               {p.activo ? 'Activo' : 'Inactivo'}
                             </Badge>
                           </td>
@@ -609,7 +609,7 @@ function ProductosPage() {
                           }`}>
                             Stock: {p.stock}
                           </span>
-                          <Badge variant={p.activo ? 'success' : 'default'}>
+                          <Badge variant={p.activo ? 'green' : 'gray'}>
                             {p.activo ? 'Activo' : 'Inactivo'}
                           </Badge>
                           {p.costo == null ? (

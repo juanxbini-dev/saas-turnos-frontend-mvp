@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import axiosInstance from '../../api/axiosInstance';
 import { finanzasService } from '../../services/finanzas.service';
+import type { FinanzasFilters } from '../../types/finanzas.types';
 
 vi.mock('../../api/axiosInstance', () => ({
   default: {
@@ -18,7 +19,8 @@ const axiosMock = axiosInstance as unknown as {
   patch: ReturnType<typeof vi.fn>;
 };
 
-const filtrosBase = {
+const filtrosBase: FinanzasFilters = {
+  periodo: 'custom',
   fecha_desde: '2026-04-01',
   fecha_hasta: '2026-04-30',
   tipo: 'todos',

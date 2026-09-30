@@ -124,8 +124,10 @@ export const MetricasEvolucionChart: React.FC<MetricasEvolucionChartProps> = ({
                   formatCurrency(Number(value) || 0),
                   name === 'servicios' ? 'Servicios' : 'Productos',
                 ]}
-                labelFormatter={(f: string) =>
-                  agrupar === 'dia' ? `Día ${f.slice(8)}/${f.slice(5, 7)}` : formatEje(f, agrupar)
+                labelFormatter={(label) => {
+                  const f = String(label);
+                  return agrupar === 'dia' ? `Día ${f.slice(8)}/${f.slice(5, 7)}` : formatEje(f, agrupar);
+                }
                 }
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
               />

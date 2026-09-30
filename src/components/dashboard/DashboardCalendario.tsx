@@ -203,7 +203,8 @@ const calendarFormats = {
   weekdayFormat: (date: Date) => format(date, 'EEE', { locale: es }),
   dayRangeHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
     `${format(start, 'dd MMM yyyy', { locale: es })} - ${format(end, 'dd MMM yyyy', { locale: es })}`,
-  agendaHeaderFormat: (date: Date) => format(date, 'EEEE d MMMM', { locale: es }),
+  agendaHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, 'd MMMM', { locale: es })} - ${format(end, 'd MMMM', { locale: es })}`,
   agendaDateFormat: (date: Date) => format(date, 'd', { locale: es }),
   agendaTimeFormat: (date: Date) => format(date, 'HH:mm', { locale: es }),
   agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
@@ -1216,7 +1217,6 @@ export function DashboardCalendario({
         min={new Date(new Date().setHours(9, 0, 0, 0))}
         max={new Date(new Date().setHours(21, 0, 0, 0))}
         scrollToTime={new Date(new Date().setHours(Math.max(primeraHoraDisponible - 1, 9), 0, 0, 0))}
-        timeGutterWidth={isMobile ? 45 : 70}
         slotPropGetter={(date: Date) => {
           const isAvailable = isSlotAvailable(date);
           const isBloqueado = isSlotBloqueado(date);

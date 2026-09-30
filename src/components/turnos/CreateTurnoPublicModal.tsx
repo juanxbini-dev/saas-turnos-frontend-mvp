@@ -132,7 +132,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     error: errorServicios
   } = useFetch(
     profesionalId ? buildKey(ENTITIES.SERVICIOS, profesionalId) : null,
-    () => profesionalId ? servicioPublicService.getServiciosProfesional(profesionalId) : Promise.resolve([])
+    () => profesionalId ? servicioPublicService.getServiciosProfesional(profesionalId) : Promise.resolve(null)
   );
 
   const servicios = serviciosResponse ? (serviciosResponse as any).data?.data || [] : [];
@@ -229,12 +229,17 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
   const createNewClienteAndTurno = async (useExisting = false) => {
     setSubmitError(null);
+    if (!selectedServicio || !selectedDate || !selectedSlot) {
+      setSubmitError('Elegí servicio, día y horario antes de confirmar.');
+      setShowErrorModal(true);
+      return;
+    }
     try {
       setLoading(true);
 
       const turnoData = {
         profesional_id: profesionalId,
-        servicio_id: selectedServicio?.id,
+        servicio_id: selectedServicio.id,
         fecha: selectedDate,
         hora: selectedSlot,
         cliente_data: buildClientePayload(),
