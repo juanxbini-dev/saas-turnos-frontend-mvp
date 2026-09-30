@@ -209,6 +209,7 @@ function MetricasPage() {
       {/* Clientes nuevos y profesional elegido */}
       <div className="mb-6">
         <MetricasClientesNuevos
+          key={`${periodo.fecha_desde}_${periodo.fecha_hasta}`}
           data={clientesNuevos ?? null}
           isLoading={loadingClientesNuevos}
         />

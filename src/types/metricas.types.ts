@@ -54,6 +54,17 @@ export interface MetricasClienteNuevoItem {
   servicio: string;
   origen: 'web' | 'interno' | null;
   volvio: boolean;
+  posibles_duplicados: MetricasPosibleDuplicado[]; // [] si no hay; nunca undefined
+}
+
+export type MotivoPosibleDuplicado = 'telefono' | 'nombre';
+
+export interface MetricasPosibleDuplicado {
+  cliente_id: string;
+  nombre: string;
+  telefono: string | null;
+  primera_visita: string | null; // YYYY-MM-DD: primer turno NO cancelado de esa ficha; null si no tiene
+  motivo: MotivoPosibleDuplicado;
 }
 
 export interface MetricasClientesNuevosPorProfesional {
