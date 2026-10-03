@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useContadorParaRevisar } from '../hooks/useContadorParaRevisar';
+import { useNavegacionPestanias } from '../hooks/useNavegacionPestanias';
 import { MetricasPuntuaciones } from '../components/metricas/MetricasPuntuaciones';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui';
@@ -44,6 +45,14 @@ const periodoDe = (base: Date, modo: ModoPeriodo): MetricasPeriodo =>
 type VistaMetricas = 'negocio' | 'puntuaciones';
 const PARAM_VISTA = 'vista';
 
+const PESTANIAS: { id: VistaMetricas; label: string }[] = [
+  { id: 'negocio', label: 'Negocio' },
+  { id: 'puntuaciones', label: 'Puntuaciones' },
+];
+const IDS_PESTANIAS = PESTANIAS.map((p) => p.id);
+const idTab = (v: VistaMetricas) => `metricas-tab-${v}`;
+const idPanel = (v: VistaMetricas) => `metricas-panel-${v}`;
+
 function MetricasPage() {
   const { state } = useAuth();
   const esSuperAdmin = (state.authUser?.roles ?? state.roles ?? []).includes('super_admin');
@@ -52,11 +61,16 @@ function MetricasPage() {
   const { pendientes } = useContadorParaRevisar(esSuperAdmin);
 
   const elegirVista = (nueva: VistaMetricas) => {
+    if (nueva === vista) return;
     const params = new URLSearchParams(searchParams);
     if (nueva === 'negocio') params.delete(PARAM_VISTA);
     else params.set(PARAM_VISTA, nueva);
     setSearchParams(params, { replace: true });
   };
+  const teclado = useNavegacionPestanias(IDS_PESTANIAS, vista, elegirVista);
+
+  // En Puntuaciones no se muestra nada de Negocio: sus pedidos quedan en pausa (clave null)
+  const enNegocio = vista === 'negocio';
 
   const [modo, setModo] = useState<ModoPeriodo>('mes');
   const [base, setBase] = useState(() => new Date());
@@ -99,44 +113,44 @@ function MetricasPage() {
     error: errorResumen,
     revalidate: revalidateResumen,
   } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'resumen', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'resumen', cacheKeyPeriodo) : null,
     () => metricasService.getResumen(periodo),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: resumenAnterior } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'resumen', `${modo}-${periodoAnterior.fecha_desde}`),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'resumen', `${modo}-${periodoAnterior.fecha_desde}`) : null,
     () => metricasService.getResumen(periodoAnterior),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: evolucion, loading: loadingEvolucion } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'evolucion', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'evolucion', cacheKeyPeriodo) : null,
     () => metricasService.getEvolucion(periodo, agrupar),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: equipo, loading: loadingEquipo } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'equipo', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'equipo', cacheKeyPeriodo) : null,
     () => metricasService.getEquipo(periodo),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: clientesNuevos, loading: loadingClientesNuevos } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'clientes-nuevos', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'clientes-nuevos', cacheKeyPeriodo) : null,
     () => metricasService.getClientesNuevos(periodo),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: comparativa, loading: loadingComparativa } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'comparativa', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'comparativa', cacheKeyPeriodo) : null,
     () => metricasService.getComparativa(periodo, agrupar),
     { ttl: TTL.MEDIUM }
   );
 
   // Lista de usuarios para abrir el modal de detalle por profesional
   const { data: usuariosData } = useFetch(
-    buildKey(ENTITIES.USUARIOS, 'metricas'),
+    enNegocio ? buildKey(ENTITIES.USUARIOS, 'metricas') : null,
     () => usuarioService.getUsuarios(),
     { ttl: TTL.MEDIUM }
   );
@@ -162,18 +176,20 @@ function MetricasPage() {
       {esSuperAdmin && (
         <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-6" role="tablist" aria-label="Secciones de métricas">
-            {([
-              { id: 'negocio', label: 'Negocio' },
-              { id: 'puntuaciones', label: 'Puntuaciones' },
-            ] as { id: VistaMetricas; label: string }[]).map((t) => {
+            {PESTANIAS.map((t) => {
               const activa = vista === t.id;
               return (
                 <button
                   key={t.id}
+                  ref={teclado.registrar(t.id)}
                   type="button"
                   role="tab"
+                  id={idTab(t.id)}
                   aria-selected={activa}
+                  aria-controls={idPanel(t.id)}
+                  tabIndex={teclado.tabIndex(t.id)}
                   onClick={() => elegirVista(t.id)}
+                  onKeyDown={(e) => teclado.onKeyDown(e, t.id)}
                   className={`inline-flex items-center gap-2 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                     activa
                       ? 'border-blue-600 text-blue-600'
@@ -196,6 +212,10 @@ function MetricasPage() {
         </div>
       )}
 
+      {/* Lo que va debajo de las pestañas (período incluido); sin pestañas es un bloque común */}
+      <div
+        {...(esSuperAdmin ? { role: 'tabpanel', id: idPanel(vista), 'aria-labelledby': idTab(vista) } : {})}
+      >
       {/* Selector de período */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div className="flex items-center gap-1">
@@ -291,6 +311,7 @@ function MetricasPage() {
       />
       </>
       )}
+      </div>
 
       {/* Detalle mensual por profesional (reutiliza el modal de Usuarios) */}
       <UsuarioMetricasModal
