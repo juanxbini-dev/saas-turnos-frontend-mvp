@@ -18,6 +18,13 @@ interface CampaniaVistaPreviaProps {
 
 const POR_PAGINA = 20;
 
+// Pie de la lista. El de "Ya te toca volver" es el de siempre (está en uso);
+// "Gracias por venir" mira las visitas recién cobradas, no los turnos futuros.
+const PIE_POR_TIPO: Record<CampaniaTipo, string> = {
+  recencia: 'Esta lista se calcula en el momento. Si alguien saca turno o pide no recibir más, deja de aparecer.',
+  post_servicio: 'Esta lista se calcula en el momento: salen las visitas cobradas en las últimas horas. Si alguien pide no recibir más, deja de aparecer.',
+};
+
 const GRUPOS: { id: VistaPreviaGrupo; label: string; vacio: string }[] = [
   { id: 'sale_hoy', label: 'Salen hoy', vacio: 'Hoy no hay nadie para avisar.' },
   { id: 'en_espera', label: 'En espera', vacio: 'No hay nadie en espera.' },
@@ -176,8 +183,10 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {items.map((item) => (
-                  <tr key={item.cliente_id} className="hover:bg-gray-50 transition-colors">
+                {/* Un mismo cliente puede aparecer más de una vez (p. ej. dos visitas cobradas
+                    en "Gracias por venir"): la clave combina cliente, visita y posición */}
+                {items.map((item, i) => (
+                  <tr key={`${item.cliente_id}-${item.ultima_visita ?? ''}-${i}`} className="hover:bg-gray-50 transition-colors">
                     <td className="py-2.5 px-4 text-sm font-medium text-gray-900">{item.cliente_nombre || '—'}</td>
                     <td className="py-2.5 px-4 text-sm text-gray-600 whitespace-nowrap">
                       {item.telefono_original || item.telefono || '—'}
@@ -208,9 +217,7 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
         </>
       )}
 
-      <p className="text-xs text-gray-500 mt-4">
-        Esta lista se calcula en el momento. Si alguien saca turno o pide no recibir más, deja de aparecer.
-      </p>
+      <p className="text-xs text-gray-500 mt-4">{PIE_POR_TIPO[tipo]}</p>
     </SeccionCard>
   );
 }
