@@ -16,7 +16,9 @@ export function useContadorParaRevisar(habilitado: boolean) {
   const { data, loading, error, revalidate } = useFetch(
     habilitado ? claveContadorParaRevisar() : null,
     () => puntuacionesService.getContadorParaRevisar(),
-    { ttl: TTL.SHORT, revalidateOnFocus: true }
+    // revalidateOnFocus solo si está habilitado: useFetch revalida al volver a la ventana
+    // aunque la clave sea null, y a quien no es super admin le respondería 403
+    { ttl: TTL.SHORT, revalidateOnFocus: habilitado }
   );
 
   const [publicado, setPublicado] = useState<number | null>(null);

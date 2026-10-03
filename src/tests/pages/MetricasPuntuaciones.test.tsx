@@ -218,4 +218,13 @@ describe('Menú · aviso de puntuaciones para revisar', () => {
     expect(screen.queryByTestId('badge-puntuaciones')).toBeNull();
     expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(0);
   });
+
+  it('un admin común tampoco lo pide al volver a la ventana', async () => {
+    roles = ['admin'];
+    renderSidebar();
+    await screen.findAllByRole('link', { name: 'Métricas' });
+    fireEvent.focus(window);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(0);
+  });
 });
