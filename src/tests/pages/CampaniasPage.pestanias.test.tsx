@@ -168,4 +168,35 @@ describe('CampaniasPage — una pestaña por campaña', () => {
     const texto = (document.body.textContent ?? '').replace(screen.getByTestId('url').textContent ?? '', '');
     expect(texto.match(/turnos 2\.0|n8n|\bmeta\b|\bapi\b|jsonb|post_servicio|cooldown/i)?.[0] ?? null).toBeNull();
   });
+
+  it('las pestañas se manejan con el teclado: flechas, Inicio y Fin mueven el foco y la elección', async () => {
+    renderPage();
+    await screen.findByText('Hoy salieron 12 de 30 mensajes.');
+
+    const primera = pestania('Ya te toca volver');
+    expect(primera.getAttribute('tabindex')).toBe('0');
+    expect(pestania('Gracias por venir').getAttribute('tabindex')).toBe('-1');
+
+    primera.focus();
+    fireEvent.keyDown(primera, { key: 'ArrowRight' });
+    await waitFor(() => expect(pestania('Gracias por venir').getAttribute('aria-selected')).toBe('true'));
+    expect(document.activeElement).toBe(pestania('Gracias por venir'));
+    expect(pestania('Gracias por venir').getAttribute('tabindex')).toBe('0');
+    expect(pestania('Ya te toca volver').getAttribute('tabindex')).toBe('-1');
+    expect(screen.getByTestId('url').textContent).toBe('?campania=post_servicio');
+    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe('campania-tab-post_servicio');
+
+    // Desde la última, la flecha derecha da la vuelta a la primera
+    fireEvent.keyDown(pestania('Gracias por venir'), { key: 'ArrowRight' });
+    await waitFor(() => expect(pestania('Ya te toca volver').getAttribute('aria-selected')).toBe('true'));
+    expect(document.activeElement).toBe(pestania('Ya te toca volver'));
+
+    fireEvent.keyDown(pestania('Ya te toca volver'), { key: 'End' });
+    await waitFor(() => expect(document.activeElement).toBe(pestania('Gracias por venir')));
+    fireEvent.keyDown(pestania('Gracias por venir'), { key: 'Home' });
+    await waitFor(() => expect(document.activeElement).toBe(pestania('Ya te toca volver')));
+    fireEvent.keyDown(pestania('Ya te toca volver'), { key: 'ArrowLeft' });
+    await waitFor(() => expect(pestania('Gracias por venir').getAttribute('aria-selected')).toBe('true'));
+    expect(await screen.findByLabelText('Minutos de espera después de cobrar')).toBeTruthy();
+  });
 });

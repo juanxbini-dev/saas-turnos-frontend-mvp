@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useFetch } from '../hooks/useFetch';
+import { useNavegacionPestanias } from '../hooks/useNavegacionPestanias';
 import { buildKey, ENTITIES } from '../cache/key.builder';
 import { TTL } from '../cache/ttl';
 import { campaniasService } from '../services/campanias.service';
@@ -87,6 +88,8 @@ const PESTANIAS: { tipo: CampaniaTipo; label: string }[] = [
   { tipo: 'post_servicio', label: 'Gracias por venir' },
 ];
 
+const TIPOS_PESTANIAS = PESTANIAS.map((p) => p.tipo);
+
 const PARAM_CAMPANIA = 'campania';
 
 function tipoDeParam(valor: string | null): CampaniaTipo {
@@ -105,6 +108,8 @@ function CampaniasContenido() {
     setSearchParams(params, { replace: true });
   };
 
+  const teclado = useNavegacionPestanias(TIPOS_PESTANIAS, tipo, elegir);
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-4">
       <div className="mb-2">
@@ -119,12 +124,15 @@ function CampaniasContenido() {
             return (
               <button
                 key={p.tipo}
+                ref={teclado.registrar(p.tipo)}
                 type="button"
                 role="tab"
                 id={`campania-tab-${p.tipo}`}
                 aria-selected={activa}
                 aria-controls={`campania-panel-${p.tipo}`}
+                tabIndex={teclado.tabIndex(p.tipo)}
                 onClick={() => elegir(p.tipo)}
+                onKeyDown={(e) => teclado.onKeyDown(e, p.tipo)}
                 className={`whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-base transition-colors ${
                   activa
                     ? 'border-blue-600 text-blue-600'
