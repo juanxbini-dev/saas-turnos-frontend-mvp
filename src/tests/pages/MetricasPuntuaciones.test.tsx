@@ -6,6 +6,7 @@ import MetricasPage from '../../pages/MetricasPage';
 import Sidebar from '../../components/layout/Sidebar';
 import { cacheService } from '../../cache/cache.service';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
+import { reiniciarContadorParaRevisar } from '../../services/puntuaciones.service';
 import type { Puntuacion, PuntuacionesResumen } from '../../types/puntuaciones.types';
 
 // Puntuaciones dentro de Métricas (spec post-servicio §7): solo super admin,
@@ -99,11 +100,14 @@ const renderSidebar = () => render(
   </MemoryRouter>
 );
 
+const esperar = (ms = 50) => new Promise((r) => setTimeout(r, ms));
+
 const llamadasA = (url: string) => get.mock.calls.filter(([u]) => u === url);
 
 beforeEach(() => {
   vi.clearAllMocks();
   cacheService.invalidateByPrefix(buildKey(ENTITIES.PUNTUACIONES));
+  reiniciarContadorParaRevisar();
   pendientes = 2;
   get.mockImplementation(rutear);
   patch.mockImplementation(() => {
@@ -226,5 +230,42 @@ describe('Menú · aviso de puntuaciones para revisar', () => {
     fireEvent.focus(window);
     await new Promise((r) => setTimeout(r, 50));
     expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(0);
+  });
+});
+
+describe('Contador para revisar · un solo origen', () => {
+  it('con varios lugares mostrándolo (menú, pestaña y "Para revisar") se pide UNA sola vez', async () => {
+    roles = ['super_admin'];
+    renderMetricas('/metricas?vista=puntuaciones');
+    renderSidebar();   // el menú se monta dos veces (escritorio y celular)
+
+    await waitFor(() => expect(screen.getAllByTestId('badge-puntuaciones')[0].textContent).toBe('2'));
+    await screen.findAllByTestId('para-revisar-item');
+    await esperar();
+    expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(1);
+
+    // Al volver a la ventana se refresca una sola vez para todos
+    fireEvent.focus(window);
+    await waitFor(() => expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(2));
+    await esperar();
+    expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(2);
+  });
+
+  it('si el servidor después devuelve el mismo número de antes, pisa al publicado al marcar', async () => {
+    roles = ['super_admin'];
+    renderMetricas('/metricas?vista=puntuaciones');
+    renderSidebar();
+
+    await waitFor(() => expect(screen.getAllByTestId('badge-puntuaciones')[0].textContent).toBe('2'));
+    const items = await screen.findAllByTestId('para-revisar-item');
+    fireEvent.click(within(items[0]).getByRole('button', { name: 'Marcar como revisado' }));
+    await waitFor(() => expect(screen.getAllByTestId('badge-puntuaciones')[0].textContent).toBe('1'));
+
+    // Otra persona lo volvió a pendientes: el servidor vuelve a decir 2
+    pendientes = 2;
+    fireEvent.focus(window);
+    await waitFor(() => expect(screen.getAllByTestId('badge-puntuaciones')[0].textContent).toBe('2'));
+    const tab = screen.getByRole('tab', { name: /Puntuaciones/ });
+    await waitFor(() => expect(within(tab).getByText('2')).toBeTruthy());
   });
 });

@@ -16,6 +16,11 @@ vi.mock('../../hooks/useFetch', () => ({
   useFetch: () => ({ data: null, loading: false, error: null, revalidate: vi.fn() }),
 }));
 
+// El contador de puntuaciones tiene su propio store (no usa useFetch): acá no interesa
+vi.mock('../../hooks/useContadorParaRevisar', () => ({
+  useContadorParaRevisar: () => ({ pendientes: 0, loading: false, error: null, revalidate: vi.fn() }),
+}));
+
 const renderSidebar = () => render(
   <MemoryRouter>
     <Sidebar collapsed={false} onToggleCollapsed={vi.fn()} mobileOpen={false} onCloseMobile={vi.fn()} />
