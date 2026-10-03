@@ -300,16 +300,23 @@ function etiquetaMes(mes: string): string {
 interface ListaCompletaProps {
   periodo: PuntuacionesPeriodo;
   profesionales: { usuario_id: string; nombre: string }[];
+  // La lista de profesionales sale del resumen: si el resumen falló, no hay con qué filtrar
+  errorProfesionales: boolean;
   refresco: number;
   onCambio: () => void;
 }
 
-function ListaCompleta({ periodo, profesionales, refresco, onCambio }: ListaCompletaProps) {
+function ListaCompleta({ periodo, profesionales, errorProfesionales, refresco, onCambio }: ListaCompletaProps) {
   const [pagina, setPagina] = useState(1);
   const [usuarioId, setUsuarioId] = useState('');
   const [soloBajos, setSoloBajos] = useState(false);
 
   useEffect(() => { setPagina(1); }, [periodo.fecha_desde, periodo.fecha_hasta]);
+
+  // Sin la lista de profesionales el filtro no se puede usar: se muestran todos
+  useEffect(() => {
+    if (errorProfesionales) { setUsuarioId(''); setPagina(1); }
+  }, [errorProfesionales]);
 
   const { data, loading, error, revalidate } = useFetchVigente(
     buildKey(
@@ -341,15 +348,24 @@ function ListaCompleta({ periodo, profesionales, refresco, onCambio }: ListaComp
   return (
     <Card title="Todas las puntuaciones del período" subtitle="Con los comentarios que dejaron los clientes.">
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <select
-          aria-label="Filtrar por profesional"
-          value={usuarioId}
-          onChange={(e) => { setUsuarioId(e.target.value); setPagina(1); }}
-          className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-64"
-        >
-          <option value="">Todos los profesionales</option>
-          {profesionales.map((p) => <option key={p.usuario_id} value={p.usuario_id}>{p.nombre}</option>)}
-        </select>
+        <div className="flex flex-col gap-1">
+          <select
+            aria-label="Filtrar por profesional"
+            aria-describedby={errorProfesionales ? 'ayuda-filtro-profesional' : undefined}
+            value={errorProfesionales ? '' : usuarioId}
+            disabled={errorProfesionales}
+            onChange={(e) => { setUsuarioId(e.target.value); setPagina(1); }}
+            className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-64 disabled:bg-gray-100 disabled:text-gray-500"
+          >
+            <option value="">Todos los profesionales</option>
+            {!errorProfesionales && profesionales.map((p) => <option key={p.usuario_id} value={p.usuario_id}>{p.nombre}</option>)}
+          </select>
+          {errorProfesionales && (
+            <p id="ayuda-filtro-profesional" className="text-xs text-gray-500">
+              No se pudo cargar la lista de profesionales.
+            </p>
+          )}
+        </div>
         <label className="inline-flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
@@ -561,6 +577,7 @@ export function MetricasPuntuaciones({ periodo, etiquetaPeriodo }: MetricasPuntu
       <ListaCompleta
         periodo={periodo}
         profesionales={porProfesional.map((p) => ({ usuario_id: p.usuario_id, nombre: p.nombre }))}
+        errorProfesionales={!!error}
         refresco={refresco}
         onCambio={huboCambio}
       />

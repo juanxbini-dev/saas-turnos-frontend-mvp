@@ -303,3 +303,29 @@ describe('Para revisar · paginación', () => {
     expect(listas.filter((p) => p.revision === 'pendientes' && p.pagina === 1).length).toBeGreaterThan(1);
   });
 });
+
+describe('Lista completa · filtro por profesional', () => {
+  it('si no se pudo cargar el resumen, el filtro avisa que no hay lista de profesionales', async () => {
+    roles = ['super_admin'];
+    get.mockImplementation((url: string, config?: { params?: Record<string, unknown> }) => {
+      if (url === '/api/puntuaciones/resumen') return Promise.reject(new Error('caído'));
+      return rutear(url, config);
+    });
+    renderMetricas('/metricas?vista=puntuaciones');
+
+    expect(await screen.findByText('No se pudo cargar la lista de profesionales.')).toBeTruthy();
+    const select = screen.getByLabelText('Filtrar por profesional') as HTMLSelectElement;
+    expect(select.disabled).toBe(true);
+    expect(select.getAttribute('aria-describedby')).toBe('ayuda-filtro-profesional');
+  });
+
+  it('con el resumen cargado se puede filtrar por cada profesional', async () => {
+    roles = ['super_admin'];
+    renderMetricas('/metricas?vista=puntuaciones');
+
+    const select = await screen.findByLabelText('Filtrar por profesional') as HTMLSelectElement;
+    await waitFor(() => expect(within(select).getByRole('option', { name: 'Beto' })).toBeTruthy());
+    expect(select.disabled).toBe(false);
+    expect(screen.queryByText('No se pudo cargar la lista de profesionales.')).toBeNull();
+  });
+});
