@@ -134,6 +134,12 @@ function ParaRevisar({ onCambio, refresco }: ParaRevisarProps) {
 
   const items = data?.items ?? [];
 
+  // Si se marcó el último de la última página, esa página queda vacía: volver a la anterior
+  const paginaVacia = !!data && items.length === 0 && pagina > 1;
+  useEffect(() => {
+    if (paginaVacia) setPagina((p) => Math.max(1, p - 1));
+  }, [paginaVacia]);
+
   return (
     <Card
       title="Para revisar"

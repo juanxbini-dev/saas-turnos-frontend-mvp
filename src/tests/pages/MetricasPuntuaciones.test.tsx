@@ -269,3 +269,37 @@ describe('Contador para revisar · un solo origen', () => {
     await waitFor(() => expect(within(tab).getByText('2')).toBeTruthy());
   });
 });
+
+describe('Para revisar · paginación', () => {
+  it('al marcar el último de la última página vuelve a la página anterior', async () => {
+    roles = ['super_admin'];
+    pendientes = 11;
+    const pagina1 = Array.from({ length: 10 }, (_, i) => ({ ...BAJO, id: `p-${i + 10}`, cliente: `Cliente ${i + 1}` }));
+    const ultimo = { ...BAJO, id: 'p-ultimo', cliente: 'Última Clienta' };
+    get.mockImplementation((url: string, config?: { params?: Record<string, unknown> }) => {
+      const p = config?.params ?? {};
+      if (url === '/api/puntuaciones' && p.revision === 'pendientes') {
+        const items = p.pagina === 2 ? (pendientes > 10 ? [ultimo] : []) : pagina1;
+        return ok({ items, total: pendientes, pagina: p.pagina, por_pagina: 10 });
+      }
+      return rutear(url, config);
+    });
+    renderMetricas('/metricas?vista=puntuaciones');
+
+    const primeros = await screen.findAllByTestId('para-revisar-item');
+    expect(primeros).toHaveLength(10);
+    const tarjeta = primeros[0].closest('ul')!.parentElement!;
+    fireEvent.click(within(tarjeta).getByRole('button', { name: 'Siguiente' }));
+
+    await waitFor(() => expect(screen.getAllByTestId('para-revisar-item')).toHaveLength(1));
+    const [item] = screen.getAllByTestId('para-revisar-item');
+    expect(within(item).getByText('Última Clienta')).toBeTruthy();
+    fireEvent.click(within(item).getByRole('button', { name: 'Marcar como revisado' }));
+
+    // Vuelve sola a la página 1 en vez de quedar vacía
+    await waitFor(() => expect(screen.getAllByTestId('para-revisar-item')).toHaveLength(10));
+    expect(screen.queryByText('No hay nada para revisar. Todas las visitas con Regular o Malo ya se revisaron.')).toBeNull();
+    const listas = llamadasA('/api/puntuaciones').map(([, c]) => (c as { params: Record<string, unknown> }).params);
+    expect(listas.filter((p) => p.revision === 'pendientes' && p.pagina === 1).length).toBeGreaterThan(1);
+  });
+});
