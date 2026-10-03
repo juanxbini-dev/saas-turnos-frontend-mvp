@@ -6,6 +6,7 @@ import MetricasPage from '../../pages/MetricasPage';
 import Sidebar from '../../components/layout/Sidebar';
 import { cacheService } from '../../cache/cache.service';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
+import { reiniciarContadorParaRevisar } from '../../services/puntuaciones.service';
 import type { Puntuacion, PuntuacionesResumen } from '../../types/puntuaciones.types';
 
 // Puntuaciones dentro de Métricas (spec post-servicio §7): solo super admin,
@@ -99,11 +100,14 @@ const renderSidebar = () => render(
   </MemoryRouter>
 );
 
+const esperar = (ms = 50) => new Promise((r) => setTimeout(r, ms));
+
 const llamadasA = (url: string) => get.mock.calls.filter(([u]) => u === url);
 
 beforeEach(() => {
   vi.clearAllMocks();
   cacheService.invalidateByPrefix(buildKey(ENTITIES.PUNTUACIONES));
+  reiniciarContadorParaRevisar();
   pendientes = 2;
   get.mockImplementation(rutear);
   patch.mockImplementation(() => {
@@ -226,5 +230,102 @@ describe('Menú · aviso de puntuaciones para revisar', () => {
     fireEvent.focus(window);
     await new Promise((r) => setTimeout(r, 50));
     expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(0);
+  });
+});
+
+describe('Contador para revisar · un solo origen', () => {
+  it('con varios lugares mostrándolo (menú, pestaña y "Para revisar") se pide UNA sola vez', async () => {
+    roles = ['super_admin'];
+    renderMetricas('/metricas?vista=puntuaciones');
+    renderSidebar();   // el menú se monta dos veces (escritorio y celular)
+
+    await waitFor(() => expect(screen.getAllByTestId('badge-puntuaciones')[0].textContent).toBe('2'));
+    await screen.findAllByTestId('para-revisar-item');
+    await esperar();
+    expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(1);
+
+    // Al volver a la ventana se refresca una sola vez para todos
+    fireEvent.focus(window);
+    await waitFor(() => expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(2));
+    await esperar();
+    expect(llamadasA('/api/puntuaciones/para-revisar/contador')).toHaveLength(2);
+  });
+
+  it('si el servidor después devuelve el mismo número de antes, pisa al publicado al marcar', async () => {
+    roles = ['super_admin'];
+    renderMetricas('/metricas?vista=puntuaciones');
+    renderSidebar();
+
+    await waitFor(() => expect(screen.getAllByTestId('badge-puntuaciones')[0].textContent).toBe('2'));
+    const items = await screen.findAllByTestId('para-revisar-item');
+    fireEvent.click(within(items[0]).getByRole('button', { name: 'Marcar como revisado' }));
+    await waitFor(() => expect(screen.getAllByTestId('badge-puntuaciones')[0].textContent).toBe('1'));
+
+    // Otra persona lo volvió a pendientes: el servidor vuelve a decir 2
+    pendientes = 2;
+    fireEvent.focus(window);
+    await waitFor(() => expect(screen.getAllByTestId('badge-puntuaciones')[0].textContent).toBe('2'));
+    const tab = screen.getByRole('tab', { name: /Puntuaciones/ });
+    await waitFor(() => expect(within(tab).getByText('2')).toBeTruthy());
+  });
+});
+
+describe('Para revisar · paginación', () => {
+  it('al marcar el último de la última página vuelve a la página anterior', async () => {
+    roles = ['super_admin'];
+    pendientes = 11;
+    const pagina1 = Array.from({ length: 10 }, (_, i) => ({ ...BAJO, id: `p-${i + 10}`, cliente: `Cliente ${i + 1}` }));
+    const ultimo = { ...BAJO, id: 'p-ultimo', cliente: 'Última Clienta' };
+    get.mockImplementation((url: string, config?: { params?: Record<string, unknown> }) => {
+      const p = config?.params ?? {};
+      if (url === '/api/puntuaciones' && p.revision === 'pendientes') {
+        const items = p.pagina === 2 ? (pendientes > 10 ? [ultimo] : []) : pagina1;
+        return ok({ items, total: pendientes, pagina: p.pagina, por_pagina: 10 });
+      }
+      return rutear(url, config);
+    });
+    renderMetricas('/metricas?vista=puntuaciones');
+
+    const primeros = await screen.findAllByTestId('para-revisar-item');
+    expect(primeros).toHaveLength(10);
+    const tarjeta = primeros[0].closest('ul')!.parentElement!;
+    fireEvent.click(within(tarjeta).getByRole('button', { name: 'Siguiente' }));
+
+    await waitFor(() => expect(screen.getAllByTestId('para-revisar-item')).toHaveLength(1));
+    const [item] = screen.getAllByTestId('para-revisar-item');
+    expect(within(item).getByText('Última Clienta')).toBeTruthy();
+    fireEvent.click(within(item).getByRole('button', { name: 'Marcar como revisado' }));
+
+    // Vuelve sola a la página 1 en vez de quedar vacía
+    await waitFor(() => expect(screen.getAllByTestId('para-revisar-item')).toHaveLength(10));
+    expect(screen.queryByText('No hay nada para revisar. Todas las visitas con Regular o Malo ya se revisaron.')).toBeNull();
+    const listas = llamadasA('/api/puntuaciones').map(([, c]) => (c as { params: Record<string, unknown> }).params);
+    expect(listas.filter((p) => p.revision === 'pendientes' && p.pagina === 1).length).toBeGreaterThan(1);
+  });
+});
+
+describe('Lista completa · filtro por profesional', () => {
+  it('si no se pudo cargar el resumen, el filtro avisa que no hay lista de profesionales', async () => {
+    roles = ['super_admin'];
+    get.mockImplementation((url: string, config?: { params?: Record<string, unknown> }) => {
+      if (url === '/api/puntuaciones/resumen') return Promise.reject(new Error('caído'));
+      return rutear(url, config);
+    });
+    renderMetricas('/metricas?vista=puntuaciones');
+
+    expect(await screen.findByText('No se pudo cargar la lista de profesionales.')).toBeTruthy();
+    const select = screen.getByLabelText('Filtrar por profesional') as HTMLSelectElement;
+    expect(select.disabled).toBe(true);
+    expect(select.getAttribute('aria-describedby')).toBe('ayuda-filtro-profesional');
+  });
+
+  it('con el resumen cargado se puede filtrar por cada profesional', async () => {
+    roles = ['super_admin'];
+    renderMetricas('/metricas?vista=puntuaciones');
+
+    const select = await screen.findByLabelText('Filtrar por profesional') as HTMLSelectElement;
+    await waitFor(() => expect(within(select).getByRole('option', { name: 'Beto' })).toBeTruthy());
+    expect(select.disabled).toBe(false);
+    expect(screen.queryByText('No se pudo cargar la lista de profesionales.')).toBeNull();
   });
 });

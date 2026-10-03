@@ -39,19 +39,106 @@ export function formatPromedio(promedio: number | null | undefined, conEscala = 
 
 export const claveContadorParaRevisar = () => buildKey(ENTITIES.PUNTUACIONES, 'para-revisar', 'contador');
 
-// El contador se muestra en el menú (otro componente): cuando cambia se avisa a
-// quien esté escuchando, además de dejarlo en el cache.
-type Oyente = (pendientes: number) => void;
-const oyentes = new Set<Oyente>();
+// --- Contador "Para revisar" (un solo origen para toda la app) ---
+//
+// El número se muestra en el menú (escritorio y celular), en la pestaña de
+// Métricas y en "Para revisar". Antes cada uno lo pedía por su cuenta; ahora
+// todos se suscriben a este store, que hace UN solo pedido a la vez, lo guarda
+// en el cache corto y lo refresca una sola vez al volver a la ventana.
+// Solo se activa cuando hay alguien suscripto (los componentes se suscriben
+// únicamente si el usuario es super admin: al resto el backend le da 403).
 
-export function escucharContadorParaRevisar(oyente: Oyente): () => void {
-  oyentes.add(oyente);
-  return () => { oyentes.delete(oyente); };
+export interface EstadoContador {
+  clave: string | null;        // de qué empresa es el número
+  pendientes: number | null;   // null = todavía no llegó
+  loading: boolean;
+  error: Error | null;
+}
+
+const ESTADO_INICIAL: EstadoContador = { clave: null, pendientes: null, loading: false, error: null };
+
+let estadoContador: EstadoContador = ESTADO_INICIAL;
+const suscriptores = new Set<() => void>();
+let pedidoEnVuelo: Promise<void> | null = null;
+// Sube con cada número nuevo (del servidor o publicado al marcar). Una respuesta
+// de un pedido que salió ANTES de un cambio llega vieja y se descarta.
+let versionContador = 0;
+
+function cambiarEstado(parcial: Partial<EstadoContador>): void {
+  estadoContador = { ...estadoContador, ...parcial };
+  suscriptores.forEach((s) => s());
+}
+
+function guardarNumero(clave: string, pendientes: number): void {
+  versionContador += 1;
+  cacheService.set(clave, pendientes, TTL.SHORT);
+  cambiarEstado({ clave, pendientes, loading: false, error: null });
+}
+
+export function getEstadoContador(): EstadoContador {
+  return estadoContador;
+}
+
+// Pide el número al servidor. Si ya hay un pedido en vuelo, se suma a ese.
+// Sin `forzar`, usa el cache corto si todavía sirve.
+export function refrescarContadorParaRevisar(forzar = false): Promise<void> {
+  const clave = claveContadorParaRevisar();
+  if (pedidoEnVuelo) return pedidoEnVuelo;
+
+  if (!forzar) {
+    const enCache = cacheService.get<number>(clave);
+    if (enCache !== null) {
+      if (estadoContador.clave !== clave || estadoContador.pendientes !== enCache) {
+        cambiarEstado({ clave, pendientes: enCache, loading: false, error: null });
+      }
+      return Promise.resolve();
+    }
+  }
+
+  const versionAlPedir = versionContador;
+  cambiarEstado({
+    clave,
+    pendientes: estadoContador.clave === clave ? estadoContador.pendientes : null,
+    loading: true,
+    error: null,
+  });
+  pedidoEnVuelo = puntuacionesService.getContadorParaRevisar()
+    .then((pendientes) => {
+      // Si mientras tanto se marcó algo, lo publicado es más nuevo que esta respuesta
+      if (versionContador !== versionAlPedir) cambiarEstado({ loading: false });
+      else guardarNumero(clave, pendientes);
+    })
+    .catch((error: unknown) => {
+      console.error('[puntuaciones] No se pudo pedir el contador para revisar', error);
+      if (versionContador !== versionAlPedir) { cambiarEstado({ loading: false }); return; }
+      cambiarEstado({ loading: false, error: error instanceof Error ? error : new Error(String(error)) });
+    })
+    .finally(() => { pedidoEnVuelo = null; });
+  return pedidoEnVuelo;
+}
+
+const alVolverALaVentana = () => { void refrescarContadorParaRevisar(true); };
+
+// Para useSyncExternalStore. El refresco al volver a la ventana existe solo
+// mientras haya alguien suscripto, y es uno solo para todos.
+export function suscribirContadorParaRevisar(suscriptor: () => void): () => void {
+  suscriptores.add(suscriptor);
+  if (suscriptores.size === 1) window.addEventListener('focus', alVolverALaVentana);
+  return () => {
+    suscriptores.delete(suscriptor);
+    if (suscriptores.size === 0) window.removeEventListener('focus', alVolverALaVentana);
+  };
 }
 
 function publicarContador(pendientes: number): void {
-  cacheService.set(claveContadorParaRevisar(), pendientes, TTL.SHORT);
-  oyentes.forEach((o) => o(pendientes));
+  guardarNumero(claveContadorParaRevisar(), pendientes);
+}
+
+// Solo para tests: deja el store como recién cargada la app
+export function reiniciarContadorParaRevisar(): void {
+  estadoContador = ESTADO_INICIAL;
+  pedidoEnVuelo = null;
+  versionContador += 1;   // un pedido viejo que llegue tarde se descarta
 }
 
 export function invalidarCachePuntuaciones(): void {

@@ -1,40 +1,41 @@
-import { useEffect, useState } from 'react';
-import { useFetch } from './useFetch';
-import { TTL } from '../cache/ttl';
+import { useEffect, useSyncExternalStore } from 'react';
 import {
   claveContadorParaRevisar,
-  escucharContadorParaRevisar,
-  puntuacionesService,
+  getEstadoContador,
+  refrescarContadorParaRevisar,
+  suscribirContadorParaRevisar,
 } from '../services/puntuaciones.service';
 
 // Cuántas puntuaciones Regular/Malo quedan sin revisar (aviso del menú y de la
-// pestaña Puntuaciones). Solo pide si `habilitado` (super admin): para el resto
-// el backend responde 403. Cache corto y se refresca al volver a la pestaña del
-// navegador; al marcar algo como revisado el servicio publica el número nuevo
-// y se ve al instante, sin esperar al cache.
+// pestaña Puntuaciones). El número vive en un solo lugar (el store del servicio
+// de puntuaciones): aunque lo muestren varios componentes, se pide una sola vez,
+// con cache corto y un único refresco al volver a la ventana. Al marcar algo como
+// revisado el servicio publica el número nuevo y se ve al instante en todos lados.
+// Solo se suscribe si `habilitado` (super admin): al resto el backend le da 403,
+// así que no se pide nada, ni al montar ni al volver a la ventana.
+
+const sinSuscripcion = () => () => {};
+
 export function useContadorParaRevisar(habilitado: boolean) {
-  const { data, loading, error, revalidate } = useFetch(
-    habilitado ? claveContadorParaRevisar() : null,
-    () => puntuacionesService.getContadorParaRevisar(),
-    // revalidateOnFocus solo si está habilitado: useFetch revalida al volver a la ventana
-    // aunque la clave sea null, y a quien no es super admin le respondería 403
-    { ttl: TTL.SHORT, revalidateOnFocus: habilitado }
+  const estado = useSyncExternalStore(
+    habilitado ? suscribirContadorParaRevisar : sinSuscripcion,
+    getEstadoContador
   );
 
-  const [publicado, setPublicado] = useState<number | null>(null);
+  const clave = habilitado ? claveContadorParaRevisar() : null;
 
   useEffect(() => {
-    if (!habilitado) return;
-    return escucharContadorParaRevisar(setPublicado);
-  }, [habilitado]);
+    if (!clave) return;
+    void refrescarContadorParaRevisar();
+  }, [clave]);
 
-  // Lo que llegue del servidor después pisa a lo publicado
-  useEffect(() => { setPublicado(null); }, [data]);
+  // Un número de otra empresa (cambio de sesión) no se muestra
+  const vigente = !!clave && estado.clave === clave;
 
   return {
-    pendientes: habilitado ? (publicado ?? data ?? 0) : 0,
-    loading,
-    error,
-    revalidate,
+    pendientes: vigente ? (estado.pendientes ?? 0) : 0,
+    loading: !!clave && estado.loading,
+    error: vigente ? estado.error : null,
+    revalidate: () => { if (clave) void refrescarContadorParaRevisar(true); },
   };
 }
