@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { CampaniaEstadoCard } from '../../components/campanias/CampaniaEstadoCard';
 import { toastService } from '../../services/toast.service';
-import type { Campania } from '../../types/campanias.types';
+import type { Campania, CampaniaRecencia } from '../../types/campanias.types';
 
 // Spec campanias-n8n §4.3 A: encender pide confirmación, apagar es inmediato,
 // y los avisos salen como banners con su texto literal.
@@ -23,7 +23,7 @@ vi.mock('../../services/toast.service', () => ({
   toastService: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
-const campania = (over: Partial<Campania> = {}): Campania => ({
+const campania = (over: Partial<CampaniaRecencia> = {}): CampaniaRecencia => ({
   id: 'camp-1',
   tipo: 'recencia',
   activa: false,

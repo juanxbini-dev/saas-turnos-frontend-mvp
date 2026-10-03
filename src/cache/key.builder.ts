@@ -22,7 +22,8 @@ export const ENTITIES = {
   FINANZAS: 'finanzas',
   METRICAS: 'metricas',
   GASTOS: 'gastos',
-  CAMPANIAS: 'campanias'
+  CAMPANIAS: 'campanias',
+  PUNTUACIONES: 'puntuaciones'
 } as const;
 
 function decodeJWT(token: string): any | null {

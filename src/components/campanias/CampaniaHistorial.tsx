@@ -73,9 +73,14 @@ export function CampaniaHistorial({ tipo }: CampaniaHistorialProps) {
   const items = data?.items ?? [];
   const meta = data?.meta;
   const hayFiltro = busquedaFinal !== '' || estado !== '';
+  // "¿Reservó?" es la medida de "Ya te toca volver"; en la encuesta no aplica
+  const muestraReserva = tipo === 'recencia';
 
   return (
-    <SeccionCard titulo="Historial" subtitulo="Cada mensaje que salió, si llegó y si la persona reservó.">
+    <SeccionCard
+      titulo="Historial"
+      subtitulo={muestraReserva ? 'Cada mensaje que salió, si llegó y si la persona reservó.' : 'Cada mensaje que salió y si llegó.'}
+    >
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="flex-1 min-w-0">
           <Input
@@ -117,7 +122,9 @@ export function CampaniaHistorial({ tipo }: CampaniaHistorialProps) {
                   <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</th>
                   <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Servicio</th>
                   <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
-                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">¿Reservó?</th>
+                  {muestraReserva && (
+                    <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">¿Reservó?</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -131,7 +138,7 @@ export function CampaniaHistorial({ tipo }: CampaniaHistorialProps) {
                     <td className="py-2.5 px-4 text-sm">
                       <EstadoEnvioBadge estado={envio.estado} errorCodigo={envio.error_codigo} />
                     </td>
-                    <td className="py-2.5 px-4 text-sm"><Reservo envio={envio} /></td>
+                    {muestraReserva && <td className="py-2.5 px-4 text-sm"><Reservo envio={envio} /></td>}
                   </tr>
                 ))}
               </tbody>

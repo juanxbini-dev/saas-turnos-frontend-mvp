@@ -1,4 +1,8 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useContadorParaRevisar } from '../hooks/useContadorParaRevisar';
+import { MetricasPuntuaciones } from '../components/metricas/MetricasPuntuaciones';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui';
 import { useFetch } from '../hooks/useFetch';
@@ -35,7 +39,25 @@ const periodoDe = (base: Date, modo: ModoPeriodo): MetricasPeriodo =>
         fecha_hasta: `${base.getFullYear()}-12-31`,
       };
 
+// Pestañas de Métricas. "Puntuaciones" (encuesta de después de cada visita)
+// es solo del super admin; la elegida queda en la URL (?vista=puntuaciones).
+type VistaMetricas = 'negocio' | 'puntuaciones';
+const PARAM_VISTA = 'vista';
+
 function MetricasPage() {
+  const { state } = useAuth();
+  const esSuperAdmin = (state.authUser?.roles ?? state.roles ?? []).includes('super_admin');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vista: VistaMetricas = esSuperAdmin && searchParams.get(PARAM_VISTA) === 'puntuaciones' ? 'puntuaciones' : 'negocio';
+  const { pendientes } = useContadorParaRevisar(esSuperAdmin);
+
+  const elegirVista = (nueva: VistaMetricas) => {
+    const params = new URLSearchParams(searchParams);
+    if (nueva === 'negocio') params.delete(PARAM_VISTA);
+    else params.set(PARAM_VISTA, nueva);
+    setSearchParams(params, { replace: true });
+  };
+
   const [modo, setModo] = useState<ModoPeriodo>('mes');
   const [base, setBase] = useState(() => new Date());
   const [detalleUsuario, setDetalleUsuario] = useState<Usuario | null>(null);
@@ -129,23 +151,6 @@ function MetricasPage() {
     if (usuario) setDetalleUsuario(usuario);
   };
 
-  if (errorResumen) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          <p className="text-sm font-medium">Error de carga</p>
-          <p className="text-sm mt-1">No se pudieron cargar las métricas. Por favor, intenta nuevamente.</p>
-          <button
-            onClick={() => revalidateResumen()}
-            className="mt-2 text-sm bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded transition-colors"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -153,6 +158,43 @@ function MetricasPage() {
         <h1 className="text-3xl font-bold text-gray-900">Métricas</h1>
         <p className="text-gray-600 mt-2">Análisis del negocio y rendimiento del equipo</p>
       </div>
+
+      {esSuperAdmin && (
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex space-x-6" role="tablist" aria-label="Secciones de métricas">
+            {([
+              { id: 'negocio', label: 'Negocio' },
+              { id: 'puntuaciones', label: 'Puntuaciones' },
+            ] as { id: VistaMetricas; label: string }[]).map((t) => {
+              const activa = vista === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activa}
+                  onClick={() => elegirVista(t.id)}
+                  className={`inline-flex items-center gap-2 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activa
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {t.label}
+                  {t.id === 'puntuaciones' && pendientes > 0 && (
+                    <span
+                      className="bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 inline-flex items-center justify-center"
+                      title={`${pendientes} para revisar`}
+                    >
+                      {pendientes > 99 ? '99+' : pendientes}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      )}
 
       {/* Selector de período */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
@@ -181,6 +223,21 @@ function MetricasPage() {
         </div>
       </div>
 
+      {vista === 'puntuaciones' ? (
+        <MetricasPuntuaciones periodo={periodo} etiquetaPeriodo={etiquetaPeriodo} />
+      ) : errorResumen ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          <p className="text-sm font-medium">Error de carga</p>
+          <p className="text-sm mt-1">No se pudieron cargar las métricas. Por favor, intenta nuevamente.</p>
+          <button
+            onClick={() => revalidateResumen()}
+            className="mt-2 text-sm bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : (
+      <>
       {/* KPIs */}
       <div className="mb-6">
         <MetricasResumenCards
@@ -232,6 +289,8 @@ function MetricasPage() {
         fechaHasta={periodo.fecha_hasta}
         isLoading={loadingComparativa}
       />
+      </>
+      )}
 
       {/* Detalle mensual por profesional (reutiliza el modal de Usuarios) */}
       <UsuarioMetricasModal

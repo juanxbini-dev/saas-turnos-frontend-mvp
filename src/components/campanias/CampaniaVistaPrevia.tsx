@@ -7,7 +7,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
-import { MOTIVOS_ORDEN, MOTIVO_TEXTO, TEXTO_EN_ESPERA, formatFechaDia, textoMotivo } from './campanias.utils';
+import { formatFechaDia, motivosDe, textoEnEspera, textoMotivo, textoMotivoBase } from './campanias.utils';
 import type { CampaniaTipo, MotivoExclusion, VistaPreviaGrupo, VistaPreviaResumen } from '../../types/campanias.types';
 
 interface CampaniaVistaPreviaProps {
@@ -76,13 +76,17 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
   const items = data?.items ?? [];
   const meta = data?.meta;
   const hayFiltro = busquedaFinal !== '' || motivoFinal !== '';
-  const ultimaColumna = grupo === 'no_recibe' ? 'Motivo' : 'Le tocaba el';
+  // "Gracias por venir" pregunta por un turno puntual: no hay "le tocaba el"
+  const esPostServicio = tipo === 'post_servicio';
+  const ultimaColumna = grupo === 'no_recibe' ? 'Motivo' : esPostServicio ? null : 'Le tocaba el';
+  const columnaVisita = esPostServicio ? 'Fecha del turno' : 'Última visita';
 
   const opcionesMotivo = [
     { value: '', label: 'Todos los motivos' },
-    ...MOTIVOS_ORDEN.map((m) => {
+    ...motivosDe(tipo).map((m) => {
       const cantidad = resumen?.por_motivo?.[m];
-      return { value: m, label: cantidad !== undefined ? `${MOTIVO_TEXTO[m]} (${cantidad})` : MOTIVO_TEXTO[m] };
+      const texto = textoMotivoBase(m, tipo);
+      return { value: m, label: cantidad !== undefined ? `${texto} (${cantidad})` : texto };
     }),
   ];
 
@@ -143,7 +147,7 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
       </div>
 
       {grupo === 'en_espera' && (
-        <p className="text-sm text-gray-600 mb-3">{TEXTO_EN_ESPERA}.</p>
+        <p className="text-sm text-gray-600 mb-3">{textoEnEspera(tipo)}.</p>
       )}
 
       {error && !tokenRechazado ? (
@@ -165,8 +169,10 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
                   <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</th>
                   <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Teléfono</th>
                   <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Servicio</th>
-                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Última visita</th>
-                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{ultimaColumna}</th>
+                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{columnaVisita}</th>
+                  {ultimaColumna && (
+                    <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{ultimaColumna}</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -178,9 +184,11 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
                     </td>
                     <td className="py-2.5 px-4 text-sm text-gray-600">{item.servicio || '—'}</td>
                     <td className="py-2.5 px-4 text-sm text-gray-600 whitespace-nowrap">{formatFechaDia(item.ultima_visita)}</td>
-                    <td className="py-2.5 px-4 text-sm text-gray-600">
-                      {grupo === 'no_recibe' ? textoMotivo(item.motivo, item.vence_el) : formatFechaDia(item.vence_el)}
-                    </td>
+                    {ultimaColumna && (
+                      <td className="py-2.5 px-4 text-sm text-gray-600">
+                        {grupo === 'no_recibe' ? textoMotivo(item.motivo, item.vence_el, tipo) : formatFechaDia(item.vence_el)}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

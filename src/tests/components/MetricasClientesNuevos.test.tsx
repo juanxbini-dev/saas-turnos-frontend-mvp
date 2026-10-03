@@ -18,6 +18,11 @@ import type {
 // Para el test de página (C11): useFetch devuelve SIEMPRE la misma data de clientes nuevos,
 // sea cual sea el período. Así, lo único que puede limpiar el filtro al cambiar de mes es el
 // remontaje por período, que es justo lo que se quiere probar.
+// MetricasPage lee el rol (la pestaña Puntuaciones es solo del super admin)
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ state: { authUser: { id: 'u1', roles: ['admin'] }, roles: ['admin'] } }),
+}));
+
 vi.mock('../../hooks/useFetch', () => ({
   useFetch: (key: string | null) => ({
     data: key && key.includes('clientes-nuevos') ? datosPagina : null,

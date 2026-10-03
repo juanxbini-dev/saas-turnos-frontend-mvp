@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import { productosService } from '../../services/productos.service';
+import { useContadorParaRevisar } from '../../hooks/useContadorParaRevisar';
 import {
   LayoutDashboard,
   Calendar,
@@ -63,6 +64,10 @@ const SidebarContent = ({
   const roles = state.authUser?.roles || [];
 
   const isAdmin = roles.includes('admin') || roles.includes('super_admin');
+  const isSuperAdminUser = roles.includes('super_admin');
+
+  // Puntuaciones Regular/Malo sin revisar: aviso en "Métricas", solo super admin
+  const { pendientes: puntuacionesPendientes } = useContadorParaRevisar(isSuperAdminUser);
 
   const { data: productosStats } = useFetch(
     isAdmin ? 'productos:stats:sidebar' : null,
@@ -118,13 +123,29 @@ const SidebarContent = ({
                     : 'text-gray-300 hover:bg-gray-700 hover:text-white',
                 ].join(' ')
               }
-              title={collapsed && !isMobile ? label : undefined}
+              title={collapsed && !isMobile
+                ? (path === '/metricas' && puntuacionesPendientes > 0 ? `${label} (${puntuacionesPendientes} para revisar)` : label)
+                : undefined}
             >
-              <Icon size={20} className="flex-shrink-0" />
+              <span className="relative flex-shrink-0">
+                <Icon size={20} />
+                {collapsed && !isMobile && path === '/metricas' && puntuacionesPendientes > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" aria-hidden="true" />
+                )}
+              </span>
               {(!collapsed || isMobile) && <span className="truncate flex-1">{label}</span>}
               {(!collapsed || isMobile) && path === '/productos' && isAdmin && (productosStats?.bajo_stock_count ?? 0) > 0 && (
                 <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0">
                   {productosStats!.bajo_stock_count}
+                </span>
+              )}
+              {(!collapsed || isMobile) && path === '/metricas' && puntuacionesPendientes > 0 && (
+                <span
+                  className="bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center shrink-0"
+                  title={`${puntuacionesPendientes} puntuaciones para revisar`}
+                  data-testid="badge-puntuaciones"
+                >
+                  {puntuacionesPendientes > 99 ? '99+' : puntuacionesPendientes}
                 </span>
               )}
             </NavLink>
