@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertTriangle } from 'lucide-react';
 import { Button, Input } from '../ui';
 import { SeccionCard, SeccionError } from './CampaniaSeccion';
 import { useCampaniasGate } from './CampaniasGate';
@@ -137,7 +136,6 @@ export function CampaniaConfigPostServicio({
     register,
     handleSubmit,
     reset,
-    watch,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<ConfigPostServicioValores>({
     resolver: zodResolver(schema),
@@ -149,8 +147,6 @@ export function CampaniaConfigPostServicio({
     if (valoresServidor) reset(valoresServidor, { keepDirtyValues: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firma, reset]);
-
-  const umbralElegido = watch('umbral_google');
 
   const onSubmit = async (valores: ConfigPostServicioValores) => {
     if (!valoresServidor || !campania) return;
@@ -251,21 +247,6 @@ export function CampaniaConfigPostServicio({
               <option key={o.value} value={String(o.value)}>{o.label}</option>
             ))}
           </select>
-          <div
-            className={[
-              'flex items-start gap-2 rounded-lg px-3 py-2 text-sm mt-2 border',
-              umbralElegido === '1'
-                ? 'bg-gray-50 border-gray-200 text-gray-700'
-                : 'bg-yellow-50 border-yellow-200 text-yellow-800',
-            ].join(' ')}
-            role="note"
-          >
-            <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <p>
-              Google no permite pedir reseñas solo a los clientes conformes. Si lo detecta, puede borrar
-              reseñas de tu ficha. Con «A todos» no hay riesgo.
-            </p>
-          </div>
         </div>
 
         <Input

@@ -118,7 +118,7 @@ describe('CampaniaConfigForm — post-servicio', () => {
     expect(guardar().disabled).toBe(true);
   });
 
-  it('el select de umbral tiene las 4 opciones y el aviso de Google siempre visible', () => {
+  it('el select de umbral tiene las 4 opciones', () => {
     renderForm();
     const opciones = Array.from((screen.getByLabelText(LABELS.umbral) as HTMLSelectElement).options).map((o) => [o.value, o.text]);
     expect(opciones).toEqual([
@@ -127,7 +127,6 @@ describe('CampaniaConfigForm — post-servicio', () => {
       ['2', 'Excelente, Bueno o Regular'],
       ['1', 'A todos'],
     ]);
-    expect(screen.getByText(/Google no permite pedir reseñas solo a los clientes conformes/)).toBeTruthy();
   });
 
   it('cambiar umbral y espera manda solo esas claves, con el tipo de la campaña', async () => {
