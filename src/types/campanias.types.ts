@@ -18,15 +18,31 @@ export interface CampaniasAccesoFallo {
 
 // --- Campaña (§3.1 / §3.2) ---
 
-export type CampaniaTipo = 'recencia';
+// Una pestaña por campaña (C2). 'post_servicio' = "Gracias por venir"
+// (backend/docs/campania-post-servicio-spec.md).
+export type CampaniaTipo = 'recencia' | 'post_servicio';
 
-export interface CampaniaParametros {
+export interface ParametrosRecencia {
   dias_gracia: number;
   antiguedad_max_dias: number | null;
   // "Vino hace poco" (spec §14 Q2): 0 a 90, 0 = desactivado. El backend lo
   // devuelve con el default (15) aplicado; opcional por si todavía no lo manda.
   dias_sin_molestar?: number;
 }
+
+// A quién se le ofrece el link de reseñas de Google: puntaje mínimo
+// (4 Excelente · 3 Bueno · 2 Regular · 1 Malo). Spec post-servicio §6 y §9.
+export type UmbralGoogle = 1 | 2 | 3 | 4;
+
+export interface ParametrosPostServicio {
+  minutos_espera: number;       // 0 a 180
+  ventana_max_horas: number;    // 1 a 72
+  umbral_google: UmbralGoogle;
+  link_google: string | null;
+}
+
+// Compatibilidad: antes había un solo tipo de campaña
+export type CampaniaParametros = ParametrosRecencia;
 
 export interface CampaniaHoy {
   fecha: string;           // 'YYYY-MM-DD', día de Argentina
@@ -42,28 +58,51 @@ export interface CampaniaAvisos {
   conexion_configurada: boolean;
 }
 
-export interface Campania {
+interface CampaniaBase {
   id: string;
-  tipo: CampaniaTipo;
   activa: boolean;
   tope_diario: number;
   cooldown_dias: number;
-  parametros: CampaniaParametros;
   updated_at: string;
   hoy: CampaniaHoy;
   avisos: CampaniaAvisos;
 }
 
+export interface CampaniaRecencia extends CampaniaBase {
+  tipo: 'recencia';
+  parametros: ParametrosRecencia;
+}
+
+export interface CampaniaPostServicio extends CampaniaBase {
+  tipo: 'post_servicio';
+  parametros: ParametrosPostServicio;
+}
+
+// Unión discriminada por `tipo`: los parámetros dependen de la campaña
+export type Campania = CampaniaRecencia | CampaniaPostServicio;
+
 // Subconjunto editable. Una clave desconocida devuelve 400, así que nunca se
-// manda nada fuera de esta lista.
-export interface CampaniaPatch {
+// manda nada fuera de esta lista (y nunca un parámetro de otro tipo).
+interface CampaniaPatchComun {
   activa?: boolean;
   tope_diario?: number;
   cooldown_dias?: number;
+}
+
+export interface CampaniaPatchRecencia extends CampaniaPatchComun {
   dias_gracia?: number;
   antiguedad_max_dias?: number | null;
   dias_sin_molestar?: number;
 }
+
+export interface CampaniaPatchPostServicio extends CampaniaPatchComun {
+  minutos_espera?: number;
+  ventana_max_horas?: number;
+  umbral_google?: UmbralGoogle;
+  link_google?: string | null;   // null (o '') lo borra
+}
+
+export type CampaniaPatch = CampaniaPatchRecencia | CampaniaPatchPostServicio;
 
 // --- Vista previa (§3.3) ---
 

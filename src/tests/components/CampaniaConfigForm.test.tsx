@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { CampaniaConfigForm, armarPatch, campaniaConfigSchema, crearCampaniaConfigSchema } from '../../components/campanias/CampaniaConfigForm';
 import { toastService } from '../../services/toast.service';
-import type { Campania } from '../../types/campanias.types';
+import type { Campania, CampaniaRecencia } from '../../types/campanias.types';
 
 // Spec campanias-n8n §4.3 B: validaciones de la tabla, guardar deshabilitado sin
 // cambios, toasts, y vaciar la antigüedad máxima manda null.
@@ -24,7 +24,7 @@ vi.mock('../../services/toast.service', () => ({
   toastService: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
-const campania = (over: Partial<Campania> = {}): Campania => ({
+const campania = (over: Partial<CampaniaRecencia> = {}): CampaniaRecencia => ({
   id: 'camp-1',
   tipo: 'recencia',
   activa: false,

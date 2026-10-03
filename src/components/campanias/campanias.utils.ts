@@ -1,6 +1,6 @@
 // Helpers de fechas y textos de la sección Campañas.
 // Reglas de husos: backend/docs/campanias-n8n-spec.md §2.6
-import type { CampaniaMetricasPeriodo, MotivoExclusion } from '../../types/campanias.types';
+import type { CampaniaMetricasPeriodo, CampaniaTipo, MotivoExclusion } from '../../types/campanias.types';
 
 export const ZONA_AR = 'America/Argentina/Buenos_Aires';
 
@@ -104,10 +104,39 @@ export const MOTIVO_TEXTO: Record<MotivoExclusion, string> = {
 
 export const TEXTO_EN_ESPERA = 'Le toca, pero hoy ya se llegó al máximo: sale en los próximos días';
 
+// "Gracias por venir" (post-servicio): solo aplican algunos motivos (no mira la
+// frecuencia de los servicios, ni si tiene turno, ni hace cuánto vino) y un par
+// se cuentan distinto, porque se pregunta por UNA visita.
+const MOTIVOS_NO_APLICAN_POST_SERVICIO: MotivoExclusion[] = [
+  'servicio_sin_frecuencia', 'aun_no_toca', 'vino_hace_poco', 'turno_agendado', 'visita_muy_antigua',
+];
+
+const MOTIVO_TEXTO_POST_SERVICIO: Partial<Record<MotivoExclusion, string>> = {
+  ya_avisado: 'Ya se le preguntó por esta visita',
+  cooldown: 'Ya se le preguntó hace poco',
+  datos_incompletos: 'Le falta el nombre, el servicio o el profesional',
+};
+
+export const TEXTO_EN_ESPERA_POST_SERVICIO = 'Le toca, pero hoy ya se llegó al máximo de mensajes';
+
+export function motivosDe(tipo: CampaniaTipo = 'recencia'): MotivoExclusion[] {
+  if (tipo === 'post_servicio') return MOTIVOS_ORDEN.filter((m) => !MOTIVOS_NO_APLICAN_POST_SERVICIO.includes(m));
+  return MOTIVOS_ORDEN;
+}
+
+export function textoMotivoBase(motivo: MotivoExclusion, tipo: CampaniaTipo = 'recencia'): string {
+  if (tipo === 'post_servicio') return MOTIVO_TEXTO_POST_SERVICIO[motivo] ?? MOTIVO_TEXTO[motivo];
+  return MOTIVO_TEXTO[motivo];
+}
+
+export function textoEnEspera(tipo: CampaniaTipo = 'recencia'): string {
+  return tipo === 'post_servicio' ? TEXTO_EN_ESPERA_POST_SERVICIO : TEXTO_EN_ESPERA;
+}
+
 // Texto del motivo para una fila. `aun_no_toca` suma la fecha en que le tocaría.
-export function textoMotivo(motivo: MotivoExclusion | null, venceEl?: string | null): string {
+export function textoMotivo(motivo: MotivoExclusion | null, venceEl?: string | null, tipo: CampaniaTipo = 'recencia'): string {
   if (!motivo) return '—';
-  const texto = MOTIVO_TEXTO[motivo];
+  const texto = MOTIVO_TEXTO[motivo] ? textoMotivoBase(motivo, tipo) : undefined;
   if (!texto) return 'No recibe por ahora';   // motivo que este front todavía no conoce
   if (motivo === 'aun_no_toca' && venceEl) {
     return `${texto} (le tocaría el ${formatFechaDiaCorta(venceEl)})`;

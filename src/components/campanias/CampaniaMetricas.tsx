@@ -87,8 +87,12 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
     });
   }, [data, periodo]);
 
+  // Reservas y toques en "Reservar turno" son la medida de "Ya te toca volver";
+  // en la encuesta de después de la visita no aplican.
+  const esRecencia = tipo === 'recencia';
+
   // La barra de clics solo se dibuja si el backend manda el dato
-  const serieTraeClics = (data?.serie ?? []).some((p) => typeof p.clics === 'number');
+  const serieTraeClics = esRecencia && (data?.serie ?? []).some((p) => typeof p.clics === 'number');
 
   const sinDatos = !cargando && totales.enviados === 0 && serie.every((p) => p.enviados === 0 && p.reservas === 0);
 
@@ -116,17 +120,21 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
         <SeccionError mensaje="No se pudieron cargar los resultados." onReintentar={revalidate} />
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 ${esRecencia ? 'xl:grid-cols-6' : 'xl:grid-cols-4'}`}>
             <Tarjeta titulo="Mensajes enviados" valor={totales.enviados} isLoading={cargando} />
             <Tarjeta titulo="Llegaron" valor={totales.entregados} detalle={formatPorcentaje(totales.tasa_entrega)} isLoading={cargando} />
             <Tarjeta titulo="Los leyeron" valor={totales.leidos} detalle={formatPorcentaje(totales.tasa_lectura)} isLoading={cargando} />
-            <Tarjeta
-              titulo="Tocaron el botón"
-              valor={totales.clics}
-              detalle={totales.tasa_clic !== undefined ? formatPorcentaje(totales.tasa_clic) : undefined}
-              isLoading={cargando}
-            />
-            <Tarjeta titulo="Reservaron turno" valor={totales.conversiones} detalle={formatPorcentaje(totales.tasa_conversion)} isLoading={cargando} />
+            {esRecencia && (
+              <Tarjeta
+                titulo="Tocaron el botón"
+                valor={totales.clics}
+                detalle={totales.tasa_clic !== undefined ? formatPorcentaje(totales.tasa_clic) : undefined}
+                isLoading={cargando}
+              />
+            )}
+            {esRecencia && (
+              <Tarjeta titulo="Reservaron turno" valor={totales.conversiones} detalle={formatPorcentaje(totales.tasa_conversion)} isLoading={cargando} />
+            )}
             <Tarjeta titulo="Pidieron no recibir más" valor={totales.bajas} isLoading={cargando} />
           </div>
 
@@ -138,7 +146,7 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
                 No hay mensajes enviados en este mes.
               </div>
             ) : (
-              <div className="h-64" role="img" aria-label="Mensajes enviados, toques en el botón y reservas por día">
+              <div className="h-64" role="img" aria-label={esRecencia ? "Mensajes enviados, toques en el botón y reservas por día" : "Mensajes enviados por día"}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={serie} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
@@ -166,7 +174,7 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
                     />
                     <Bar dataKey="enviados" fill="#2563eb" radius={[3, 3, 0, 0]} />
                     {serieTraeClics && <Bar dataKey="clics" fill="#f59e0b" radius={[3, 3, 0, 0]} />}
-                    <Bar dataKey="reservas" fill="#16a34a" radius={[3, 3, 0, 0]} />
+                    {esRecencia && <Bar dataKey="reservas" fill="#16a34a" radius={[3, 3, 0, 0]} />}
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -175,12 +183,20 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
         </>
       )}
 
+      {esRecencia ? (
+        <>
       <p className="text-xs text-gray-500 mt-4">
         Contamos que alguien reservó si sacó turno dentro de los {ventanaDias} días de recibir el mensaje. Los mensajes más nuevos todavía pueden sumar reservas.
       </p>
       <p className="text-xs text-gray-500 mt-1">
         Tocaron el botón puede ser mayor que Los leyeron: hay personas que tienen desactivado el aviso de lectura.
       </p>
+        </>
+      ) : (
+        <p className="text-xs text-gray-500 mt-4">
+          Las puntuaciones y los comentarios de cada visita están en Métricas → Puntuaciones.
+        </p>
+      )}
     </SeccionCard>
   );
 }

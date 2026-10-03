@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useFetch } from '../hooks/useFetch';
 import { buildKey, ENTITIES } from '../cache/key.builder';
 import { TTL } from '../cache/ttl';
@@ -55,6 +56,7 @@ function CampaniaPanel({ tipo }: CampaniaPanelProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <CampaniaEstadoCard
           campania={campania}
+          tipo={tipo}
           loading={loading}
           error={hayError}
           onReintentar={revalidate}
@@ -62,6 +64,7 @@ function CampaniaPanel({ tipo }: CampaniaPanelProps) {
         />
         <CampaniaConfigForm
           campania={campania}
+          tipo={tipo}
           loading={loading}
           error={hayError}
           onReintentar={revalidate}
@@ -76,7 +79,32 @@ function CampaniaPanel({ tipo }: CampaniaPanelProps) {
   );
 }
 
+// Una pestaña por campaña (C2). La elegida queda en la URL (?campania=…) para
+// que un recargo o un link vuelvan a la misma; sin parámetro (o con uno que no
+// existe) se abre "Ya te toca volver".
+const PESTANIAS: { tipo: CampaniaTipo; label: string }[] = [
+  { tipo: 'recencia', label: 'Ya te toca volver' },
+  { tipo: 'post_servicio', label: 'Gracias por venir' },
+];
+
+const PARAM_CAMPANIA = 'campania';
+
+function tipoDeParam(valor: string | null): CampaniaTipo {
+  return PESTANIAS.find((p) => p.tipo === valor)?.tipo ?? 'recencia';
+}
+
 function CampaniasContenido() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tipo = tipoDeParam(searchParams.get(PARAM_CAMPANIA));
+
+  const elegir = (nuevo: CampaniaTipo) => {
+    if (nuevo === tipo) return;
+    const params = new URLSearchParams(searchParams);
+    if (nuevo === 'recencia') params.delete(PARAM_CAMPANIA);
+    else params.set(PARAM_CAMPANIA, nuevo);
+    setSearchParams(params, { replace: true });
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-4">
       <div className="mb-2">
@@ -84,7 +112,41 @@ function CampaniasContenido() {
         <p className="text-gray-600 mt-2">Mensajes automáticos de WhatsApp para que tus clientes vuelvan</p>
       </div>
 
-      <CampaniaPanel tipo="recencia" />
+      <div className="border-b border-gray-200 overflow-x-auto">
+        <nav className="-mb-px flex space-x-6" role="tablist" aria-label="Campañas">
+          {PESTANIAS.map((p) => {
+            const activa = p.tipo === tipo;
+            return (
+              <button
+                key={p.tipo}
+                type="button"
+                role="tab"
+                id={`campania-tab-${p.tipo}`}
+                aria-selected={activa}
+                aria-controls={`campania-panel-${p.tipo}`}
+                onClick={() => elegir(p.tipo)}
+                className={`whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-base transition-colors ${
+                  activa
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* `key`: al cambiar de pestaña se arranca de cero (filtros, página, guardado reciente) */}
+      <div
+        role="tabpanel"
+        id={`campania-panel-${tipo}`}
+        aria-labelledby={`campania-tab-${tipo}`}
+        className="space-y-4"
+      >
+        <CampaniaPanel key={tipo} tipo={tipo} />
+      </div>
     </div>
   );
 }
