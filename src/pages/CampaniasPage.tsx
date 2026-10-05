@@ -117,7 +117,7 @@ function CampaniasContenido() {
         <p className="text-gray-600 mt-2">Mensajes automáticos de WhatsApp para que tus clientes vuelvan</p>
       </div>
 
-      <div className="border-b border-gray-200 overflow-x-auto">
+      <div className="border-b border-gray-200 overflow-x-auto overflow-y-hidden">
         <nav className="-mb-px flex space-x-6" role="tablist" aria-label="Campañas">
           {PESTANIAS.map((p) => {
             const activa = p.tipo === tipo;
