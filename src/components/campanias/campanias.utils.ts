@@ -150,6 +150,9 @@ export function textoMotivo(motivo: MotivoExclusion | null, venceEl?: string | n
 
 const ERROR_ENVIO_POR_CODIGO: Record<string, string> = {
   '131026': 'El número no tiene WhatsApp o no puede recibir el mensaje',
+  // Los dos los frena WhatsApp por su cuenta; el envío se reintenta a los 7 días
+  '130472': 'WhatsApp no se lo entregó: ese número está en una prueba de WhatsApp que frena las promociones por un tiempo. Se vuelve a intentar en una semana',
+  '131049': 'WhatsApp no se lo entregó porque esa persona ya recibió muchas promociones de otros negocios. Se vuelve a intentar en una semana',
 };
 
 export const ERROR_ENVIO_GENERICO = 'No se pudo entregar. Si se repite, avisale a Juan.';

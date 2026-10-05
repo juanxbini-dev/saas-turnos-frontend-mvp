@@ -90,6 +90,14 @@ describe('error de un envío fallido', () => {
     expect(textoErrorEnvio(131026)).toBe('El número no tiene WhatsApp o no puede recibir el mensaje');
   });
 
+  it('los frenos de WhatsApp (experimento y límite de promociones) no mandan a avisarle a Juan', () => {
+    expect(textoErrorEnvio('130472')).toMatch(/prueba de WhatsApp.*Se vuelve a intentar en una semana/);
+    expect(textoErrorEnvio(131049)).toMatch(/muchas promociones de otros negocios.*Se vuelve a intentar en una semana/);
+    for (const codigo of ['130472', '131049']) {
+      expect(textoErrorEnvio(codigo)).not.toMatch(/avisale a Juan|meta/i);
+    }
+  });
+
   it('cualquier otro código, o ninguno, da el texto genérico', () => {
     const generico = 'No se pudo entregar. Si se repite, avisale a Juan.';
     expect(textoErrorEnvio('131047')).toBe(generico);
