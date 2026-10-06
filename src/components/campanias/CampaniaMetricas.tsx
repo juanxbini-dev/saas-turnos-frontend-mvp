@@ -7,7 +7,7 @@ import { useBloqueoPorToken } from './CampaniasGate';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
-import { diasDelPeriodo, etiquetaMes, formatPorcentaje, periodoDelMes } from './campanias.utils';
+import { diasDelPeriodo, etiquetaMes, formatFechaHoraAR, formatPorcentaje, periodoDelMes } from './campanias.utils';
 import type { CampaniaMetricasTotales, CampaniaTipo } from '../../types/campanias.types';
 
 interface CampaniaMetricasProps {
@@ -75,6 +75,7 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
   };
 
   const totales = data?.totales ?? TOTALES_VACIOS;
+  const bajas = data?.bajas_detalle ?? [];
   const ventanaDias = data?.ventana_dias ?? VENTANA_DIAS_DEFAULT;
   const cargando = loading || !data;
 
@@ -137,6 +138,23 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
             )}
             <Tarjeta titulo="Pidieron no recibir más" valor={totales.bajas} isLoading={cargando} />
           </div>
+
+          {!cargando && bajas.length > 0 && (
+            <div className="mt-4 rounded-lg border border-gray-100 p-4">
+              <h4 className="text-sm font-semibold text-gray-900">Quiénes pidieron no recibir más</h4>
+              <ul className="mt-2 divide-y divide-gray-100">
+                {bajas.map((baja) => (
+                  <li key={baja.cliente_id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <span className="text-gray-900">{baja.nombre}</span>
+                    <span className="text-gray-500 tabular-nums">{formatFechaHoraAR(baja.baja_at)}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-500 mt-2">
+                Si alguien lo pidió por error, se le vuelven a activar los mensajes desde su ficha en Clientes.
+              </p>
+            </div>
+          )}
 
           <div className="mt-5">
             {cargando ? (
