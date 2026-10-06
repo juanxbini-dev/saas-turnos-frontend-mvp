@@ -7,7 +7,7 @@ import { useBloqueoPorToken } from './CampaniasGate';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
-import { diasDelPeriodo, etiquetaMes, formatFechaHoraAR, formatPorcentaje, periodoDelMes } from './campanias.utils';
+import { diasDelPeriodo, etiquetaMes, formatFechaHoraAR, formatPorcentaje, NOMBRE_CAMPANIA, periodoDelMes } from './campanias.utils';
 import type { CampaniaMetricasTotales, CampaniaTipo } from '../../types/campanias.types';
 
 interface CampaniaMetricasProps {
@@ -145,13 +145,22 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
               <ul className="mt-2 divide-y divide-gray-100">
                 {bajas.map((baja) => (
                   <li key={baja.cliente_id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span className="text-gray-900">{baja.nombre}</span>
-                    <span className="text-gray-500 tabular-nums">{formatFechaHoraAR(baja.baja_at)}</span>
+                    <div className="min-w-0">
+                      <div className="text-gray-900">{baja.nombre}</div>
+                      {baja.campania_tipo !== undefined && (
+                        <div className="text-xs text-gray-500">
+                          {baja.campania_tipo
+                            ? `Después de recibir "${NOMBRE_CAMPANIA[baja.campania_tipo] ?? baja.campania_tipo}"`
+                            : 'Sin mensaje de campaña antes'}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-gray-500 tabular-nums shrink-0">{formatFechaHoraAR(baja.baja_at)}</span>
                   </li>
                 ))}
               </ul>
               <p className="text-xs text-gray-500 mt-2">
-                Si alguien lo pidió por error, se le vuelven a activar los mensajes desde su ficha en Clientes.
+                Pedir no recibir más corta todas las campañas, por eso la lista es la misma en cada pestaña. Los avisos de sus turnos le siguen llegando. Si alguien lo pidió por error, se le vuelven a activar los mensajes desde su ficha en Clientes.
               </p>
             </div>
           )}

@@ -269,8 +269,8 @@ describe('CampaniasPage', () => {
       ...METRICAS_VACIAS,
       totales: { ...METRICAS_VACIAS.totales, bajas: 2 },
       bajas_detalle: [
-        { cliente_id: 'cli-2', nombre: 'Ana Pérez', baja_at: '2026-09-22T15:00:00.000Z' },
-        { cliente_id: 'cli-1', nombre: 'Luis Gómez', baja_at: '2026-09-21T13:05:00.000Z' },
+        { cliente_id: 'cli-2', nombre: 'Ana Pérez', baja_at: '2026-09-22T15:00:00.000Z', campania_tipo: 'post_servicio' },
+        { cliente_id: 'cli-1', nombre: 'Luis Gómez', baja_at: '2026-09-21T13:05:00.000Z', campania_tipo: null },
       ],
     });
     renderPage();
@@ -280,6 +280,9 @@ describe('CampaniasPage', () => {
     expect(screen.getByText('22/09/2026 12:00')).toBeTruthy();
     expect(screen.getByText('Luis Gómez')).toBeTruthy();
     expect(screen.getByText('21/09/2026 10:05')).toBeTruthy();
+    // Desde qué campaña la pidió
+    expect(screen.getByText('Después de recibir "Gracias por venir"')).toBeTruthy();
+    expect(screen.getByText('Sin mensaje de campaña antes')).toBeTruthy();
   });
 
   it('Resultados: sin bajas (o backend anterior sin el detalle) no muestra la lista', async () => {
