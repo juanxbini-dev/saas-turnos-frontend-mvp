@@ -9,6 +9,7 @@ import { usuarioService } from '../services/usuario.service';
 import { Card, Spinner, Badge } from '../components/ui';
 import { AvatarUploader } from '../components/perfil/AvatarUploader';
 import { CambiarPasswordModal } from '../components/perfil/CambiarPasswordModal';
+import { TuPuntuacionCard } from '../components/perfil/TuPuntuacionCard';
 import { Usuario } from '../types/usuario.types';
 import { TurnoConDetalle } from '../types/turno.types';
 import { useToast } from '../hooks/useToast';
@@ -410,6 +411,9 @@ function PerfilPage() {
             />
           </div>
         </div>
+
+        {/* ── Puntuación de los clientes (encuesta de después de cada visita) ── */}
+        <TuPuntuacionCard />
 
         {/* ── Top productos ── */}
         <Card title="Productos más vendidos">

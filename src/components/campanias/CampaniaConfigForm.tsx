@@ -7,14 +7,21 @@ import { SeccionCard, SeccionError } from './CampaniaSeccion';
 import { useCampaniasGate } from './CampaniasGate';
 import { campaniasService, esFalloTokenCampanias, mensajeDeError } from '../../services/campanias.service';
 import { toastService } from '../../services/toast.service';
-import type { Campania, CampaniaPatch } from '../../types/campanias.types';
+import { CampaniaConfigPostServicio } from './CampaniaConfigPostServicio';
+import type { Campania, CampaniaPatchRecencia, CampaniaRecencia, CampaniaTipo } from '../../types/campanias.types';
 
 interface CampaniaConfigFormProps {
   campania: Campania | null;
+  // Mientras carga todavía no hay campaña: el tipo dice qué formulario va
+  tipo?: CampaniaTipo;
   loading: boolean;
   error: boolean;
   onReintentar: () => void;
   onGuardado: (campania: Campania) => void;
+}
+
+interface ConfigRecenciaProps extends Omit<CampaniaConfigFormProps, 'campania' | 'tipo'> {
+  campania: CampaniaRecencia | null;
 }
 
 const esEnteroEntre = (valor: string, min: number, max: number): boolean => {
@@ -55,7 +62,7 @@ const DIAS_SIN_MOLESTAR_DEFAULT = 15;
 
 export type CampaniaConfigValores = z.infer<typeof campaniaConfigSchema>;
 
-const valoresDe = (campania: Campania): CampaniaConfigValores => ({
+const valoresDe = (campania: CampaniaRecencia): CampaniaConfigValores => ({
   tope_diario: String(campania.tope_diario),
   dias_gracia: String(campania.parametros.dias_gracia),
   cooldown_dias: String(campania.cooldown_dias),
@@ -67,8 +74,8 @@ const valoresDe = (campania: Campania): CampaniaConfigValores => ({
 });
 
 // Solo viaja lo que cambió. Vaciar la antigüedad máxima manda `null` explícito.
-export function armarPatch(valores: CampaniaConfigValores, original: CampaniaConfigValores): CampaniaPatch {
-  const patch: CampaniaPatch = {};
+export function armarPatch(valores: CampaniaConfigValores, original: CampaniaConfigValores): CampaniaPatchRecencia {
+  const patch: CampaniaPatchRecencia = {};
   if (valores.tope_diario.trim() !== original.tope_diario) patch.tope_diario = Number(valores.tope_diario);
   if (valores.dias_gracia.trim() !== original.dias_gracia) patch.dias_gracia = Number(valores.dias_gracia);
   if (valores.cooldown_dias.trim() !== original.cooldown_dias) patch.cooldown_dias = Number(valores.cooldown_dias);
@@ -86,8 +93,22 @@ const VALORES_VACIOS: CampaniaConfigValores = {
   tope_diario: '', dias_gracia: '', cooldown_dias: '', antiguedad_max_dias: '', dias_sin_molestar: '',
 };
 
-// B. Configuración de la campaña.
-export function CampaniaConfigForm({ campania, loading, error, onReintentar, onGuardado }: CampaniaConfigFormProps) {
+// B. Configuración de la campaña: cada tipo tiene sus propios campos.
+export function CampaniaConfigForm({ campania, tipo, ...resto }: CampaniaConfigFormProps) {
+  const tipoActual = campania?.tipo ?? tipo ?? 'recencia';
+  if (tipoActual === 'post_servicio') {
+    return (
+      <CampaniaConfigPostServicio
+        campania={campania?.tipo === 'post_servicio' ? campania : null}
+        {...resto}
+      />
+    );
+  }
+  return <ConfigRecencia campania={campania?.tipo === 'recencia' ? campania : null} {...resto} />;
+}
+
+// Configuración de "Ya te toca volver"
+function ConfigRecencia({ campania, loading, error, onReintentar, onGuardado }: ConfigRecenciaProps) {
   const { bloquear } = useCampaniasGate();
 
   const valoresServidor = useMemo(() => (campania ? valoresDe(campania) : null), [campania]);
@@ -121,7 +142,7 @@ export function CampaniaConfigForm({ campania, loading, error, onReintentar, onG
 
     try {
       const actualizada = await campaniasService.actualizarCampania(campania.tipo, patch);
-      reset(valoresDe(actualizada));
+      if (actualizada.tipo === 'recencia') reset(valoresDe(actualizada));
       onGuardado(actualizada);
       toastService.success('Cambios guardados');
     } catch (err) {

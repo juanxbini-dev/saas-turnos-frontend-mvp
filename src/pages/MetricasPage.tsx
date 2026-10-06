@@ -1,4 +1,9 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useContadorParaRevisar } from '../hooks/useContadorParaRevisar';
+import { useNavegacionPestanias } from '../hooks/useNavegacionPestanias';
+import { MetricasPuntuaciones } from '../components/metricas/MetricasPuntuaciones';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui';
 import { useFetch } from '../hooks/useFetch';
@@ -35,7 +40,38 @@ const periodoDe = (base: Date, modo: ModoPeriodo): MetricasPeriodo =>
         fecha_hasta: `${base.getFullYear()}-12-31`,
       };
 
+// Pestañas de Métricas. "Puntuaciones" (encuesta de después de cada visita)
+// es solo del super admin; la elegida queda en la URL (?vista=puntuaciones).
+type VistaMetricas = 'negocio' | 'puntuaciones';
+const PARAM_VISTA = 'vista';
+
+const PESTANIAS: { id: VistaMetricas; label: string }[] = [
+  { id: 'negocio', label: 'Negocio' },
+  { id: 'puntuaciones', label: 'Puntuaciones' },
+];
+const IDS_PESTANIAS = PESTANIAS.map((p) => p.id);
+const idTab = (v: VistaMetricas) => `metricas-tab-${v}`;
+const idPanel = (v: VistaMetricas) => `metricas-panel-${v}`;
+
 function MetricasPage() {
+  const { state } = useAuth();
+  const esSuperAdmin = (state.authUser?.roles ?? state.roles ?? []).includes('super_admin');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vista: VistaMetricas = esSuperAdmin && searchParams.get(PARAM_VISTA) === 'puntuaciones' ? 'puntuaciones' : 'negocio';
+  const { pendientes } = useContadorParaRevisar(esSuperAdmin);
+
+  const elegirVista = (nueva: VistaMetricas) => {
+    if (nueva === vista) return;
+    const params = new URLSearchParams(searchParams);
+    if (nueva === 'negocio') params.delete(PARAM_VISTA);
+    else params.set(PARAM_VISTA, nueva);
+    setSearchParams(params, { replace: true });
+  };
+  const teclado = useNavegacionPestanias(IDS_PESTANIAS, vista, elegirVista);
+
+  // En Puntuaciones no se muestra nada de Negocio: sus pedidos quedan en pausa (clave null)
+  const enNegocio = vista === 'negocio';
+
   const [modo, setModo] = useState<ModoPeriodo>('mes');
   const [base, setBase] = useState(() => new Date());
   const [detalleUsuario, setDetalleUsuario] = useState<Usuario | null>(null);
@@ -77,44 +113,44 @@ function MetricasPage() {
     error: errorResumen,
     revalidate: revalidateResumen,
   } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'resumen', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'resumen', cacheKeyPeriodo) : null,
     () => metricasService.getResumen(periodo),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: resumenAnterior } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'resumen', `${modo}-${periodoAnterior.fecha_desde}`),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'resumen', `${modo}-${periodoAnterior.fecha_desde}`) : null,
     () => metricasService.getResumen(periodoAnterior),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: evolucion, loading: loadingEvolucion } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'evolucion', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'evolucion', cacheKeyPeriodo) : null,
     () => metricasService.getEvolucion(periodo, agrupar),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: equipo, loading: loadingEquipo } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'equipo', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'equipo', cacheKeyPeriodo) : null,
     () => metricasService.getEquipo(periodo),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: clientesNuevos, loading: loadingClientesNuevos } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'clientes-nuevos', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'clientes-nuevos', cacheKeyPeriodo) : null,
     () => metricasService.getClientesNuevos(periodo),
     { ttl: TTL.MEDIUM }
   );
 
   const { data: comparativa, loading: loadingComparativa } = useFetch(
-    buildKey(ENTITIES.METRICAS, 'comparativa', cacheKeyPeriodo),
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'comparativa', cacheKeyPeriodo) : null,
     () => metricasService.getComparativa(periodo, agrupar),
     { ttl: TTL.MEDIUM }
   );
 
   // Lista de usuarios para abrir el modal de detalle por profesional
   const { data: usuariosData } = useFetch(
-    buildKey(ENTITIES.USUARIOS, 'metricas'),
+    enNegocio ? buildKey(ENTITIES.USUARIOS, 'metricas') : null,
     () => usuarioService.getUsuarios(),
     { ttl: TTL.MEDIUM }
   );
@@ -129,23 +165,6 @@ function MetricasPage() {
     if (usuario) setDetalleUsuario(usuario);
   };
 
-  if (errorResumen) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          <p className="text-sm font-medium">Error de carga</p>
-          <p className="text-sm mt-1">No se pudieron cargar las métricas. Por favor, intenta nuevamente.</p>
-          <button
-            onClick={() => revalidateResumen()}
-            className="mt-2 text-sm bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded transition-colors"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -154,6 +173,49 @@ function MetricasPage() {
         <p className="text-gray-600 mt-2">Análisis del negocio y rendimiento del equipo</p>
       </div>
 
+      {esSuperAdmin && (
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex space-x-6" role="tablist" aria-label="Secciones de métricas">
+            {PESTANIAS.map((t) => {
+              const activa = vista === t.id;
+              return (
+                <button
+                  key={t.id}
+                  ref={teclado.registrar(t.id)}
+                  type="button"
+                  role="tab"
+                  id={idTab(t.id)}
+                  aria-selected={activa}
+                  aria-controls={idPanel(t.id)}
+                  tabIndex={teclado.tabIndex(t.id)}
+                  onClick={() => elegirVista(t.id)}
+                  onKeyDown={(e) => teclado.onKeyDown(e, t.id)}
+                  className={`inline-flex items-center gap-2 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activa
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {t.label}
+                  {t.id === 'puntuaciones' && pendientes > 0 && (
+                    <span
+                      className="bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 inline-flex items-center justify-center"
+                      title={`${pendientes} para revisar`}
+                    >
+                      {pendientes > 99 ? '99+' : pendientes}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      )}
+
+      {/* Lo que va debajo de las pestañas (período incluido); sin pestañas es un bloque común */}
+      <div
+        {...(esSuperAdmin ? { role: 'tabpanel', id: idPanel(vista), 'aria-labelledby': idTab(vista) } : {})}
+      >
       {/* Selector de período */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div className="flex items-center gap-1">
@@ -181,6 +243,21 @@ function MetricasPage() {
         </div>
       </div>
 
+      {vista === 'puntuaciones' ? (
+        <MetricasPuntuaciones periodo={periodo} etiquetaPeriodo={etiquetaPeriodo} />
+      ) : errorResumen ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          <p className="text-sm font-medium">Error de carga</p>
+          <p className="text-sm mt-1">No se pudieron cargar las métricas. Por favor, intenta nuevamente.</p>
+          <button
+            onClick={() => revalidateResumen()}
+            className="mt-2 text-sm bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : (
+      <>
       {/* KPIs */}
       <div className="mb-6">
         <MetricasResumenCards
@@ -232,6 +309,9 @@ function MetricasPage() {
         fechaHasta={periodo.fecha_hasta}
         isLoading={loadingComparativa}
       />
+      </>
+      )}
+      </div>
 
       {/* Detalle mensual por profesional (reutiliza el modal de Usuarios) */}
       <UsuarioMetricasModal

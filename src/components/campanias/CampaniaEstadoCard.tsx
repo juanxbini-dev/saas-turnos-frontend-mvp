@@ -6,19 +6,45 @@ import { SeccionCard, SeccionError } from './CampaniaSeccion';
 import { useCampaniasGate } from './CampaniasGate';
 import { campaniasService, esFalloTokenCampanias, mensajeDeError } from '../../services/campanias.service';
 import { toastService } from '../../services/toast.service';
-import type { Campania } from '../../types/campanias.types';
+import type { Campania, CampaniaTipo } from '../../types/campanias.types';
 
 interface CampaniaEstadoCardProps {
   campania: Campania | null;
+  // Mientras carga todavía no hay campaña: el tipo da el título
+  tipo?: CampaniaTipo;
   loading: boolean;
   error: boolean;
   onReintentar: () => void;
   onCambio: (campania: Campania) => void;
 }
 
-// A. Tarjeta "Ya te toca volver": encender (con confirmación) / apagar
+interface TextosCampania {
+  titulo: string;
+  subtitulo: string;
+  encendida: string;
+  confirmar: (tope: number) => string;
+}
+
+// Textos de cada campaña. Spec recencia §4.3 A; post-servicio §7.
+const TEXTOS: Record<CampaniaTipo, TextosCampania> = {
+  recencia: {
+    titulo: 'Ya te toca volver',
+    subtitulo: 'Un aviso por WhatsApp a los clientes que ya deberían volver al salón.',
+    encendida: 'Campaña encendida. Los mensajes salen todos los días a las 10:00.',
+    confirmar: (tope) => `Vas a encender los avisos automáticos. Todos los días a las 10:00 se les escribe por WhatsApp a los clientes que ya deberían volver, hasta ${tope} por día. Podés apagarlo cuando quieras.`,
+  },
+  post_servicio: {
+    titulo: 'Gracias por venir',
+    subtitulo: 'Después de cada visita cobrada, el cliente puntúa la atención con un toque.',
+    encendida: 'Campaña encendida. El mensaje sale unos minutos después de cada cobro.',
+    confirmar: (tope) => `Vas a encender la encuesta de después de cada visita. Unos minutos después de cobrar, se le escribe por WhatsApp al cliente para que puntúe la atención, hasta ${tope} por día. Podés apagarlo cuando quieras.`,
+  },
+};
+
+// A. Tarjeta de estado de la campaña: encender (con confirmación) / apagar
 // (inmediato), estado del día y avisos. Textos: spec §4.3 A.
-export function CampaniaEstadoCard({ campania, loading, error, onReintentar, onCambio }: CampaniaEstadoCardProps) {
+export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintentar, onCambio }: CampaniaEstadoCardProps) {
+  const textos = TEXTOS[campania?.tipo ?? tipo ?? 'recencia'];
   const { bloquear } = useCampaniasGate();
   const [confirmando, setConfirmando] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -31,7 +57,7 @@ export function CampaniaEstadoCard({ campania, loading, error, onReintentar, onC
       onCambio(actualizada);
       setConfirmando(false);
       toastService.success(activa
-        ? 'Campaña encendida. Los mensajes salen todos los días a las 10:00.'
+        ? textos.encendida
         : 'Campaña apagada. No se envían más mensajes.');
     } catch (err) {
       if (esFalloTokenCampanias(err)) {
@@ -57,7 +83,7 @@ export function CampaniaEstadoCard({ campania, loading, error, onReintentar, onC
 
   if (error) {
     return (
-      <SeccionCard titulo="Ya te toca volver">
+      <SeccionCard titulo={textos.titulo}>
         <SeccionError mensaje="No se pudo cargar el estado de la campaña." onReintentar={onReintentar} />
       </SeccionCard>
     );
@@ -65,7 +91,7 @@ export function CampaniaEstadoCard({ campania, loading, error, onReintentar, onC
 
   if (loading || !campania) {
     return (
-      <SeccionCard titulo="Ya te toca volver">
+      <SeccionCard titulo={textos.titulo}>
         <div className="space-y-3" aria-busy="true">
           <div className="h-8 w-40 bg-gray-100 rounded animate-pulse" />
           <div className="h-4 w-64 max-w-full bg-gray-100 rounded animate-pulse" />
@@ -78,8 +104,8 @@ export function CampaniaEstadoCard({ campania, loading, error, onReintentar, onC
 
   return (
     <SeccionCard
-      titulo="Ya te toca volver"
-      subtitulo="Un aviso por WhatsApp a los clientes que ya deberían volver al salón."
+      titulo={textos.titulo}
+      subtitulo={textos.subtitulo}
     >
       <div className="flex items-center gap-3">
         <button
@@ -115,7 +141,8 @@ export function CampaniaEstadoCard({ campania, loading, error, onReintentar, onC
       </p>
 
       <div className="mt-4 space-y-2">
-        {avisos.servicios_con_frecuencia === 0 && (
+        {/* La frecuencia de los servicios solo le importa a "Ya te toca volver" */}
+        {campania.tipo === 'recencia' && avisos.servicios_con_frecuencia === 0 && (
           <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg px-3 py-2 text-sm" role="status">
             <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
             <p>
@@ -146,7 +173,7 @@ export function CampaniaEstadoCard({ campania, loading, error, onReintentar, onC
         loading={guardando}
         variant="primary"
         title="Encender los avisos"
-        message={`Vas a encender los avisos automáticos. Todos los días a las 10:00 se les escribe por WhatsApp a los clientes que ya deberían volver, hasta ${tope_diario} por día. Podés apagarlo cuando quieras.`}
+        message={textos.confirmar(tope_diario)}
         confirmText="Encender"
         cancelText="Cancelar"
       />
