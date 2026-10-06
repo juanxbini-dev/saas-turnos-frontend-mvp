@@ -251,9 +251,18 @@ export interface CampaniaMetricasPunto {
   clics?: number;
 }
 
+// Quién pidió no recibir más por WhatsApp en el período
+export interface CampaniaBaja {
+  cliente_id: string;
+  nombre: string;
+  baja_at: string;
+}
+
 export interface CampaniaMetricas {
   periodo: CampaniaMetricasPeriodo;
   ventana_dias: number;
   totales: CampaniaMetricasTotales;
   serie: CampaniaMetricasPunto[];
+  // Opcional: un backend anterior no lo manda
+  bajas_detalle?: CampaniaBaja[];
 }

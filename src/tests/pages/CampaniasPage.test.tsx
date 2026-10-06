@@ -264,6 +264,30 @@ describe('CampaniasPage', () => {
     expect(within(tarjeta('Tocaron el botón')).getByText('—')).toBeTruthy();
   });
 
+  it('Resultados: lista quiénes pidieron no recibir más, con fecha y hora de Argentina', async () => {
+    getMetricas.mockResolvedValue({
+      ...METRICAS_VACIAS,
+      totales: { ...METRICAS_VACIAS.totales, bajas: 2 },
+      bajas_detalle: [
+        { cliente_id: 'cli-2', nombre: 'Ana Pérez', baja_at: '2026-09-22T15:00:00.000Z' },
+        { cliente_id: 'cli-1', nombre: 'Luis Gómez', baja_at: '2026-09-21T13:05:00.000Z' },
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByText('Quiénes pidieron no recibir más')).toBeTruthy();
+    expect(screen.getByText('Ana Pérez')).toBeTruthy();
+    expect(screen.getByText('22/09/2026 12:00')).toBeTruthy();
+    expect(screen.getByText('Luis Gómez')).toBeTruthy();
+    expect(screen.getByText('21/09/2026 10:05')).toBeTruthy();
+  });
+
+  it('Resultados: sin bajas (o backend anterior sin el detalle) no muestra la lista', async () => {
+    renderPage();
+    await screen.findByText('No hay mensajes enviados en este mes.');
+    expect(screen.queryByText('Quiénes pidieron no recibir más')).toBeNull();
+  });
+
   it('Resultados: la nota aclara que los toques pueden superar a las lecturas', async () => {
     renderPage();
     expect(await screen.findByText(
