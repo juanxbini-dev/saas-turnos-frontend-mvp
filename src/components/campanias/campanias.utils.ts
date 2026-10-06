@@ -119,6 +119,12 @@ const MOTIVO_TEXTO_POST_SERVICIO: Partial<Record<MotivoExclusion, string>> = {
 
 export const TEXTO_EN_ESPERA_POST_SERVICIO = 'Le toca, pero hoy ya se llegó al máximo de mensajes';
 
+// Nombre de cada campaña como lo ve el salón
+export const NOMBRE_CAMPANIA: Record<CampaniaTipo, string> = {
+  recencia: 'Ya te toca volver',
+  post_servicio: 'Gracias por venir',
+};
+
 export function motivosDe(tipo: CampaniaTipo = 'recencia'): MotivoExclusion[] {
   if (tipo === 'post_servicio') return MOTIVOS_ORDEN.filter((m) => !MOTIVOS_NO_APLICAN_POST_SERVICIO.includes(m));
   return MOTIVOS_ORDEN;
