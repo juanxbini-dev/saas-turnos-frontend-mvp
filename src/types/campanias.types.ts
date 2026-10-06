@@ -256,6 +256,9 @@ export interface CampaniaBaja {
   cliente_id: string;
   nombre: string;
   baja_at: string;
+  // Última campaña que recibió antes de la baja; null si no recibió ninguna.
+  // Opcional: un backend anterior no lo manda.
+  campania_tipo?: CampaniaTipo | null;
 }
 
 export interface CampaniaMetricas {
