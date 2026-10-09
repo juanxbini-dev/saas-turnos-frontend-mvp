@@ -34,6 +34,9 @@ const esEnteroEntre = (valor: string, min: number, max: number): boolean => {
 const enteroEntre = (min: number, max: number) =>
   z.string().trim().refine((v) => esEnteroEntre(v, min, max), `Poné un número entre ${min} y ${max}`);
 
+const MENSAJE_ESPERA = 'La espera tiene que ser menor que el máximo de días';
+const MENSAJE_MAXIMO = 'El máximo de días tiene que ser mayor que la espera';
+
 // `topeServidor`: igual que en las otras campañas, un 0 cargado desde afuera y
 // sin tocar no bloquea el guardado de los demás campos.
 //
@@ -48,12 +51,13 @@ export const crearConfigTurnoAbandonadoSchema = (topeServidor?: string) => z.obj
   dias_espera: enteroEntre(1, 30),
   ventana_max_dias: enteroEntre(1, 60),
   silencio_recencia_dias: enteroEntre(0, 60),
-}).refine(
-  (v) => !esEnteroEntre(v.dias_espera, 1, 30)
-    || !esEnteroEntre(v.ventana_max_dias, 1, 60)
-    || Number(v.dias_espera) < Number(v.ventana_max_dias),
-  { message: 'La espera tiene que ser menor que el máximo de días', path: ['dias_espera'] }
-);
+}).superRefine((v, ctx) => {
+  if (!esEnteroEntre(v.dias_espera, 1, 30) || !esEnteroEntre(v.ventana_max_dias, 1, 60)) return;
+  if (Number(v.dias_espera) < Number(v.ventana_max_dias)) return;
+  // En los dos campos: el que Dani esté tocando muestra el aviso
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message: MENSAJE_ESPERA, path: ['dias_espera'] });
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message: MENSAJE_MAXIMO, path: ['ventana_max_dias'] });
+});
 
 export const configTurnoAbandonadoSchema = crearConfigTurnoAbandonadoSchema();
 
@@ -101,6 +105,7 @@ export function CampaniaConfigTurnoAbandonado({
     register,
     handleSubmit,
     reset,
+    trigger,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<ConfigTurnoAbandonadoValores>({
     resolver: zodResolver(schema),
@@ -174,7 +179,7 @@ export function CampaniaConfigTurnoAbandonado({
             help="Le damos tiempo a que saque otro turno por su cuenta."
             error={errors.dias_espera?.message}
             readOnly={isSubmitting}
-            {...register('dias_espera')}
+            {...register('dias_espera', { onChange: () => { void trigger('ventana_max_dias'); } })}
           />
           <Input
             type="text"
@@ -184,7 +189,7 @@ export function CampaniaConfigTurnoAbandonado({
             help="Pasado ese tiempo ya no se le escribe por esa cancelación."
             error={errors.ventana_max_dias?.message}
             readOnly={isSubmitting}
-            {...register('ventana_max_dias')}
+            {...register('ventana_max_dias', { onChange: () => { void trigger('dias_espera'); } })}
           />
           <Input
             type="text"

@@ -111,8 +111,18 @@ describe('CampaniaConfigForm — turno abandonado', () => {
     fireEvent.change(campo(LABELS.espera), { target: { value: '20' } });
     expect(await screen.findByText('La espera tiene que ser menor que el máximo de días')).toBeTruthy();
     fireEvent.click(guardar());
-    await new Promise((r) => setTimeout(r, 50));
+    await waitFor(() => expect(screen.getByText('El máximo de días tiene que ser mayor que la espera')).toBeTruthy());
     expect(actualizarCampania).not.toHaveBeenCalled();
+  });
+
+  it('bajar el máximo por debajo de la espera muestra el aviso en ese campo', async () => {
+    renderForm(campania({ dias_espera: 5 }));
+    fireEvent.change(campo(LABELS.ventana), { target: { value: '4' } });
+    expect(await screen.findByText('El máximo de días tiene que ser mayor que la espera')).toBeTruthy();
+    // Volver a un valor válido limpia los dos avisos
+    fireEvent.change(campo(LABELS.ventana), { target: { value: '10' } });
+    await waitFor(() => expect(screen.queryByText('El máximo de días tiene que ser mayor que la espera')).toBeNull());
+    expect(screen.queryByText('La espera tiene que ser menor que el máximo de días')).toBeNull();
   });
 });
 
@@ -127,7 +137,7 @@ describe('motivos de "Turno cancelado"', () => {
 
   it('los dice para quien canceló', () => {
     expect(textoMotivo('turno_agendado', null, 'turno_abandonado')).toBe('Ya sacó otro turno');
-    expect(textoMotivo('vino_hace_poco', null, 'turno_abandonado')).toBe('Vino al salón después de cancelar');
+    expect(textoMotivo('vino_hace_poco', null, 'turno_abandonado')).toBe('Vino al salón el día que canceló o después');
     expect(textoMotivo('telefono_duplicado', null, 'turno_abandonado')).toBe('Canceló otro turno más reciente (cuenta ese)');
   });
 

@@ -130,7 +130,7 @@ const MOTIVOS_NO_APLICAN_TURNO_ABANDONADO: MotivoExclusion[] = [
 
 const MOTIVO_TEXTO_TURNO_ABANDONADO: Partial<Record<MotivoExclusion, string>> = {
   turno_agendado: 'Ya sacó otro turno',
-  vino_hace_poco: 'Vino al salón después de cancelar',
+  vino_hace_poco: 'Vino al salón el día que canceló o después',
   ya_avisado: 'Ya se le escribió por esta cancelación',
   cooldown: 'Ya se le escribió hace poco por otra cancelación',
   datos_incompletos: 'Le falta el nombre o el servicio',
