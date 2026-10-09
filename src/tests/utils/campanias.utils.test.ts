@@ -53,10 +53,10 @@ describe('timestamps en hora de Argentina', () => {
 });
 
 describe('motivos de exclusión', () => {
-  it('cubre los 17 motivos de §2.3 + §14, en su orden', () => {
-    expect(MOTIVOS_ORDEN).toHaveLength(17);
+  it('cubre los 18 motivos de §2.3 + §14 + turno abandonado, en su orden', () => {
+    expect(MOTIVOS_ORDEN).toHaveLength(18);
     expect(MOTIVOS_ORDEN[0]).toBe('baja');
-    expect(MOTIVOS_ORDEN[16]).toBe('fuera_de_whitelist');
+    expect(MOTIVOS_ORDEN[17]).toBe('fuera_de_whitelist');
     for (const motivo of MOTIVOS_ORDEN) expect(MOTIVO_TEXTO[motivo]).toBeTruthy();
   });
 

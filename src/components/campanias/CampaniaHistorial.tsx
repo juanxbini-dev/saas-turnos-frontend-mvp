@@ -73,8 +73,8 @@ export function CampaniaHistorial({ tipo }: CampaniaHistorialProps) {
   const items = data?.items ?? [];
   const meta = data?.meta;
   const hayFiltro = busquedaFinal !== '' || estado !== '';
-  // "¿Reservó?" es la medida de "Ya te toca volver"; en la encuesta no aplica
-  const muestraReserva = tipo === 'recencia';
+  // "¿Reservó?" es la medida de las campañas que invitan a reservar; en la encuesta no aplica
+  const muestraReserva = tipo !== 'post_servicio';
 
   return (
     <SeccionCard

@@ -10,6 +10,7 @@ import type {
   CampaniaPostServicio,
   CampaniaRecencia,
   CampaniaTipo,
+  CampaniaTurnoAbandonado,
   EnviosRespuesta,
   VistaPreviaRespuesta,
 } from '../../types/campanias.types';
@@ -64,6 +65,18 @@ const POST: CampaniaPostServicio = {
   avisos: AVISOS,
 };
 
+const ABANDONO: CampaniaTurnoAbandonado = {
+  id: 'camp-3', tipo: 'turno_abandonado', activa: false, tope_diario: 30, cooldown_dias: 30,
+  parametros: { dias_espera: 3, ventana_max_dias: 14, silencio_recencia_dias: 7 },
+  updated_at: '2026-10-09T13:00:00.000Z',
+  hoy: { fecha: '2026-10-09', usados: 0, cupo_restante: 30 },
+  avisos: AVISOS,
+};
+
+const POR_TIPO: Record<CampaniaTipo, CampaniaRecencia | CampaniaPostServicio | CampaniaTurnoAbandonado> = {
+  recencia: RECENCIA, post_servicio: POST, turno_abandonado: ABANDONO,
+};
+
 const PREVIEW_VACIA: VistaPreviaRespuesta = {
   fecha: '2026-10-03',
   resumen: { sale_hoy: 0, en_espera: 0, no_recibe: 0, por_motivo: {} },
@@ -102,7 +115,7 @@ describe('CampaniasPage — una pestaña por campaña', () => {
     vi.clearAllMocks();
     cacheService.invalidateByPrefix(buildKey(ENTITIES.CAMPANIAS));
     verificarAcceso.mockResolvedValue(true);
-    getCampania.mockImplementation((tipo: CampaniaTipo) => Promise.resolve(tipo === 'post_servicio' ? POST : RECENCIA));
+    getCampania.mockImplementation((tipo: CampaniaTipo) => Promise.resolve(POR_TIPO[tipo]));
     getVistaPrevia.mockResolvedValue(PREVIEW_VACIA);
     getEnvios.mockResolvedValue(ENVIOS_VACIOS);
     getMetricas.mockResolvedValue(METRICAS);
@@ -186,17 +199,48 @@ describe('CampaniasPage — una pestaña por campaña', () => {
     expect(screen.getByTestId('url').textContent).toBe('?campania=post_servicio');
     expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe('campania-tab-post_servicio');
 
-    // Desde la última, la flecha derecha da la vuelta a la primera
     fireEvent.keyDown(pestania('Gracias por venir'), { key: 'ArrowRight' });
+    await waitFor(() => expect(pestania('Turno cancelado').getAttribute('aria-selected')).toBe('true'));
+
+    // Desde la última, la flecha derecha da la vuelta a la primera
+    fireEvent.keyDown(pestania('Turno cancelado'), { key: 'ArrowRight' });
     await waitFor(() => expect(pestania('Ya te toca volver').getAttribute('aria-selected')).toBe('true'));
     expect(document.activeElement).toBe(pestania('Ya te toca volver'));
 
     fireEvent.keyDown(pestania('Ya te toca volver'), { key: 'End' });
-    await waitFor(() => expect(document.activeElement).toBe(pestania('Gracias por venir')));
-    fireEvent.keyDown(pestania('Gracias por venir'), { key: 'Home' });
+    await waitFor(() => expect(document.activeElement).toBe(pestania('Turno cancelado')));
+    fireEvent.keyDown(pestania('Turno cancelado'), { key: 'Home' });
     await waitFor(() => expect(document.activeElement).toBe(pestania('Ya te toca volver')));
     fireEvent.keyDown(pestania('Ya te toca volver'), { key: 'ArrowLeft' });
-    await waitFor(() => expect(pestania('Gracias por venir').getAttribute('aria-selected')).toBe('true'));
-    expect(await screen.findByLabelText('Minutos de espera después de cobrar')).toBeTruthy();
+    await waitFor(() => expect(pestania('Turno cancelado').getAttribute('aria-selected')).toBe('true'));
+    expect(await screen.findByLabelText('Días de espera después de que cancela')).toBeTruthy();
+  });
+
+  it('"Turno cancelado" pide su campaña, muestra su configuración y su columna "Canceló el"', async () => {
+    getVistaPrevia.mockImplementation((tipo: CampaniaTipo) => Promise.resolve(tipo === 'turno_abandonado'
+      ? {
+        ...PREVIEW_VACIA,
+        resumen: { ...PREVIEW_VACIA.resumen, sale_hoy: 1 },
+        items: [{
+          cliente_id: 'cli-9', cliente_nombre: 'Ana Gómez', telefono: '5491155554444', telefono_original: '11 5555-4444',
+          servicio: 'corte', ultima_visita: '2026-09-01', vence_el: null, cancelado_el: '2026-10-06',
+          grupo: 'sale_hoy', motivo: null, posicion: 1,
+        }],
+        meta: { total: 1, pagina: 1, por_pagina: 20, total_paginas: 1 },
+      }
+      : PREVIEW_VACIA));
+    renderPage('/campanias?campania=turno_abandonado');
+
+    expect(await screen.findByLabelText('Hasta cuántos días después de cancelar')).toBeTruthy();
+    expect(getCampania).toHaveBeenCalledWith('turno_abandonado');
+    expect((screen.getByLabelText('Días sin «Ya te toca volver» después de este aviso') as HTMLInputElement).value).toBe('7');
+    expect(await screen.findByText('Ana Gómez')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Canceló el' })).toBeTruthy();
+    expect(screen.getByText('06/10/2026')).toBeTruthy();
+    expect(screen.queryByText('01/09/2026')).toBeNull();
+    expect(screen.queryByText('Le tocaba el')).toBeNull();
+    // Invita a reservar, como recencia: Resultados mide toques y reservas, y no habla de puntuaciones
+    expect(await screen.findByText('Tocaron el botón')).toBeTruthy();
+    expect(screen.queryByText(/Métricas → Puntuaciones/)).toBeNull();
   });
 });
