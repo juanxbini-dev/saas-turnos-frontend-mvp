@@ -86,6 +86,7 @@ function CampaniaPanel({ tipo }: CampaniaPanelProps) {
 const PESTANIAS: { tipo: CampaniaTipo; label: string }[] = [
   { tipo: 'recencia', label: 'Ya te toca volver' },
   { tipo: 'post_servicio', label: 'Gracias por venir' },
+  { tipo: 'turno_abandonado', label: 'Turno cancelado' },
 ];
 
 const TIPOS_PESTANIAS = PESTANIAS.map((p) => p.tipo);

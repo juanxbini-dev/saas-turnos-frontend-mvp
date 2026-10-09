@@ -77,6 +77,7 @@ export const MOTIVOS_ORDEN: MotivoExclusion[] = [
   'reintento_en_espera',
   'visita_muy_antigua',
   'cooldown',
+  'silencio_turno_abandonado',
   'cap_diario',
   'telefono_duplicado',
   'fuera_de_whitelist',
@@ -100,6 +101,7 @@ export const MOTIVO_TEXTO: Record<MotivoExclusion, string> = {
   cap_diario: 'Ya recibió un mensaje hoy',
   telefono_duplicado: 'Otro cliente tiene el mismo número',
   fuera_de_whitelist: 'Modo prueba: no está entre los números de prueba',
+  silencio_turno_abandonado: 'Hace pocos días le escribimos porque canceló un turno',
 };
 
 export const TEXTO_EN_ESPERA = 'Le toca, pero hoy ya se llegó al máximo: sale en los próximos días';
@@ -109,6 +111,7 @@ export const TEXTO_EN_ESPERA = 'Le toca, pero hoy ya se llegó al máximo: sale 
 // se cuentan distinto, porque se pregunta por UNA visita.
 const MOTIVOS_NO_APLICAN_POST_SERVICIO: MotivoExclusion[] = [
   'servicio_sin_frecuencia', 'aun_no_toca', 'vino_hace_poco', 'turno_agendado', 'visita_muy_antigua',
+  'silencio_turno_abandonado',
 ];
 
 const MOTIVO_TEXTO_POST_SERVICIO: Partial<Record<MotivoExclusion, string>> = {
@@ -119,24 +122,46 @@ const MOTIVO_TEXTO_POST_SERVICIO: Partial<Record<MotivoExclusion, string>> = {
 
 export const TEXTO_EN_ESPERA_POST_SERVICIO = 'Le toca, pero hoy ya se llegó al máximo de mensajes';
 
+// "Turno abandonado": mira una cancelación puntual, no la frecuencia de los servicios.
+// "Ya tiene turno" y "vino hace poco" sí aplican, pero dicho para quien canceló.
+const MOTIVOS_NO_APLICAN_TURNO_ABANDONADO: MotivoExclusion[] = [
+  'servicio_sin_frecuencia', 'aun_no_toca', 'visita_muy_antigua', 'silencio_turno_abandonado',
+];
+
+const MOTIVO_TEXTO_TURNO_ABANDONADO: Partial<Record<MotivoExclusion, string>> = {
+  turno_agendado: 'Ya sacó otro turno',
+  vino_hace_poco: 'Vino al salón después de cancelar',
+  ya_avisado: 'Ya se le escribió por esta cancelación',
+  cooldown: 'Ya se le escribió hace poco por otra cancelación',
+  datos_incompletos: 'Le falta el nombre o el servicio',
+  telefono_duplicado: 'Canceló otro turno más reciente (cuenta ese)',
+};
+
+export const TEXTO_EN_ESPERA_TURNO_ABANDONADO = 'Le toca, pero hoy ya se llegó al máximo: sale en los próximos días';
+
 // Nombre de cada campaña como lo ve el salón
 export const NOMBRE_CAMPANIA: Record<CampaniaTipo, string> = {
   recencia: 'Ya te toca volver',
   post_servicio: 'Gracias por venir',
+  turno_abandonado: 'Turno cancelado',
 };
 
 export function motivosDe(tipo: CampaniaTipo = 'recencia'): MotivoExclusion[] {
   if (tipo === 'post_servicio') return MOTIVOS_ORDEN.filter((m) => !MOTIVOS_NO_APLICAN_POST_SERVICIO.includes(m));
+  if (tipo === 'turno_abandonado') return MOTIVOS_ORDEN.filter((m) => !MOTIVOS_NO_APLICAN_TURNO_ABANDONADO.includes(m));
   return MOTIVOS_ORDEN;
 }
 
 export function textoMotivoBase(motivo: MotivoExclusion, tipo: CampaniaTipo = 'recencia'): string {
   if (tipo === 'post_servicio') return MOTIVO_TEXTO_POST_SERVICIO[motivo] ?? MOTIVO_TEXTO[motivo];
+  if (tipo === 'turno_abandonado') return MOTIVO_TEXTO_TURNO_ABANDONADO[motivo] ?? MOTIVO_TEXTO[motivo];
   return MOTIVO_TEXTO[motivo];
 }
 
 export function textoEnEspera(tipo: CampaniaTipo = 'recencia'): string {
-  return tipo === 'post_servicio' ? TEXTO_EN_ESPERA_POST_SERVICIO : TEXTO_EN_ESPERA;
+  if (tipo === 'post_servicio') return TEXTO_EN_ESPERA_POST_SERVICIO;
+  if (tipo === 'turno_abandonado') return TEXTO_EN_ESPERA_TURNO_ABANDONADO;
+  return TEXTO_EN_ESPERA;
 }
 
 // Texto del motivo para una fila. `aun_no_toca` suma la fecha en que le tocaría.

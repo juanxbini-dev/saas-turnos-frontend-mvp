@@ -39,6 +39,12 @@ const TEXTOS: Record<CampaniaTipo, TextosCampania> = {
     encendida: 'Campaña encendida. El mensaje sale unos minutos después de cada cobro.',
     confirmar: (tope) => `Vas a encender la encuesta de después de cada visita. Unos minutos después de cobrar, se le escribe por WhatsApp al cliente para que puntúe la atención, hasta ${tope} por día. Podés apagarlo cuando quieras.`,
   },
+  turno_abandonado: {
+    titulo: 'Turno cancelado',
+    subtitulo: 'Un aviso por WhatsApp a quien canceló su turno desde la web y no sacó otro.',
+    encendida: 'Campaña encendida. Los mensajes salen una vez por día, unos días después de cada cancelación.',
+    confirmar: (tope) => `Vas a encender los avisos a quien canceló su turno. Unos días después de cancelar, si no sacó otro turno, se le escribe por WhatsApp para que elija un nuevo horario, hasta ${tope} por día. Podés apagarlo cuando quieras.`,
+  },
 };
 
 // A. Tarjeta de estado de la campaña: encender (con confirmación) / apagar

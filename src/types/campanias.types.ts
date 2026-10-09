@@ -19,8 +19,9 @@ export interface CampaniasAccesoFallo {
 // --- Campaña (§3.1 / §3.2) ---
 
 // Una pestaña por campaña (C2). 'post_servicio' = "Gracias por venir"
-// (backend/docs/campania-post-servicio-spec.md).
-export type CampaniaTipo = 'recencia' | 'post_servicio';
+// (backend/docs/campania-post-servicio-spec.md); 'turno_abandonado' = canceló su
+// turno y no sacó otro (backend/docs/campania-turno-abandonado-spec.md).
+export type CampaniaTipo = 'recencia' | 'post_servicio' | 'turno_abandonado';
 
 export interface ParametrosRecencia {
   dias_gracia: number;
@@ -39,6 +40,12 @@ export interface ParametrosPostServicio {
   ventana_max_horas: number;    // 1 a 72
   umbral_google: UmbralGoogle;
   link_google: string | null;
+}
+
+export interface ParametrosTurnoAbandonado {
+  dias_espera: number;            // 1 a 30: días desde la cancelación antes de escribirle
+  ventana_max_dias: number;       // 1 a 60: pasado esto ya no se le escribe
+  silencio_recencia_dias: number; // 0 a 60: "Ya te toca volver" no le escribe después (0 = no se calla)
 }
 
 // Compatibilidad: antes había un solo tipo de campaña
@@ -78,8 +85,13 @@ export interface CampaniaPostServicio extends CampaniaBase {
   parametros: ParametrosPostServicio;
 }
 
+export interface CampaniaTurnoAbandonado extends CampaniaBase {
+  tipo: 'turno_abandonado';
+  parametros: ParametrosTurnoAbandonado;
+}
+
 // Unión discriminada por `tipo`: los parámetros dependen de la campaña
-export type Campania = CampaniaRecencia | CampaniaPostServicio;
+export type Campania = CampaniaRecencia | CampaniaPostServicio | CampaniaTurnoAbandonado;
 
 // Subconjunto editable. Una clave desconocida devuelve 400, así que nunca se
 // manda nada fuera de esta lista (y nunca un parámetro de otro tipo).
@@ -102,7 +114,13 @@ export interface CampaniaPatchPostServicio extends CampaniaPatchComun {
   link_google?: string | null;   // null (o '') lo borra
 }
 
-export type CampaniaPatch = CampaniaPatchRecencia | CampaniaPatchPostServicio;
+export interface CampaniaPatchTurnoAbandonado extends CampaniaPatchComun {
+  dias_espera?: number;
+  ventana_max_dias?: number;
+  silencio_recencia_dias?: number;
+}
+
+export type CampaniaPatch = CampaniaPatchRecencia | CampaniaPatchPostServicio | CampaniaPatchTurnoAbandonado;
 
 // --- Vista previa (§3.3) ---
 
@@ -125,7 +143,9 @@ export type MotivoExclusion =
   | 'cooldown'
   | 'cap_diario'
   | 'telefono_duplicado'
-  | 'fuera_de_whitelist';
+  | 'fuera_de_whitelist'
+  // "Ya te toca volver": recibió "turno abandonado" hace pocos días
+  | 'silencio_turno_abandonado';
 
 export interface VistaPreviaItem {
   cliente_id: string;
@@ -135,6 +155,7 @@ export interface VistaPreviaItem {
   servicio: string | null;
   ultima_visita: string | null;   // 'YYYY-MM-DD'
   vence_el: string | null;        // 'YYYY-MM-DD'
+  cancelado_el?: string | null;   // 'YYYY-MM-DD', solo turno abandonado
   grupo: VistaPreviaGrupo;
   motivo: MotivoExclusion | null;
   posicion: number | null;
