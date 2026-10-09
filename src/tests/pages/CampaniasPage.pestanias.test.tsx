@@ -239,5 +239,8 @@ describe('CampaniasPage — una pestaña por campaña', () => {
     expect(screen.getByText('06/10/2026')).toBeTruthy();
     expect(screen.queryByText('01/09/2026')).toBeNull();
     expect(screen.queryByText('Le tocaba el')).toBeNull();
+    // Invita a reservar, como recencia: Resultados mide toques y reservas, y no habla de puntuaciones
+    expect(await screen.findByText('Tocaron el botón')).toBeTruthy();
+    expect(screen.queryByText(/Métricas → Puntuaciones/)).toBeNull();
   });
 });
