@@ -5,6 +5,7 @@ import { marcasService } from '../../services/marcas.service';
 import { Producto, ConfiguracionProductos } from '../../types/producto.types';
 import { MarcaConProductos } from '../../types/marca.types';
 import { useToast } from '../../hooks/useToast';
+import { validarCamposCampania } from '../../utils/productoCampanias.utils';
 
 interface ProductoModalProps {
   producto?: Producto | null;
@@ -30,6 +31,9 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
     costo: producto?.costo?.toString() || '',
     stock: producto?.stock?.toString() || '0',
     marca_id: producto?.marca_id || '',
+    // Campañas de WhatsApp: vacío = no aplica (se manda null)
+    duracion_estimada_dias: producto?.duracion_estimada_dias != null ? String(producto.duracion_estimada_dias) : '',
+    seguimiento_dias: producto?.seguimiento_dias != null ? String(producto.seguimiento_dias) : '',
   });
 
   const isEditing = !!producto;
@@ -75,6 +79,11 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
       toast.error('El costo es requerido');
       return;
     }
+    const campania = validarCamposCampania(form.duracion_estimada_dias, form.seguimiento_dias);
+    if (!campania.ok) {
+      toast.error(campania.error);
+      return;
+    }
     // Campo vacío = precio automático según la configuración general
     const precios = {
       precio_efectivo: form.precio_efectivo !== '' ? parseFloat(form.precio_efectivo) : null,
@@ -91,6 +100,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           costo: parseFloat(form.costo),
           stock: parseInt(form.stock),
           marca_id: form.marca_id || null,
+          ...campania.data,
         });
         toast.success('Producto actualizado');
       } else {
@@ -101,6 +111,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           costo: parseFloat(form.costo),
           stock: parseInt(form.stock),
           marca_id: form.marca_id || null,
+          ...campania.data,
         });
         toast.success('Producto creado');
       }
@@ -115,7 +126,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b">
           <h2 className="text-lg font-semibold text-gray-900">
             {isEditing ? 'Editar producto' : 'Nuevo producto'}
@@ -247,6 +258,43 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
               Vacío = precio automático según la configuración general. Cargá un valor solo para pisar el cálculo.
             </p>
           </div>
+          <fieldset className="border-t pt-4">
+            <legend className="text-sm font-semibold text-gray-900 pr-2">Campañas de WhatsApp</legend>
+            <div className="grid grid-cols-2 gap-3 mt-1">
+              <div>
+                <label htmlFor="producto-duracion" className="block text-sm font-medium text-gray-700 mb-1">
+                  Dura aprox. (días)
+                </label>
+                <Input
+                  id="producto-duracion"
+                  type="number"
+                  step="any"
+                  inputMode="numeric"
+                  value={form.duracion_estimada_dias}
+                  onChange={e => setForm(f => ({ ...f, duracion_estimada_dias: e.target.value }))}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Para avisarle al cliente cuando se le está por terminar. Dejalo vacío si no aplica.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="producto-seguimiento" className="block text-sm font-medium text-gray-700 mb-1">
+                  Seguimiento a los (días)
+                </label>
+                <Input
+                  id="producto-seguimiento"
+                  type="number"
+                  step="any"
+                  inputMode="numeric"
+                  value={form.seguimiento_dias}
+                  onChange={e => setForm(f => ({ ...f, seguimiento_dias: e.target.value }))}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Solo para tratamientos: a los cuántos días de la compra le escribimos. Dejalo vacío si no aplica.
+                </p>
+              </div>
+            </div>
+          </fieldset>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
               Cancelar
