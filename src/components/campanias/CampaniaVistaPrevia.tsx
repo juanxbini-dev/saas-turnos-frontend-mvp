@@ -23,6 +23,7 @@ const POR_PAGINA = 20;
 const PIE_POR_TIPO: Record<CampaniaTipo, string> = {
   recencia: 'Esta lista se calcula en el momento. Si alguien saca turno o pide no recibir más, deja de aparecer.',
   post_servicio: 'Esta lista se calcula en el momento: salen las visitas cobradas en las últimas horas. Si alguien pide no recibir más, deja de aparecer.',
+  turno_abandonado: 'Esta lista se calcula en el momento: salen los turnos cancelados desde la web hace unos días. Si alguien saca otro turno o pide no recibir más, deja de aparecer.',
 };
 
 const GRUPOS: { id: VistaPreviaGrupo; label: string; vacio: string }[] = [
@@ -84,9 +85,11 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
   const meta = data?.meta;
   const hayFiltro = busquedaFinal !== '' || motivoFinal !== '';
   // "Gracias por venir" pregunta por un turno puntual: no hay "le tocaba el"
+  // "Turno cancelado" muestra el día en que canceló en lugar de la última visita
   const esPostServicio = tipo === 'post_servicio';
-  const ultimaColumna = grupo === 'no_recibe' ? 'Motivo' : esPostServicio ? null : 'Le tocaba el';
-  const columnaVisita = esPostServicio ? 'Fecha del turno' : 'Última visita';
+  const esTurnoAbandonado = tipo === 'turno_abandonado';
+  const ultimaColumna = grupo === 'no_recibe' ? 'Motivo' : esPostServicio || esTurnoAbandonado ? null : 'Le tocaba el';
+  const columnaVisita = esPostServicio ? 'Fecha del turno' : esTurnoAbandonado ? 'Canceló el' : 'Última visita';
 
   const opcionesMotivo = [
     { value: '', label: 'Todos los motivos' },
@@ -186,13 +189,15 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
                 {/* Un mismo cliente puede aparecer más de una vez (p. ej. dos visitas cobradas
                     en "Gracias por venir"): la clave combina cliente, visita y posición */}
                 {items.map((item, i) => (
-                  <tr key={`${item.cliente_id}-${item.ultima_visita ?? ''}-${i}`} className="hover:bg-gray-50 transition-colors">
+                  <tr key={`${item.cliente_id}-${item.cancelado_el ?? item.ultima_visita ?? ''}-${i}`} className="hover:bg-gray-50 transition-colors">
                     <td className="py-2.5 px-4 text-sm font-medium text-gray-900">{item.cliente_nombre || '—'}</td>
                     <td className="py-2.5 px-4 text-sm text-gray-600 whitespace-nowrap">
                       {item.telefono_original || item.telefono || '—'}
                     </td>
                     <td className="py-2.5 px-4 text-sm text-gray-600">{item.servicio || '—'}</td>
-                    <td className="py-2.5 px-4 text-sm text-gray-600 whitespace-nowrap">{formatFechaDia(item.ultima_visita)}</td>
+                    <td className="py-2.5 px-4 text-sm text-gray-600 whitespace-nowrap">
+                      {formatFechaDia(esTurnoAbandonado ? item.cancelado_el : item.ultima_visita)}
+                    </td>
                     {ultimaColumna && (
                       <td className="py-2.5 px-4 text-sm text-gray-600">
                         {grupo === 'no_recibe' ? textoMotivo(item.motivo, item.vence_el, tipo) : formatFechaDia(item.vence_el)}
