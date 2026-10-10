@@ -46,6 +46,7 @@ const productoBase: Producto = {
   marca_nombre: null,
   duracion_estimada_dias: 60,
   seguimiento_dias: 15,
+  nombre_mensaje: 'ampolla reparadora Kérastase',
   created_at: '2026-10-01T00:00:00.000Z',
   updated_at: '2026-10-01T00:00:00.000Z',
 };
@@ -189,6 +190,71 @@ describe('ProductoModal · campañas de WhatsApp', () => {
     guardar();
     await waitFor(() => expect(updateProducto).toHaveBeenCalledTimes(1));
     expect(updateProducto.mock.calls[0][1]).toMatchObject({ duracion_estimada_dias: 45, seguimiento_dias: 15 });
+  });
+
+  describe('Nombre para mensajes', () => {
+    const nombreMensaje = () => screen.getByLabelText('Nombre para mensajes') as HTMLInputElement;
+    const preview = () => screen.getByTestId('nombre-mensaje-preview').textContent;
+
+    it('muestra el campo arriba de los números, con ayuda, maxLength y placeholder = nombre', () => {
+      renderNuevo();
+      const input = nombreMensaje();
+      expect(input.maxLength).toBe(60);
+      expect(input.placeholder).toBe('Shampoo');
+      expect(
+        screen.getByText(
+          'Cómo lo va a leer el cliente en el WhatsApp. Ej.: shampoo Densifying. Si lo dejás vacío, usamos el nombre del producto.'
+        )
+      ).toBeTruthy();
+      // Orden: nombre para mensajes antes que duración
+      expect(input.compareDocumentPosition(duracion()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('vista previa: usa el nombre del producto si está vacío y el de mensajes si se carga', () => {
+      renderNuevo();
+      expect(preview()).toBe('Así se lee: …el Shampoo que te llevaste de DEB Salón');
+      escribir(nombreMensaje(), 'shampoo Densifying');
+      expect(preview()).toBe('Así se lee: …el shampoo Densifying que te llevaste de DEB Salón');
+    });
+
+    it('al editar carga el valor guardado', () => {
+      render(<ProductoModal producto={productoBase} onClose={vi.fn()} onSaved={vi.fn()} />);
+      expect(nombreMensaje().value).toBe('ampolla reparadora Kérastase');
+      expect(preview()).toBe('Así se lee: …el ampolla reparadora Kérastase que te llevaste de DEB Salón');
+    });
+
+    it('crear: vacío manda null y con texto manda el texto recortado', async () => {
+      renderNuevo();
+      guardar();
+      await waitFor(() => expect(createProducto).toHaveBeenCalledTimes(1));
+      expect(createProducto.mock.calls[0][0]).toHaveProperty('nombre_mensaje', null);
+
+      cleanup();
+      createProducto.mockClear();
+      renderNuevo();
+      escribir(nombreMensaje(), '  shampoo Densifying  ');
+      guardar();
+      await waitFor(() => expect(createProducto).toHaveBeenCalledTimes(1));
+      expect(createProducto.mock.calls[0][0]).toHaveProperty('nombre_mensaje', 'shampoo Densifying');
+    });
+
+    it('al editar, borrarlo manda null', async () => {
+      render(<ProductoModal producto={productoBase} onClose={vi.fn()} onSaved={vi.fn()} />);
+      escribir(nombreMensaje(), '   ');
+      guardar();
+      await waitFor(() => expect(updateProducto).toHaveBeenCalledTimes(1));
+      expect(updateProducto.mock.calls[0][1]).toHaveProperty('nombre_mensaje', null);
+    });
+
+    it('más de 60 caracteres: toast y no llama a la API', async () => {
+      renderNuevo();
+      // maxLength frena el tipeo en el navegador; acá se fuerza el valor para probar la validación
+      escribir(nombreMensaje(), 'a'.repeat(61));
+      guardar();
+      await waitFor(() => expect(toastError).toHaveBeenCalled());
+      expect(toastError.mock.calls[0][0]).toBe('El nombre para mensajes puede tener hasta 60 caracteres');
+      expect(createProducto).not.toHaveBeenCalled();
+    });
   });
 
   it('si el backend rechaza, muestra su mensaje', async () => {

@@ -1,14 +1,18 @@
 // Datos de producto que usan las campañas de WhatsApp de productos.
-// Las reglas espejan las validaciones del backend (rango, entero y regla cruzada).
+// Las reglas espejan las validaciones del backend (rango, entero, regla cruzada y nombre para mensajes).
 
 export const DURACION_MIN = 1;
 export const DURACION_MAX = 730;
 export const SEGUIMIENTO_MIN = 1;
 export const SEGUIMIENTO_MAX = 365;
+export const NOMBRE_MENSAJE_MAX = 60;
+
+const SALTO_DE_LINEA = /[\r\n]/;
 
 export interface CamposCampaniaProducto {
   duracion_estimada_dias: number | null;
   seguimiento_dias: number | null;
+  nombre_mensaje: string | null;
 }
 
 export type ResultadoCamposCampania =
@@ -35,13 +39,22 @@ function parseDias(
 }
 
 /**
- * Valida y convierte los dos campos opcionales del formulario.
+ * Valida y convierte los campos opcionales de campañas del formulario.
  * Vacío = null (en edición, null borra el valor guardado).
  */
 export function validarCamposCampania(
   duracionRaw: string,
-  seguimientoRaw: string
+  seguimientoRaw: string,
+  nombreMensajeRaw = ''
 ): ResultadoCamposCampania {
+  const nombreMensaje = nombreMensajeRaw.trim();
+  if (SALTO_DE_LINEA.test(nombreMensaje)) {
+    return { ok: false, error: 'El nombre para mensajes no puede tener saltos de línea' };
+  }
+  if (nombreMensaje.length > NOMBRE_MENSAJE_MAX) {
+    return { ok: false, error: `El nombre para mensajes puede tener hasta ${NOMBRE_MENSAJE_MAX} caracteres` };
+  }
+
   const duracion = parseDias(duracionRaw, 'La duración', DURACION_MIN, DURACION_MAX);
   if (!duracion.ok) return duracion;
   const seguimiento = parseDias(seguimientoRaw, 'El seguimiento', SEGUIMIENTO_MIN, SEGUIMIENTO_MAX);
@@ -56,13 +69,27 @@ export function validarCamposCampania(
 
   return {
     ok: true,
-    data: { duracion_estimada_dias: duracion.value, seguimiento_dias: seguimiento.value },
+    data: {
+      duracion_estimada_dias: duracion.value,
+      seguimiento_dias: seguimiento.value,
+      nombre_mensaje: nombreMensaje === '' ? null : nombreMensaje,
+    },
   };
 }
 
-/** Productos sin duración cargada (para que Dani los vaya completando). */
-export function filtrarSinDuracion<T extends { duracion_estimada_dias?: number | null }>(lista: T[]): T[] {
-  return lista.filter(p => p.duracion_estimada_dias == null);
+/**
+ * Productos ACTIVOS sin duración cargada (para que Dani los vaya completando).
+ * Un inactivo sin duración no le importa: no se vende ni entra en campañas.
+ */
+export function filtrarSinDuracion<T extends { duracion_estimada_dias?: number | null; activo: boolean }>(
+  lista: T[]
+): T[] {
+  return lista.filter(p => p.activo && p.duracion_estimada_dias == null);
+}
+
+/** Nombre con el que el producto se lee en el WhatsApp (el de mensajes o, si falta, el real). */
+export function nombreParaMensaje(nombreMensaje: string, nombre: string): string {
+  return nombreMensaje.trim() || nombre.trim();
 }
 
 /** Texto corto para la fila/tarjeta del catálogo. */

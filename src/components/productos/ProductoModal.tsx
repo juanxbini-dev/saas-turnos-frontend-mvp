@@ -5,7 +5,7 @@ import { marcasService } from '../../services/marcas.service';
 import { Producto, ConfiguracionProductos } from '../../types/producto.types';
 import { MarcaConProductos } from '../../types/marca.types';
 import { useToast } from '../../hooks/useToast';
-import { validarCamposCampania } from '../../utils/productoCampanias.utils';
+import { validarCamposCampania, nombreParaMensaje, NOMBRE_MENSAJE_MAX } from '../../utils/productoCampanias.utils';
 
 interface ProductoModalProps {
   producto?: Producto | null;
@@ -34,6 +34,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
     // Campañas de WhatsApp: vacío = no aplica (se manda null)
     duracion_estimada_dias: producto?.duracion_estimada_dias != null ? String(producto.duracion_estimada_dias) : '',
     seguimiento_dias: producto?.seguimiento_dias != null ? String(producto.seguimiento_dias) : '',
+    nombre_mensaje: producto?.nombre_mensaje ?? '',
   });
 
   const isEditing = !!producto;
@@ -79,7 +80,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
       toast.error('El costo es requerido');
       return;
     }
-    const campania = validarCamposCampania(form.duracion_estimada_dias, form.seguimiento_dias);
+    const campania = validarCamposCampania(form.duracion_estimada_dias, form.seguimiento_dias, form.nombre_mensaje);
     if (!campania.ok) {
       toast.error(campania.error);
       return;
@@ -260,6 +261,27 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
           </div>
           <fieldset className="border-t pt-4">
             <legend className="text-sm font-semibold text-gray-900 pr-2">Campañas de WhatsApp</legend>
+            <div className="mt-1 mb-3">
+              <label htmlFor="producto-nombre-mensaje" className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre para mensajes
+              </label>
+              <Input
+                id="producto-nombre-mensaje"
+                type="text"
+                maxLength={NOMBRE_MENSAJE_MAX}
+                value={form.nombre_mensaje}
+                onChange={e => setForm(f => ({ ...f, nombre_mensaje: e.target.value }))}
+                placeholder={form.nombre}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Cómo lo va a leer el cliente en el WhatsApp. Ej.: shampoo Densifying. Si lo dejás vacío, usamos el nombre del producto.
+              </p>
+              {nombreParaMensaje(form.nombre_mensaje, form.nombre) && (
+                <p data-testid="nombre-mensaje-preview" className="text-xs text-gray-500 italic mt-1 truncate">
+                  Así se lee: …el {nombreParaMensaje(form.nombre_mensaje, form.nombre)} que te llevaste de DEB Salón
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3 mt-1">
               <div>
                 <label htmlFor="producto-duracion" className="block text-sm font-medium text-gray-700 mb-1">

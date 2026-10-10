@@ -26,6 +26,7 @@ const base = {
   marca_id: null,
   marca_nombre: null,
   seguimiento_dias: null,
+  nombre_mensaje: null,
   created_at: '2026-10-01T00:00:00.000Z',
   updated_at: '2026-10-01T00:00:00.000Z',
 };
@@ -33,6 +34,8 @@ const productos: Producto[] = [
   { ...base, id: 'p1', nombre: 'Shampoo con duración', duracion_estimada_dias: 60 },
   { ...base, id: 'p2', nombre: 'Acondicionador sin duración', duracion_estimada_dias: null },
   { ...base, id: 'p3', nombre: 'Máscara sin duración', duracion_estimada_dias: null },
+  // Inactivo sin duración: no cuenta ni aparece en el filtro
+  { ...base, id: 'p4', nombre: 'Gel discontinuado', duracion_estimada_dias: null, activo: false },
 ];
 
 vi.mock('../../services/productos.service', () => ({
@@ -68,17 +71,21 @@ describe('ProductosPage · Sin duración cargada', () => {
     expect(within(tabla()).getByRole('columnheader', { name: 'Duración' })).toBeTruthy();
   });
 
-  it('el toggle deja solo los productos sin duración, con el contador', async () => {
+  it('el toggle deja solo los productos activos sin duración, con el contador', async () => {
     render(<ProductosPage />);
     await screen.findAllByText('Shampoo con duración');
 
+    // 3 sin duración, pero uno está inactivo: el contador dice 2
     const toggle = screen.getByLabelText('Sin duración cargada (2)') as HTMLInputElement;
     expect(toggle.checked).toBe(false);
-    expect(within(tabla()).getAllByRole('row')).toHaveLength(4); // encabezado + 3
+    expect(within(tabla()).getAllByRole('row')).toHaveLength(5); // encabezado + 4
+    expect(within(tabla()).getByText('Gel discontinuado')).toBeTruthy();
 
     fireEvent.click(toggle);
     expect(toggle.checked).toBe(true);
+    expect(within(tabla()).getAllByRole('row')).toHaveLength(3); // encabezado + 2
     expect(within(tabla()).queryByText('Shampoo con duración')).toBeNull();
+    expect(within(tabla()).queryByText('Gel discontinuado')).toBeNull();
     expect(within(tabla()).getByText('Acondicionador sin duración')).toBeTruthy();
     expect(within(tabla()).getByText('Máscara sin duración')).toBeTruthy();
 

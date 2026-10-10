@@ -19,6 +19,8 @@ export interface Producto {
   // Campañas de WhatsApp de productos (opcionales; null = no cargado)
   duracion_estimada_dias: number | null;
   seguimiento_dias: number | null;
+  // Nombre con el que aparece en los WhatsApp (null = se usa `nombre`)
+  nombre_mensaje: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +37,7 @@ export interface CreateProductoData {
   marca_id?: string | null;
   duracion_estimada_dias?: number | null;
   seguimiento_dias?: number | null;
+  nombre_mensaje?: string | null;
 }
 
 export interface UpdateProductoData {
@@ -50,6 +53,7 @@ export interface UpdateProductoData {
   // null borra el valor; ausente no lo toca
   duracion_estimada_dias?: number | null;
   seguimiento_dias?: number | null;
+  nombre_mensaje?: string | null;
 }
 
 // Porcentajes de ganancia sobre el costo por método de pago (config por empresa)
