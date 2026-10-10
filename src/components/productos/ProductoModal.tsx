@@ -312,7 +312,7 @@ export const ProductoModal: React.FC<ProductoModalProps> = ({ producto, onClose,
                   onChange={e => setForm(f => ({ ...f, seguimiento_dias: e.target.value }))}
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  Solo para tratamientos: a los cuántos días de la compra le escribimos. Dejalo vacío si no aplica.
+                  A los cuántos días de la compra le preguntamos cómo le está resultando. Dejalo vacío si no aplica.
                 </p>
               </div>
             </div>

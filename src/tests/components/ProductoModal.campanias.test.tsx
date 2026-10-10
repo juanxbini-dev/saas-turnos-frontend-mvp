@@ -86,7 +86,7 @@ describe('ProductoModal · campañas de WhatsApp', () => {
       screen.getByText('Para avisarle al cliente cuando se le está por terminar. Dejalo vacío si no aplica.')
     ).toBeTruthy();
     expect(
-      screen.getByText('Solo para tratamientos: a los cuántos días de la compra le escribimos. Dejalo vacío si no aplica.')
+      screen.getByText('A los cuántos días de la compra le preguntamos cómo le está resultando. Dejalo vacío si no aplica.')
     ).toBeTruthy();
   });
 
