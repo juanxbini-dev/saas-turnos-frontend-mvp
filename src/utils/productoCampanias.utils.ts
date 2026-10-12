@@ -7,6 +7,10 @@ export const SEGUIMIENTO_MIN = 1;
 export const SEGUIMIENTO_MAX = 365;
 export const NOMBRE_MENSAJE_MAX = 60;
 
+// Link desde Campañas → Reposición: /productos?filtro=sin-duracion abre el catálogo filtrado
+export const PARAM_FILTRO_PRODUCTOS = 'filtro';
+export const FILTRO_SIN_DURACION = 'sin-duracion';
+
 const SALTO_DE_LINEA = /[\r\n]/;
 
 export interface CamposCampaniaProducto {

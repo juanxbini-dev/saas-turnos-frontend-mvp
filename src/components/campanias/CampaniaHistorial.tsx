@@ -9,6 +9,7 @@ import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
 import { formatFechaDia, formatFechaHoraAR } from './campanias.utils';
+import { esTipoProducto } from '../../types/campanias.types';
 import type { CampaniaEnvio, CampaniaTipo, EstadoEnvio } from '../../types/campanias.types';
 
 interface CampaniaHistorialProps {
@@ -74,7 +75,9 @@ export function CampaniaHistorial({ tipo }: CampaniaHistorialProps) {
   const meta = data?.meta;
   const hayFiltro = busquedaFinal !== '' || estado !== '';
   // "¿Reservó?" es la medida de las campañas que invitan a reservar; en la encuesta no aplica
-  const muestraReserva = tipo !== 'post_servicio';
+  // (tampoco en seguimiento de producto: pide una opinión, no tiene botón para reservar)
+  const muestraReserva = tipo !== 'post_servicio' && tipo !== 'seguimiento_producto';
+  const columnaOrigen = esTipoProducto(tipo) ? 'Producto' : 'Servicio';
 
   return (
     <SeccionCard
@@ -120,7 +123,7 @@ export function CampaniaHistorial({ tipo }: CampaniaHistorialProps) {
                 <tr className="bg-gray-50">
                   <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha y hora</th>
                   <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</th>
-                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Servicio</th>
+                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{columnaOrigen}</th>
                   <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
                   {muestraReserva && (
                     <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">¿Reservó?</th>

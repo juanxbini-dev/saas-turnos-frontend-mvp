@@ -92,4 +92,17 @@ describe('ProductosPage · Sin duración cargada', () => {
     fireEvent.click(toggle);
     expect(within(tabla()).getByText('Shampoo con duración')).toBeTruthy();
   });
+
+  it('entrando con ?filtro=sin-duracion (el link de Campañas → Reposición) abre ya filtrado', async () => {
+    window.history.pushState({}, '', '/productos?filtro=sin-duracion');
+    try {
+      render(<ProductosPage />);
+      await screen.findAllByText('Acondicionador sin duración');
+      const toggle = screen.getByLabelText('Sin duración cargada (2)') as HTMLInputElement;
+      expect(toggle.checked).toBe(true);
+      expect(within(tabla()).queryByText('Shampoo con duración')).toBeNull();
+    } finally {
+      window.history.pushState({}, '', '/');
+    }
+  });
 });

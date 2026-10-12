@@ -13,7 +13,7 @@ import { MarcaModal } from '../components/productos/MarcaModal';
 import { ConfiguracionProductosTab } from '../components/productos/ConfiguracionProductosTab';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../context/AuthContext';
-import { filtrarSinDuracion, textoDuracion } from '../utils/productoCampanias.utils';
+import { FILTRO_SIN_DURACION, PARAM_FILTRO_PRODUCTOS, filtrarSinDuracion, textoDuracion } from '../utils/productoCampanias.utils';
 
 const PAGE_SIZE = 10;
 
@@ -55,7 +55,11 @@ function ProductosPage() {
   const [busqueda, setBusqueda] = useState('');
   const [filtroMarca, setFiltroMarca] = useState('');
   // Campañas de WhatsApp: ver solo los productos a los que les falta la duración
-  const [soloSinDuracion, setSoloSinDuracion] = useState(false);
+  // Desde Campañas → Reposición se llega con ?filtro=sin-duracion para completar las duraciones.
+  // Se lee de la URL sin depender del router (la página también se usa suelta en los tests).
+  const [soloSinDuracion, setSoloSinDuracion] = useState(
+    () => new URLSearchParams(window.location.search).get(PARAM_FILTRO_PRODUCTOS) === FILTRO_SIN_DURACION
+  );
   const [pagina, setPagina] = useState(1);
 
   // Marcas state — accordion de apertura única

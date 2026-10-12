@@ -6,7 +6,10 @@ import CampaniasPage from '../../pages/CampaniasPage';
 import { cacheService } from '../../cache/cache.service';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import type {
+  Campania,
   CampaniaMetricas,
+  CampaniaReposicion,
+  CampaniaSeguimiento,
   CampaniaPostServicio,
   CampaniaRecencia,
   CampaniaTipo,
@@ -43,6 +46,12 @@ vi.mock('../../services/campanias.service', async () => {
   };
 });
 
+// Las pestañas de productos miran si hay productos con datos cargados
+const getProductos = vi.fn();
+vi.mock('../../services/productos.service', () => ({
+  productosService: { getProductos: (...a: unknown[]) => getProductos(...a) },
+}));
+
 vi.mock('../../services/toast.service', () => ({
   toastService: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
@@ -73,8 +82,25 @@ const ABANDONO: CampaniaTurnoAbandonado = {
   avisos: AVISOS,
 };
 
-const POR_TIPO: Record<CampaniaTipo, CampaniaRecencia | CampaniaPostServicio | CampaniaTurnoAbandonado> = {
+const REPOSICION: CampaniaReposicion = {
+  id: 'camp-4', tipo: 'reposicion_producto', activa: false, tope_diario: 20, cooldown_dias: 14,
+  parametros: { aviso_previo_dias: 5, ventana_dias: 10 },
+  updated_at: '2026-10-12T13:00:00.000Z',
+  hoy: { fecha: '2026-10-12', usados: 0, cupo_restante: 20 },
+  avisos: AVISOS,
+};
+
+const SEGUIMIENTO: CampaniaSeguimiento = {
+  id: 'camp-5', tipo: 'seguimiento_producto', activa: false, tope_diario: 20, cooldown_dias: 14,
+  parametros: { ventana_dias: 3 },
+  updated_at: '2026-10-12T13:00:00.000Z',
+  hoy: { fecha: '2026-10-12', usados: 0, cupo_restante: 20 },
+  avisos: AVISOS,
+};
+
+const POR_TIPO: Record<CampaniaTipo, Campania> = {
   recencia: RECENCIA, post_servicio: POST, turno_abandonado: ABANDONO,
+  reposicion_producto: REPOSICION, seguimiento_producto: SEGUIMIENTO,
 };
 
 const PREVIEW_VACIA: VistaPreviaRespuesta = {
@@ -119,6 +145,7 @@ describe('CampaniasPage — una pestaña por campaña', () => {
     getVistaPrevia.mockResolvedValue(PREVIEW_VACIA);
     getEnvios.mockResolvedValue(ENVIOS_VACIOS);
     getMetricas.mockResolvedValue(METRICAS);
+    getProductos.mockResolvedValue([]);
   });
 
   it('por defecto abre "Ya te toca volver", igual que antes: sus campos y su aviso de servicios', async () => {
@@ -202,18 +229,20 @@ describe('CampaniasPage — una pestaña por campaña', () => {
     fireEvent.keyDown(pestania('Gracias por venir'), { key: 'ArrowRight' });
     await waitFor(() => expect(pestania('Turno cancelado').getAttribute('aria-selected')).toBe('true'));
 
-    // Desde la última, la flecha derecha da la vuelta a la primera
-    fireEvent.keyDown(pestania('Turno cancelado'), { key: 'ArrowRight' });
+    // Desde la última ("Seguimiento"), la flecha derecha da la vuelta a la primera
+    fireEvent.keyDown(pestania('Turno cancelado'), { key: 'End' });
+    await waitFor(() => expect(document.activeElement).toBe(pestania('Seguimiento')));
+    fireEvent.keyDown(pestania('Seguimiento'), { key: 'ArrowRight' });
     await waitFor(() => expect(pestania('Ya te toca volver').getAttribute('aria-selected')).toBe('true'));
     expect(document.activeElement).toBe(pestania('Ya te toca volver'));
 
     fireEvent.keyDown(pestania('Ya te toca volver'), { key: 'End' });
-    await waitFor(() => expect(document.activeElement).toBe(pestania('Turno cancelado')));
-    fireEvent.keyDown(pestania('Turno cancelado'), { key: 'Home' });
+    await waitFor(() => expect(document.activeElement).toBe(pestania('Seguimiento')));
+    fireEvent.keyDown(pestania('Seguimiento'), { key: 'Home' });
     await waitFor(() => expect(document.activeElement).toBe(pestania('Ya te toca volver')));
     fireEvent.keyDown(pestania('Ya te toca volver'), { key: 'ArrowLeft' });
-    await waitFor(() => expect(pestania('Turno cancelado').getAttribute('aria-selected')).toBe('true'));
-    expect(await screen.findByLabelText('Días de espera después de que cancela')).toBeTruthy();
+    await waitFor(() => expect(pestania('Seguimiento').getAttribute('aria-selected')).toBe('true'));
+    expect(await screen.findByLabelText('Durante cuántos días se le puede preguntar')).toBeTruthy();
   });
 
   it('"Turno cancelado" pide su campaña, muestra su configuración y su columna "Canceló el"', async () => {

@@ -102,6 +102,8 @@ export const MOTIVO_TEXTO: Record<MotivoExclusion, string> = {
   telefono_duplicado: 'Otro cliente tiene el mismo número',
   fuera_de_whitelist: 'Modo prueba: no está entre los números de prueba',
   silencio_turno_abandonado: 'Hace pocos días le escribimos porque canceló un turno',
+  producto_recomprado: 'Ya lo volvió a comprar',
+  otro_producto: 'Tiene otra compra que sale antes (le escribimos de a un producto por vez)',
 };
 
 export const TEXTO_EN_ESPERA = 'Le toca, pero hoy ya se llegó al máximo: sale en los próximos días';
@@ -139,28 +141,67 @@ const MOTIVO_TEXTO_TURNO_ABANDONADO: Partial<Record<MotivoExclusion, string>> = 
 
 export const TEXTO_EN_ESPERA_TURNO_ABANDONADO = 'Le toca, pero hoy ya se llegó al máximo: sale en los próximos días';
 
+// Reposición y seguimiento de producto (backend/docs/campania-productos-spec.md §4 y §5):
+// miran una COMPRA, no los servicios ni los turnos. Orden del backend (MOTIVOS_EXCLUSION).
+export const MOTIVOS_ORDEN_REPOSICION: MotivoExclusion[] = [
+  'baja',
+  'sin_permiso',
+  'sin_telefono',
+  'telefono_invalido',
+  'datos_incompletos',
+  'producto_recomprado',
+  'ya_avisado',
+  'fallos_repetidos',
+  'reintento_en_espera',
+  'cooldown',
+  'cap_diario',
+  'otro_producto',
+  'fuera_de_whitelist',
+];
+
+// Seguimiento pide la opinión aunque lo haya vuelto a comprar
+export const MOTIVOS_ORDEN_SEGUIMIENTO: MotivoExclusion[] =
+  MOTIVOS_ORDEN_REPOSICION.filter((m) => m !== 'producto_recomprado');
+
+const MOTIVO_TEXTO_PRODUCTO: Partial<Record<MotivoExclusion, string>> = {
+  datos_incompletos: 'Le falta el nombre o el producto no tiene nombre',
+  ya_avisado: 'Ya se le escribió por esta compra',
+  cooldown: 'Se le escribió hace poco por otro producto',
+  fallos_repetidos: 'No se le pudo enviar varias veces por esta compra',
+};
+
+export const TEXTO_EN_ESPERA_PRODUCTO = 'Le toca, pero hoy ya se llegó al máximo: sale en los próximos días';
+
 // Nombre de cada campaña como lo ve el salón
 export const NOMBRE_CAMPANIA: Record<CampaniaTipo, string> = {
   recencia: 'Ya te toca volver',
   post_servicio: 'Gracias por venir',
   turno_abandonado: 'Turno cancelado',
+  reposicion_producto: 'Reposición',
+  seguimiento_producto: 'Seguimiento',
 };
 
 export function motivosDe(tipo: CampaniaTipo = 'recencia'): MotivoExclusion[] {
   if (tipo === 'post_servicio') return MOTIVOS_ORDEN.filter((m) => !MOTIVOS_NO_APLICAN_POST_SERVICIO.includes(m));
   if (tipo === 'turno_abandonado') return MOTIVOS_ORDEN.filter((m) => !MOTIVOS_NO_APLICAN_TURNO_ABANDONADO.includes(m));
+  if (tipo === 'reposicion_producto') return MOTIVOS_ORDEN_REPOSICION;
+  if (tipo === 'seguimiento_producto') return MOTIVOS_ORDEN_SEGUIMIENTO;
   return MOTIVOS_ORDEN;
 }
 
 export function textoMotivoBase(motivo: MotivoExclusion, tipo: CampaniaTipo = 'recencia'): string {
   if (tipo === 'post_servicio') return MOTIVO_TEXTO_POST_SERVICIO[motivo] ?? MOTIVO_TEXTO[motivo];
   if (tipo === 'turno_abandonado') return MOTIVO_TEXTO_TURNO_ABANDONADO[motivo] ?? MOTIVO_TEXTO[motivo];
+  if (tipo === 'reposicion_producto' || tipo === 'seguimiento_producto') {
+    return MOTIVO_TEXTO_PRODUCTO[motivo] ?? MOTIVO_TEXTO[motivo];
+  }
   return MOTIVO_TEXTO[motivo];
 }
 
 export function textoEnEspera(tipo: CampaniaTipo = 'recencia'): string {
   if (tipo === 'post_servicio') return TEXTO_EN_ESPERA_POST_SERVICIO;
   if (tipo === 'turno_abandonado') return TEXTO_EN_ESPERA_TURNO_ABANDONADO;
+  if (tipo === 'reposicion_producto' || tipo === 'seguimiento_producto') return TEXTO_EN_ESPERA_PRODUCTO;
   return TEXTO_EN_ESPERA;
 }
 

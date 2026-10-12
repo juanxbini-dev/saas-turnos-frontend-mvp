@@ -9,6 +9,7 @@ import { campaniasService, esFalloTokenCampanias, mensajeDeError } from '../../s
 import { toastService } from '../../services/toast.service';
 import { CampaniaConfigPostServicio } from './CampaniaConfigPostServicio';
 import { CampaniaConfigTurnoAbandonado } from './CampaniaConfigTurnoAbandonado';
+import { CampaniaConfigReposicion, CampaniaConfigSeguimiento } from './CampaniaConfigProducto';
 import type { Campania, CampaniaPatchRecencia, CampaniaRecencia, CampaniaTipo } from '../../types/campanias.types';
 
 interface CampaniaConfigFormProps {
@@ -109,6 +110,22 @@ export function CampaniaConfigForm({ campania, tipo, ...resto }: CampaniaConfigF
     return (
       <CampaniaConfigTurnoAbandonado
         campania={campania?.tipo === 'turno_abandonado' ? campania : null}
+        {...resto}
+      />
+    );
+  }
+  if (tipoActual === 'reposicion_producto') {
+    return (
+      <CampaniaConfigReposicion
+        campania={campania?.tipo === 'reposicion_producto' ? campania : null}
+        {...resto}
+      />
+    );
+  }
+  if (tipoActual === 'seguimiento_producto') {
+    return (
+      <CampaniaConfigSeguimiento
+        campania={campania?.tipo === 'seguimiento_producto' ? campania : null}
         {...resto}
       />
     );

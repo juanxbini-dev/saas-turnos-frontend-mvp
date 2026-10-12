@@ -21,7 +21,19 @@ export interface CampaniasAccesoFallo {
 // Una pestaña por campaña (C2). 'post_servicio' = "Gracias por venir"
 // (backend/docs/campania-post-servicio-spec.md); 'turno_abandonado' = canceló su
 // turno y no sacó otro (backend/docs/campania-turno-abandonado-spec.md).
-export type CampaniaTipo = 'recencia' | 'post_servicio' | 'turno_abandonado';
+// 'reposicion_producto' = "se te debe estar terminando"; 'seguimiento_producto' =
+// opinión del producto (backend/docs/campania-productos-spec.md §4, §5 y §11.2).
+export type CampaniaTipo =
+  | 'recencia'
+  | 'post_servicio'
+  | 'turno_abandonado'
+  | 'reposicion_producto'
+  | 'seguimiento_producto';
+
+export const TIPOS_PRODUCTO: CampaniaTipo[] = ['reposicion_producto', 'seguimiento_producto'];
+
+export const esTipoProducto = (tipo: CampaniaTipo): tipo is 'reposicion_producto' | 'seguimiento_producto' =>
+  tipo === 'reposicion_producto' || tipo === 'seguimiento_producto';
 
 export interface ParametrosRecencia {
   dias_gracia: number;
@@ -46,6 +58,18 @@ export interface ParametrosTurnoAbandonado {
   dias_espera: number;            // 1 a 30: días desde la cancelación antes de escribirle
   ventana_max_dias: number;       // 1 a 60: pasado esto ya no se le escribe
   silencio_recencia_dias: number; // 0 a 60: "Ya te toca volver" no le escribe después (0 = no se calla)
+}
+
+// Reposición: sale entre `aviso_previo_dias` antes de que se le termine el
+// producto (compra + duración × cantidad) y `ventana_dias` después.
+export interface ParametrosReposicion {
+  aviso_previo_dias: number;   // 0 a 60
+  ventana_dias: number;        // 1 a 60
+}
+
+// Seguimiento: desde compra + días de seguimiento del producto, durante `ventana_dias`.
+export interface ParametrosSeguimiento {
+  ventana_dias: number;        // 1 a 30
 }
 
 // Compatibilidad: antes había un solo tipo de campaña
@@ -90,8 +114,23 @@ export interface CampaniaTurnoAbandonado extends CampaniaBase {
   parametros: ParametrosTurnoAbandonado;
 }
 
+export interface CampaniaReposicion extends CampaniaBase {
+  tipo: 'reposicion_producto';
+  parametros: ParametrosReposicion;
+}
+
+export interface CampaniaSeguimiento extends CampaniaBase {
+  tipo: 'seguimiento_producto';
+  parametros: ParametrosSeguimiento;
+}
+
 // Unión discriminada por `tipo`: los parámetros dependen de la campaña
-export type Campania = CampaniaRecencia | CampaniaPostServicio | CampaniaTurnoAbandonado;
+export type Campania =
+  | CampaniaRecencia
+  | CampaniaPostServicio
+  | CampaniaTurnoAbandonado
+  | CampaniaReposicion
+  | CampaniaSeguimiento;
 
 // Subconjunto editable. Una clave desconocida devuelve 400, así que nunca se
 // manda nada fuera de esta lista (y nunca un parámetro de otro tipo).
@@ -120,7 +159,21 @@ export interface CampaniaPatchTurnoAbandonado extends CampaniaPatchComun {
   silencio_recencia_dias?: number;
 }
 
-export type CampaniaPatch = CampaniaPatchRecencia | CampaniaPatchPostServicio | CampaniaPatchTurnoAbandonado;
+export interface CampaniaPatchReposicion extends CampaniaPatchComun {
+  aviso_previo_dias?: number;
+  ventana_dias?: number;
+}
+
+export interface CampaniaPatchSeguimiento extends CampaniaPatchComun {
+  ventana_dias?: number;
+}
+
+export type CampaniaPatch =
+  | CampaniaPatchRecencia
+  | CampaniaPatchPostServicio
+  | CampaniaPatchTurnoAbandonado
+  | CampaniaPatchReposicion
+  | CampaniaPatchSeguimiento;
 
 // --- Vista previa (§3.3) ---
 
@@ -145,7 +198,11 @@ export type MotivoExclusion =
   | 'telefono_duplicado'
   | 'fuera_de_whitelist'
   // "Ya te toca volver": recibió "turno abandonado" hace pocos días
-  | 'silencio_turno_abandonado';
+  | 'silencio_turno_abandonado'
+  // Reposición: ya volvió a comprar ese producto
+  | 'producto_recomprado'
+  // Productos: el número tiene otra compra que sale antes (va un mensaje por vez)
+  | 'otro_producto';
 
 export interface VistaPreviaItem {
   cliente_id: string;
@@ -156,6 +213,11 @@ export interface VistaPreviaItem {
   ultima_visita: string | null;   // 'YYYY-MM-DD'
   vence_el: string | null;        // 'YYYY-MM-DD'
   cancelado_el?: string | null;   // 'YYYY-MM-DD', solo turno abandonado
+  // Solo reposición y seguimiento de producto: la compra que origina el mensaje
+  producto?: string | null;
+  producto_origen_id?: string | null;
+  fecha_compra?: string | null;   // 'YYYY-MM-DD'
+  vendedor?: string | null;       // nombre de quien la vendió
   grupo: VistaPreviaGrupo;
   motivo: MotivoExclusion | null;
   posicion: number | null;
@@ -282,6 +344,29 @@ export interface CampaniaBaja {
   campania_tipo?: CampaniaTipo | null;
 }
 
+// Respuestas de la gente (fase 6 de productos), sobre los envíos del período
+export interface CampaniaMetricasRespuestas {
+  contestaron: number;              // escribieron o tocaron un botón
+  pidieron: number;                 // tocaron "Quiero uno" (reposición)
+  compraron: number | null;         // null = la campaña no lo mide (ya mide "reservó")
+  ventas_por_avisos: number;        // avisos de "Para contactar" que terminaron en compra o reserva
+  ventana_compra_dias: number;      // 14
+}
+
+export type OpinionProducto = 'encanta' | 'mas_o_menos' | 'no_funciono';
+
+export interface SatisfaccionProducto {
+  producto_id: string;
+  producto_nombre: string;
+  total: number;
+  por_opinion: Record<OpinionProducto, number>;
+}
+
+export interface CampaniaMetricasSeguimiento {
+  satisfaccion: SatisfaccionProducto[];
+  rescatados: number;
+}
+
 export interface CampaniaMetricas {
   periodo: CampaniaMetricasPeriodo;
   ventana_dias: number;
@@ -289,4 +374,7 @@ export interface CampaniaMetricas {
   serie: CampaniaMetricasPunto[];
   // Opcional: un backend anterior no lo manda
   bajas_detalle?: CampaniaBaja[];
+  // Opcionales: los suma el backend de campañas de productos
+  respuestas?: CampaniaMetricasRespuestas;
+  seguimiento?: CampaniaMetricasSeguimiento;
 }
