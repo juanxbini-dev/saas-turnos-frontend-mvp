@@ -12,12 +12,14 @@ import { FinanzasPage } from '../pages/FinanzasPage';
 import MetricasPage from '../pages/MetricasPage';
 import GastosPage from '../pages/GastosPage';
 import CampaniasPage from '../pages/CampaniasPage';
+import ParaContactarPage from '../pages/ParaContactarPage';
 import { DebSalonLandingPage } from '../pages/public/DebSalonLandingPage';
 import { PrivacidadPage } from '../pages/public/PrivacidadPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
 import { SuperAdminRoute } from '../components/SuperAdminRoute';
+import { ParaContactarRoute } from '../components/ParaContactarRoute';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
 
@@ -57,6 +59,11 @@ const AppRouter = () => {
             <SuperAdminRoute>
               <CampaniasPage />
             </SuperAdminRoute>
+          } />
+          <Route path="/para-contactar" element={
+            <ParaContactarRoute>
+              <ParaContactarPage />
+            </ParaContactarRoute>
           } />
           <Route path="/usuarios" element={
             <AdminRoute>
