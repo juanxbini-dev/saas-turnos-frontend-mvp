@@ -1,17 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pencil, Trash2, Plus, X, Lock, ChevronDown, ChevronUp } from 'lucide-react';
-import { Avatar, Button } from '../ui';
+import { Pencil, Trash2, Plus, X, Lock } from 'lucide-react';
+import { Button } from '../ui';
 import { gastosService } from '../../services/gastos.service';
 import { toastService } from '../../services/toast.service';
 import { alcanceMontoFijoPorDefecto, aplicarCambioMontoFijo, ALCANCES_MONTO_FIJO, mensajeCambioMontoFijo, type AlcanceMontoFijo } from '../../hooks/useCambioMontoFijo';
-import { estaVencido, formatDiaMes, formatMoneda, itemPagado, nombreMes } from './gastos.utils';
+import { estaVencido, formatDiaMes, formatMoneda, itemPagado, nombreMes, NOMBRE_RUBRO_PROFESIONALES } from './gastos.utils';
 import { ArranqueGuiado } from './ArranqueGuiado';
 import { GastoFormInline, type GastoFormPreset } from './GastoFormInline';
-import type { GastoCategoria, GastoDerivado, GastoEstado, GastoMesItem, GastosDetalleMes, GastosMes } from '../../types/gastos.types';
+import type { GastoCategoria, GastoDerivado, GastoEstado, GastoMesItem, GastosMes } from '../../types/gastos.types';
 
 interface GastosTablaMesProps {
   mes: GastosMes | null;
-  detalle: GastosDetalleMes | null;
   periodo: string;
   categorias: GastoCategoria[];
   categoriasCargando?: boolean;
@@ -245,12 +244,11 @@ const badgeBase = 'inline-flex items-center rounded px-1.5 py-0.5 text-[11px] fo
 // ------------------------------------------------------------------ Tabla
 
 export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
-  mes, detalle, periodo, categorias, categoriasCargando = false, isLoading, panelAbierto, onTogglePanel, onAbrirPanel,
+  mes, periodo, categorias, categoriasCargando = false, isLoading, panelAbierto, onTogglePanel, onAbrirPanel,
   preset, presetNonce, onEditar, onEliminarUnico, onCambio,
 }) => {
   const [ocupado, setOcupado] = useState(false);
   const [alcancePendiente, setAlcancePendiente] = useState<{ item: GastoMesItem; monto: number } | null>(null);
-  const [comisionesAbierto, setComisionesAbierto] = useState(false);
 
   // Al cambiar de mes se descarta cualquier cambio de monto a medio decidir
   useEffect(() => { setAlcancePendiente(null); }, [periodo]);
@@ -342,7 +340,11 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
   }
 
   const rubros = agruparPorRubro(mes, periodo);
-  const automaticos = mes.derivados.filter((d) => d.monto > 0);
+  // Un solo rubro automático: lo que hay que pagarles a los profesionales (sin el
+  // dueño). La mercadería vendida ya no es gasto (gastos-ganancias-spec §4.5): si
+  // un backend viejo la manda, se ignora. El detalle por persona vive en la tabla
+  // "Por profesional" (P9), no en un desplegable acá.
+  const automaticos = mes.derivados.filter((d) => d.clave === 'comisiones' && d.monto > 0);
   const vacio = mes.recurrentes.length === 0 && mes.unicos.length === 0;
   const mostrarPanel = panelAbierto || vacio;
   const alcanceDefault = alcanceMontoFijoPorDefecto(periodo);
@@ -491,11 +493,7 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
   );
 
   const renderAutomatico = (d: GastoDerivado) => {
-    const esComisiones = d.clave === 'comisiones';
-    const hijos = esComisiones ? (detalle?.comisiones ?? []) : [];
-    const metaTexto = esComisiones
-      ? 'se calcula solo'
-      : `se calcula solo${detalle ? ` · ${detalle.mercaderia_unidades} ${detalle.mercaderia_unidades === 1 ? 'unidad' : 'unidades'}` : ''}`;
+    const metaTexto = 'se calcula solo';
     return (
       <div key={d.clave} className="border-t border-gray-100" data-testid={`rubro-auto-${d.clave}`}>
         <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/80">
@@ -504,42 +502,13 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
           </span>
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
           <div className="flex-1 min-w-0">
-            <span className="text-sm font-semibold text-gray-800">{d.nombre}</span>
+            <span className="text-sm font-semibold text-gray-800">{NOMBRE_RUBRO_PROFESIONALES}</span>
             <div className="sm:hidden text-xs text-gray-500">{metaTexto}</div>
           </div>
           <span className="hidden sm:block w-36 shrink-0 text-xs text-gray-500 truncate">{metaTexto}</span>
           <span className="text-sm font-semibold tabular-nums text-right min-w-[5.5rem] shrink-0 text-gray-900">{formatMoneda(d.monto)}</span>
           <span className="w-12 shrink-0" aria-hidden="true" />
         </div>
-        {esComisiones && hijos.length > 0 && (
-          <>
-            <div className="px-3 py-1">
-              <button
-                type="button"
-                onClick={() => setComisionesAbierto((v) => !v)}
-                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline pl-6"
-                aria-expanded={comisionesAbierto}
-              >
-                {comisionesAbierto ? <>ocultar <ChevronUp size={12} /></> : <>ver por profesional <ChevronDown size={12} /></>}
-              </button>
-            </div>
-            {comisionesAbierto && (
-              <div className="divide-y divide-gray-50" data-testid="comisiones-profesionales">
-                {hijos.map((c) => (
-                  <div key={c.profesional_id} className="flex items-center gap-2 px-3 py-1.5 pl-9 text-sm">
-                    <Avatar src={c.avatar_url ?? undefined} name={c.nombre} size="sm" className="!w-6 !h-6 !text-[10px]" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-gray-800 truncate">{c.nombre}</span>
-                      <span className="text-xs text-gray-500"> · {c.turnos_cobrados} {c.turnos_cobrados === 1 ? 'turno' : 'turnos'}{c.productos > 0 && ` · ${formatMoneda(c.productos)} por productos`}</span>
-                    </div>
-                    <span className="tabular-nums text-gray-800 min-w-[5.5rem] text-right">{formatMoneda(c.total)}</span>
-                    <span className="w-12 shrink-0" aria-hidden="true" />
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
       </div>
     );
   };

@@ -23,7 +23,7 @@ const RESUMEN: GastosResumen = {
 const DETALLE: GastosDetalleMes = {
   periodo: '2026-09',
   ingresos: { servicios: 780000, productos: 300000, total: 1080000, turnos_cobrados: 12, productos_vendidos: 14, pendiente_cobro: 0 },
-  comisiones: [], comisiones_total: 385000, mercaderia_costo: 27300, mercaderia_unidades: 14,
+  profesionales: [], totales: { facturado: 0, a_pagar: 0, ganancia_salon: 0, facturado_duenio: 0 }, productos: { costo_vendido: 27300, costo_canjes: 0, unidades: 14 }, a_pagar_total: 385000,
 };
 
 // La tarjeta es el div.rounded-xl que contiene el título; el subtítulo es el último span
@@ -34,18 +34,24 @@ const subtituloDe = (titulo: string) => {
 };
 
 describe('GastosResumenSimple', () => {
-  it('D1: "Salió" desglosa pagado, salió solo y falta con los tres campos del resumen', () => {
+  it('D1: "Salió" desglosa pagado, a profesionales y falta con los campos del resumen', () => {
     render(<GastosResumenSimple resumen={RESUMEN} detalle={DETALLE} isLoading={false} />);
 
-    expect(subtituloDe('Salió')).toBe(`${moneda(225000)} pagado · ${moneda(412300)} salió solo · falta ${moneda(770000)}`);
+    expect(subtituloDe('Salió')).toBe(`${moneda(225000)} pagado · ${moneda(412300)} a profesionales · falta ${moneda(770000)}`);
     expect(plano(tarjeta('Salió').textContent!)).toContain(moneda(1407300));
   });
 
   it('D2: con pendiente 0 dice "todo pagado" y no muestra "falta $ 0"', () => {
     render(<GastosResumenSimple resumen={{ ...RESUMEN, pendiente: 0, pagado: 995000 }} detalle={DETALLE} isLoading={false} />);
 
-    expect(subtituloDe('Salió')).toBe(`todo pagado · ${moneda(412300)} salió solo`);
+    expect(subtituloDe('Salió')).toBe(`todo pagado · ${moneda(412300)} a profesionales`);
     expect(document.body.textContent).not.toMatch(/falta/);
+  });
+
+  it('gastos-ganancias: si el backend manda a_profesionales, "Salió" usa ese número', () => {
+    render(<GastosResumenSimple resumen={{ ...RESUMEN, pendiente: 0, a_profesionales: 162000 }} detalle={DETALLE} isLoading={false} />);
+
+    expect(subtituloDe('Salió')).toBe(`todo pagado · ${moneda(162000)} a profesionales`);
   });
 
   it('D3: "Entró" muestra turnos cobrados y productos cuando hay detalle', () => {

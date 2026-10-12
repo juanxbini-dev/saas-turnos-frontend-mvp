@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Button, Tabs } from '../components/ui';
@@ -13,6 +13,8 @@ import { GastosResumenSimple } from '../components/gastos/GastosResumenSimple';
 import { GastosTablaMes } from '../components/gastos/GastosTablaMes';
 import { GastosPorRubro } from '../components/gastos/GastosPorRubro';
 import { GastosQueEntro } from '../components/gastos/GastosQueEntro';
+import { GastosPorProfesional } from '../components/gastos/GastosPorProfesional';
+import { AvisoCambioGanancias } from '../components/gastos/AvisoCambioGanancias';
 import { GastosFijosCard } from '../components/gastos/GastosFijosCard';
 import { GastosCategoriasCard } from '../components/gastos/GastosCategoriasCard';
 import { GastosEvolucionChart } from '../components/gastos/GastosEvolucionChart';
@@ -23,7 +25,7 @@ import { GastosRecurrentesModal } from '../components/gastos/GastosRecurrentesMo
 import { GastoRecurrenteFormModal } from '../components/gastos/GastoRecurrenteFormModal';
 import { GastosCategoriasModal } from '../components/gastos/GastosCategoriasModal';
 import type { GastoFormPreset } from '../components/gastos/GastoFormInline';
-import { formatMoneda, periodoActual, sumarMeses } from '../components/gastos/gastos.utils';
+import { formatMoneda, limpiarPorCategoria, periodoActual, sumarMeses } from '../components/gastos/gastos.utils';
 import type { GastoMesItem, GastoRecurrente } from '../types/gastos.types';
 
 // Diseño: backend/docs/gastos-superadmin-v3.md
@@ -58,7 +60,7 @@ function GastosContenido() {
     buildKey(ENTITIES.GASTOS, 'mes', periodo), () => gastosService.getMes(periodo), cacheOpts);
   const { data: resumen, loading: loadingResumen, error: errorResumen, revalidate: revalidarResumen } = useFetch(
     buildKey(ENTITIES.GASTOS, 'resumen', periodo), () => gastosService.getResumen(periodo), cacheOpts);
-  const { data: detalle, loading: loadingDetalle, revalidate: revalidarDetalle } = useFetch(
+  const { data: detalle, loading: loadingDetalle, error: errorDetalle, revalidate: revalidarDetalle } = useFetch(
     buildKey(ENTITIES.GASTOS, 'detalle', periodo), () => gastosService.getDetalle(periodo), cacheOpts);
   const { data: evolucion, loading: loadingEvolucion, revalidate: revalidarEvolucion } = useFetch(
     buildKey(ENTITIES.GASTOS, 'evolucion', evolucionDesde, periodo), () => gastosService.getEvolucion(evolucionDesde, periodo), cacheOpts);
@@ -68,6 +70,10 @@ function GastosContenido() {
     buildKey(ENTITIES.GASTOS, 'categorias'), () => gastosService.getCategorias(), cacheOpts);
   const { data: recurrentes, loading: loadingRecurrentes, revalidate: revalidarRecurrentes } = useFetch(
     buildKey(ENTITIES.GASTOS, 'recurrentes'), () => gastosService.getRecurrentes(), cacheOpts);
+
+  // Sin mercadería y con el rubro automático renombrado, para la barra por
+  // rubro, el donut y la comparativa (gastos-ganancias-spec §4.6)
+  const rubros = useMemo(() => limpiarPorCategoria(porCategoria ?? []), [porCategoria]);
 
   const refrescarTodo = useCallback(() => {
     invalidarCacheGastos();
@@ -121,6 +127,7 @@ function GastosContenido() {
         <h1 className="text-3xl font-bold text-gray-900">Gastos</h1>
         <GastosSelectorMes periodo={periodo} onChange={setPeriodo} />
       </div>
+      <AvisoCambioGanancias />
       <Tabs tabs={PESTANIAS} activeTab={pestania} onChange={(id) => setPestania(id as Pestania)} className="!mb-2" />
 
       {errorCarga && !tokenVencido ? (
@@ -133,12 +140,17 @@ function GastosContenido() {
       ) : pestania === 'mes' ? (
         <div className="space-y-4">
           <GastosResumenSimple resumen={resumen ?? null} detalle={detalle ?? null} isLoading={loadingResumen} />
+          <GastosPorProfesional
+            detalle={detalle ?? null}
+            isLoading={loadingDetalle}
+            error={esFalloTokenGastos(errorDetalle) ? null : errorDetalle}
+            onReintentar={revalidarDetalle}
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
             <section className="min-w-0" aria-label="Gastos del mes">
               <GastosTablaMes
                 mes={mes ?? null}
-                detalle={detalle ?? null}
                 periodo={periodo}
                 categorias={categorias ?? []}
                 categoriasCargando={loadingCategorias}
@@ -154,7 +166,7 @@ function GastosContenido() {
               />
             </section>
             <aside className="min-w-0 space-y-4">
-              <GastosPorRubro porCategoria={porCategoria ?? []} isLoading={loadingPorCategoria} />
+              <GastosPorRubro porCategoria={rubros} isLoading={loadingPorCategoria} />
               <GastosQueEntro detalle={detalle ?? null} isLoading={loadingDetalle} />
               <GastosFijosCard
                 recurrentes={recurrentes ?? []}
@@ -176,8 +188,8 @@ function GastosContenido() {
         <div className="space-y-4">
           <GastosEvolucionChart datos={evolucion ?? []} periodoActual={periodo} isLoading={loadingEvolucion} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <GastosCategoriasChart datos={porCategoria ?? []} isLoading={loadingPorCategoria} />
-            <GastosComparativaChart datos={porCategoria ?? []} periodo={periodo} isLoading={loadingPorCategoria} />
+            <GastosCategoriasChart datos={rubros} isLoading={loadingPorCategoria} />
+            <GastosComparativaChart datos={rubros} periodo={periodo} isLoading={loadingPorCategoria} />
           </div>
           <section className="bg-white border border-gray-200 rounded-xl p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Acumulado del año</h3>
