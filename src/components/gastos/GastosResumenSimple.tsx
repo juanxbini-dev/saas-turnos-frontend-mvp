@@ -27,7 +27,7 @@ const Delta: React.FC<{ actual: number; anterior?: number | null; invertir?: boo
 };
 
 // Tres números en el idioma del dueño: cuánto entró, cuánto salió y cuánto quedó.
-// Todo lo demás (fijos, variables, comisiones) vive en la lista, no acá.
+// Todo lo demás (fijos, variables, a profesionales) vive en la lista, no acá.
 export const GastosResumenSimple: React.FC<GastosResumenSimpleProps> = ({ resumen, detalle, isLoading }) => {
   if (isLoading || !resumen) {
     return (
@@ -44,14 +44,16 @@ export const GastosResumenSimple: React.FC<GastosResumenSimpleProps> = ({ resume
   const positivo = quedo >= 0;
   const ingresos = detalle?.ingresos;
 
-  // "Salió" desglosado: lo que pagaste a mano, lo que salió solo y lo que falta.
-  // Sin nada cargado ni calculado, "todo pagado · $ 0 salió solo" confunde.
+  // "Salió" desglosado: lo que pagaste a mano, lo que hay que pagarles a los
+  // profesionales (sin el dueño ni la mercadería, gastos-ganancias-spec §4.3) y lo
+  // que falta. Sin nada cargado ni calculado, "todo pagado · $ 0 …" confunde.
+  const aProfesionales = resumen.a_profesionales ?? resumen.derivados;
   const sinGastos = resumen.total_gastos === 0 && resumen.pagado === 0 && resumen.pendiente === 0;
   const salioDetalle = sinGastos
     ? 'todavía no hay gastos este mes'
     : resumen.pendiente > 0
-      ? `${formatMoneda(resumen.pagado)} pagado · ${formatMoneda(resumen.derivados)} salió solo · falta ${formatMoneda(resumen.pendiente)}`
-      : `todo pagado · ${formatMoneda(resumen.derivados)} salió solo`;
+      ? `${formatMoneda(resumen.pagado)} pagado · ${formatMoneda(aProfesionales)} a profesionales · falta ${formatMoneda(resumen.pendiente)}`
+      : `todo pagado · ${formatMoneda(aProfesionales)} a profesionales`;
   const turnosCobrados = ingresos
     ? `${ingresos.turnos_cobrados} ${ingresos.turnos_cobrados === 1 ? 'turno cobrado' : 'turnos cobrados'}`
     : '';

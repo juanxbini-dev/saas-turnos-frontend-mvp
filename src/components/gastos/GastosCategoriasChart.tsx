@@ -10,7 +10,8 @@ interface GastosCategoriasChartProps {
 }
 
 // Donut del reparto por categoría del mes. Los derivados entran como categorías
-// propias, así el círculo suma el total real del mes.
+// propias, así el círculo suma el total real del mes. Desde gastos-ganancias-spec
+// queda solo "A pagar a profesionales" (la página filtra la mercadería).
 export const GastosCategoriasChart: React.FC<GastosCategoriasChartProps> = ({ datos, isLoading }) => {
   const conMonto = useMemo(() => datos.filter((d) => d.monto > 0), [datos]);
   const total = useMemo(() => conMonto.reduce((t, d) => t + d.monto, 0), [conMonto]);

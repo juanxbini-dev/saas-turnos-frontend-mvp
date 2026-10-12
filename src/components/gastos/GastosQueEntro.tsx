@@ -12,12 +12,13 @@ interface GastosQueEntroProps {
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 // Lo que entró este mes, explicado: servicios cobrados y productos vendidos.
-// Nada de esto se carga a mano; el detalle vive en Finanzas.
+// Nada de esto se carga a mano; el detalle vive en Finanzas. El costo de los
+// productos vendidos es solo un dato: ya no se resta como gasto (gastos-ganancias-spec §4.5).
 export const GastosQueEntro: React.FC<GastosQueEntroProps> = ({ detalle, isLoading }) => {
   if (isLoading || !detalle) {
     return <div className="bg-white border border-gray-200 rounded-xl h-36 animate-pulse" />;
   }
-  const { ingresos } = detalle;
+  const { ingresos, productos } = detalle;
 
   return (
     <section className="bg-white border border-gray-200 rounded-xl overflow-hidden" data-testid="gastos-que-entro">
@@ -40,6 +41,11 @@ export const GastosQueEntro: React.FC<GastosQueEntroProps> = ({ detalle, isLoadi
             <div className="flex-1 min-w-0">
               <span className="text-gray-900">Productos</span>
               <span className="text-xs text-gray-500"> · {plural(ingresos.productos_vendidos, 'unidad', 'unidades')}</span>
+              {productos.costo_vendido > 0 && (
+                <div className="text-xs text-gray-500" data-testid="costo-vendido">
+                  costo de lo vendido {formatMoneda(productos.costo_vendido)} (referencia, no se resta)
+                </div>
+              )}
             </div>
             <span className="text-gray-900 tabular-nums">{formatMoneda(ingresos.productos)}</span>
           </li>

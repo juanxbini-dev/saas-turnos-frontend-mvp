@@ -8,7 +8,8 @@ interface GastosPorRubroProps {
 }
 
 // Barras horizontales: cuánto se fue en cada rubro este mes, de mayor a menor.
-// Incluye lo que se calcula solo (comisiones, mercadería).
+// Incluye lo que se calcula solo (a pagar a profesionales). La página ya le pasa
+// la lista limpia (limpiarPorCategoria): sin mercadería.
 export const GastosPorRubro: React.FC<GastosPorRubroProps> = ({ porCategoria, isLoading }) => {
   const filas = porCategoria.filter((c) => c.monto > 0).sort((a, b) => b.monto - a.monto);
   const max = filas[0]?.monto ?? 0;
