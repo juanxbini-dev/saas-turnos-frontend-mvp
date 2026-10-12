@@ -5,11 +5,11 @@ import { GastosTablaMes, agruparPorRubro, ordenarFilas, filasQueCambian } from '
 import type { GastoFormPreset } from '../../components/gastos/GastoFormInline';
 import { formatMoneda } from '../../components/gastos/gastos.utils';
 import { toastService } from '../../services/toast.service';
-import type { GastoCategoria, GastoMesItem, GastosDetalleMes, GastosMes } from '../../types/gastos.types';
+import type { GastoCategoria, GastoDerivado, GastoMesItem, GastosMes } from '../../types/gastos.types';
 
 // Casos B1–B27 y B29 de docs/gastos-v3-casos-qa.md (backend/docs). B28 vive en
 // tests/hooks/useCambioMontoFijo.test.ts. Las reglas de agrupación y orden se
-// prueban sobre las funciones puras; lo que ve la dueña, con RTL.
+// prueban sobre las funciones puras; lo que ve el dueño, con RTL.
 
 const marcarPagados = vi.fn();
 const actualizarGasto = vi.fn();
@@ -80,26 +80,16 @@ const AIRE = unico('u-aire', CAT.otros, 'Arreglo del aire', 85000, { estado: 'pa
 const SILLA = unico('u-silla', CAT.otros, 'Silla', 40000, { fecha: '2026-09-10' });
 
 const COMISIONES = { clave: 'comisiones' as const, nombre: 'Comisiones', monto: 385000, detalle: '', color: '#0ea5e9' };
-const MERCADERIA = { clave: 'mercaderia' as const, nombre: 'Mercadería', monto: 27300, detalle: '', color: '#10b981' };
+// Un backend viejo todavía puede mandar la mercadería como derivado: la pantalla
+// la ignora (gastos-ganancias-spec §4.5). Se castea porque el tipo ya no la admite.
+const MERCADERIA_LEGADO = { clave: 'mercaderia', nombre: 'Costo de mercadería vendida', monto: 27300, detalle: '', color: '#10b981' } as unknown as GastoDerivado;
 
 const MES: GastosMes = {
   periodo: PERIODO,
-  derivados: [COMISIONES, MERCADERIA],
+  derivados: [COMISIONES, MERCADERIA_LEGADO],
   recurrentes: [ALQUILER, LUZ, GAS, AGUA, MONOTRIBUTO],
   unicos: [AIRE, SILLA],
-  totales: { derivados: 412300, recurrentes: 870000, unicos: 125000, total: 1407300, pagado: 225000, pendiente: 770000 },
-};
-
-const DETALLE: GastosDetalleMes = {
-  periodo: PERIODO,
-  ingresos: { servicios: 780000, productos: 300000, total: 1080000, turnos_cobrados: 12, productos_vendidos: 14, pendiente_cobro: 0 },
-  comisiones: [
-    { profesional_id: 'p-ana', nombre: 'Ana', avatar_url: null, servicios: 200000, productos: 15000, total: 215000, turnos_cobrados: 5 },
-    { profesional_id: 'p-belen', nombre: 'Belén', avatar_url: null, servicios: 170000, productos: 0, total: 170000, turnos_cobrados: 3 },
-  ],
-  comisiones_total: 385000,
-  mercaderia_costo: 27300,
-  mercaderia_unidades: 14,
+  totales: { derivados: 385000, recurrentes: 870000, unicos: 125000, total: 1380000, pagado: 225000, pendiente: 770000 },
 };
 
 // ------------------------------------------------------------ Helpers
@@ -130,7 +120,7 @@ type Props = React.ComponentProps<typeof GastosTablaMes>;
 
 function renderTabla(over: Partial<Props> = {}) {
   const props: Props = {
-    mes: MES, detalle: DETALLE, periodo: PERIODO, categorias: CATEGORIAS, isLoading: false,
+    mes: MES, periodo: PERIODO, categorias: CATEGORIAS, isLoading: false,
     panelAbierto: false, onTogglePanel: vi.fn(), onAbrirPanel: vi.fn(), preset: null, presetNonce: 0,
     onEditar: vi.fn(), onEliminarUnico: vi.fn(), onCambio: vi.fn(),
     ...over,
@@ -146,7 +136,7 @@ function Harness({ mes }: { mes: GastosMes }) {
   const [preset, setPreset] = useState<{ valor: GastoFormPreset | null; nonce: number }>({ valor: null, nonce: 0 });
   return (
     <GastosTablaMes
-      mes={mes} detalle={DETALLE} periodo={PERIODO} categorias={CATEGORIAS} isLoading={false}
+      mes={mes} periodo={PERIODO} categorias={CATEGORIAS} isLoading={false}
       panelAbierto={panelAbierto}
       onTogglePanel={() => setPanelAbierto((v) => !v)}
       onAbrirPanel={(valor) => { setPanelAbierto(true); setPreset((p) => ({ valor: valor ?? null, nonce: p.nonce + 1 })); }}
@@ -276,7 +266,7 @@ describe('render: rubros y cabeceras', () => {
 
     expect(idsDeRubrosEnPantalla()).toEqual([
       'rubro-cat-alq', 'rubro-cat-serv', 'rubro-cat-otros', 'rubro-cat-imp',
-      'rubro-auto-comisiones', 'rubro-auto-mercaderia',
+      'rubro-auto-comisiones',
     ]);
   });
 
@@ -395,43 +385,42 @@ describe('tilde: qué se manda al endpoint', () => {
 // ================================================================== B.3
 
 describe('rubros automáticos, badges y montos', () => {
-  it('B15: comisiones y mercadería tienen candado, sin tilde ni editar ni borrar; mercadería dice las unidades', () => {
+  it('B15: "A pagar a profesionales" tiene candado, sin tilde ni editar ni borrar', () => {
     renderTabla();
 
-    for (const clave of ['comisiones', 'mercaderia']) {
-      const auto = screen.getByTestId(`rubro-auto-${clave}`);
-      expect(within(auto).queryAllByRole('checkbox')).toHaveLength(0);
-      expect(within(auto).queryAllByRole('button', { name: /^(Editar|Eliminar) / })).toHaveLength(0);
-      expect(within(auto).getByLabelText('Se calcula solo')).toBeTruthy();
-    }
-    expect(texto(screen.getByTestId('rubro-auto-comisiones'))).toContain(moneda(385000));
-    expect(texto(screen.getByTestId('rubro-auto-mercaderia'))).toContain('14 unidades');
-    expect(texto(screen.getByTestId('rubro-auto-mercaderia'))).toContain(moneda(27300));
+    const auto = screen.getByTestId('rubro-auto-comisiones');
+    expect(within(auto).queryAllByRole('checkbox')).toHaveLength(0);
+    expect(within(auto).queryAllByRole('button', { name: /^(Editar|Eliminar) / })).toHaveLength(0);
+    expect(within(auto).getByLabelText('Se calcula solo')).toBeTruthy();
+    expect(texto(auto)).toContain(moneda(385000));
   });
 
-  it('B15: un derivado en 0 no muestra su rubro', () => {
-    renderTabla({ mes: { ...MES, derivados: [{ ...COMISIONES, monto: 0 }, MERCADERIA] } });
+  it('gastos-ganancias: el rubro se llama "A pagar a profesionales" aunque el backend mande otro nombre', () => {
+    renderTabla();
+
+    const auto = screen.getByTestId('rubro-auto-comisiones');
+    expect(texto(auto)).toContain('A pagar a profesionales');
+    expect(document.body.textContent).not.toMatch(/Comisiones a profesionales/);
+  });
+
+  it('gastos-ganancias: la mercadería vendida ya no es un rubro, aunque el backend la mande', () => {
+    renderTabla();
+
+    expect(screen.queryByTestId('rubro-auto-mercaderia')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/mercader/i);
+  });
+
+  it('B15: el rubro automático en 0 no se muestra', () => {
+    renderTabla({ mes: { ...MES, derivados: [{ ...COMISIONES, monto: 0 }] } });
 
     expect(screen.queryByTestId('rubro-auto-comisiones')).toBeNull();
-    expect(screen.getByTestId('rubro-auto-mercaderia')).toBeTruthy();
   });
 
-  it('B16: "ver por profesional" despliega a cada una con sus turnos, productos y total', () => {
+  it('P9: ya no hay desplegable "ver por profesional" (lo reemplaza la tabla Por profesional)', () => {
     renderTabla();
+
+    expect(screen.queryByRole('button', { name: /ver por profesional/ })).toBeNull();
     expect(screen.queryByTestId('comisiones-profesionales')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: /ver por profesional/ }));
-
-    const panel = screen.getByTestId('comisiones-profesionales');
-    const filaDe = (nombre: string) => within(panel).getByText(nombre).parentElement!.parentElement!;
-    const ana = texto(filaDe('Ana'));
-    expect(ana).toContain('5 turnos');
-    expect(ana).toContain(`${moneda(15000)} por productos`);
-    expect(ana).toContain(moneda(215000));
-    const belen = texto(filaDe('Belén'));
-    expect(belen).toContain('3 turnos');
-    expect(belen).not.toContain('por productos');
-    expect(belen).toContain(moneda(170000));
   });
 
   it('B17: badge "fijo" solo en recurrentes; "este mes distinto" solo cuando el monto difiere del normal', () => {
@@ -455,7 +444,7 @@ describe('rubros automáticos, badges y montos', () => {
     expect(subtotalDe('cat-otros')).toContain(moneda(125000));
     expect(subtotalDe('cat-alq')).toContain(moneda(700000));
     expect(subtotalDe('cat-imp')).toContain(moneda(20000));
-    expect(texto(screen.getByTestId('total-mes'))).toContain(moneda(1407300));
+    expect(texto(screen.getByTestId('total-mes'))).toContain(moneda(1380000));
   });
 
   it('B19 (Q9): "venció" solo en pendientes vencidos y en rojo; "pagado el" gana sobre "vence el"', () => {
@@ -503,7 +492,6 @@ describe('rubros automáticos, badges y montos', () => {
 
   it('B22: nada de jerga interna en pantalla', () => {
     renderTabla();
-    fireEvent.click(screen.getByRole('button', { name: /ver por profesional/ }));
 
     expect(document.body.textContent).not.toMatch(/recurrente|override|plantilla|derivado|virtual|rec:/i);
   });
@@ -657,7 +645,7 @@ describe('doble clic (edición inline)', () => {
 describe('mes vacío', () => {
   const VACIO: GastosMes = {
     ...MES, recurrentes: [], unicos: [],
-    totales: { derivados: 412300, recurrentes: 0, unicos: 0, total: 412300, pagado: 0, pendiente: 0 },
+    totales: { derivados: 385000, recurrentes: 0, unicos: 0, total: 385000, pagado: 0, pendiente: 0 },
   };
 
   it('B29 (Q8): sin fijos ni únicos aparece el arranque guiado con el panel abierto, más los rubros automáticos y el total', () => {
@@ -667,8 +655,8 @@ describe('mes vacío', () => {
     expect(screen.getByTestId('gasto-form-inline')).toBeTruthy();
     expect(screen.queryAllByTestId(/^rubro-cat-/)).toHaveLength(0);
     expect(screen.getByTestId('rubro-auto-comisiones')).toBeTruthy();
-    expect(screen.getByTestId('rubro-auto-mercaderia')).toBeTruthy();
-    expect(texto(screen.getByTestId('total-mes'))).toContain(moneda(412300));
+    expect(screen.queryByTestId('rubro-auto-mercaderia')).toBeNull();
+    expect(texto(screen.getByTestId('total-mes'))).toContain(moneda(385000));
   });
 
   it('B29: el chip "Alquiler" deja el panel en Sí, con nombre y categoría puestos y el foco en el monto', async () => {
