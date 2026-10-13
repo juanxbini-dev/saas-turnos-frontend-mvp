@@ -1,5 +1,6 @@
 import axiosInstance from '../api/axiosInstance';
 import { Turno, TurnoConDetalle, CreateTurnoData, FinalizarTurnoData, EditarPagoData } from '../types/turno.types';
+import { SeguimientoTurno } from '../types/seguimiento.types';
 
 export const turnoService = {
   async getTurnos(): Promise<TurnoConDetalle[]> {
@@ -79,6 +80,13 @@ export const turnoService = {
 
   async editarPago(id: string, data: EditarPagoData): Promise<Turno> {
     const response = await axiosInstance.put(`/api/turnos/${id}/editar-pago`, data);
+    return response.data.data;
+  },
+
+  // Cómo se sacó el turno y qué pasó con sus mensajes (solo lectura).
+  // 404 si no existe o si quien pregunta no lo puede ver.
+  async getSeguimiento(id: string): Promise<SeguimientoTurno> {
+    const response = await axiosInstance.get(`/api/turnos/${encodeURIComponent(id)}/seguimiento`);
     return response.data.data;
   }
 };

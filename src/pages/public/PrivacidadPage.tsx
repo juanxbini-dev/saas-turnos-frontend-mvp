@@ -5,6 +5,8 @@ import { CONTACTO_PRIVACIDAD, ContactoPrivacidad } from '../../config/privacidad
 
 // Política de privacidad pública (sin login). El texto es LITERAL de
 // backend/docs/campanias-n8n-spec.md §16.2: no se edita acá sin cambiar la spec.
+// La sección "Datos de tu reserva por la web" sale de
+// backend/docs/seguimiento-reservas-spec.md (US5, §5 Frontend).
 // La pide Meta para publicar la app de WhatsApp y respalda el tilde de
 // novedades de la reserva.
 
@@ -50,7 +52,7 @@ export const PrivacidadPage: React.FC<PrivacidadPageProps> = ({ contacto = CONTA
           Política de privacidad de DEB Salón
         </h1>
         <p className="mt-2 text-xs tracking-[0.15em] uppercase text-white/40">
-          Última actualización: septiembre de 2026
+          Última actualización: octubre de 2026
         </p>
 
         <div className="mt-10 space-y-6">
@@ -76,6 +78,10 @@ export const PrivacidadPage: React.FC<PrivacidadPageProps> = ({ contacto = CONTA
 
           <Seccion titulo="Cuánto tiempo los guardamos.">
             Mientras seas cliente del salón y durante el tiempo que exijan las obligaciones legales y contables. Podés pedirnos que los eliminemos antes.
+          </Seccion>
+
+          <Seccion titulo="Datos de tu reserva por la web.">
+            Cuando reservás por la web, en DEB Salón guardamos también lo que escribiste en el formulario (nombre, teléfono y email), un resumen del dispositivo desde el que reservaste (tipo de equipo, sistema y navegador) y un dato cifrado de tu conexión, que no guarda tu dirección de internet. Los usamos solo para resolver consultas sobre tus turnos y los borramos 90 días después de la reserva o del turno, lo que ocurra último.
           </Seccion>
 
           <Seccion titulo="Tus derechos.">

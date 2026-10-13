@@ -37,7 +37,7 @@ describe('/privacidad', () => {
     renderRuta('/privacidad');
 
     expect(screen.getByRole('heading', { level: 1, name: 'Política de privacidad de DEB Salón' })).toBeTruthy();
-    expect(screen.getByText('Última actualización: septiembre de 2026')).toBeTruthy();
+    expect(screen.getByText('Última actualización: octubre de 2026')).toBeTruthy();
     expect(screen.queryByText('PAGINA login')).toBeNull();
     expect(screen.queryByText('PAGINA landing')).toBeNull();
   });
@@ -55,12 +55,12 @@ describe('/privacidad', () => {
     expect(screen.getByRole('link', { name: 'Volver al inicio' }).getAttribute('href')).toBe('/');
   });
 
-  it('trae las nueve secciones del texto de la spec, como texto real', () => {
+  it('trae las diez secciones del texto de la spec, como texto real', () => {
     renderRuta('/privacidad');
 
     for (const titulo of [
       'Quiénes somos.', 'Qué datos guardamos.', 'Para qué los usamos.', 'Cómo dejar de recibir novedades.',
-      'Con quién los compartimos.', 'Cuánto tiempo los guardamos.', 'Tus derechos.', 'Cómo contactarnos.', 'Cambios.',
+      'Con quién los compartimos.', 'Cuánto tiempo los guardamos.', 'Datos de tu reserva por la web.', 'Tus derechos.', 'Cómo contactarnos.', 'Cambios.',
     ]) {
       expect(screen.getByText(titulo)).toBeTruthy();
     }
@@ -127,6 +127,21 @@ describe('/privacidad', () => {
   it('un email en blanco se trata como si no hubiera', () => {
     render(<MemoryRouter><PrivacidadPage contacto={{ direccion: DIRECCION, email: '   ' }} /></MemoryRouter>);
     expect(seccion('Cómo contactarnos.').textContent).not.toMatch(/escribirnos/);
+  });
+
+  // Spec seguimiento-reservas §8 caso 25: datos de la reserva web, 90 días, marca DEB Salón
+  it('explica los datos de la reserva web (lo escrito, el dispositivo, la conexión cifrada) y los 90 días', () => {
+    renderRuta('/privacidad');
+    const texto = seccion('Datos de tu reserva por la web.').textContent ?? '';
+    expect(texto).toContain('DEB Salón');
+    expect(texto).toContain('lo que escribiste en el formulario');
+    expect(texto).toContain('dispositivo');
+    expect(texto).toContain('dato cifrado de tu conexión, que no guarda tu dirección de internet');
+    // Seudonimizado, no anónimo: no se promete de más
+    expect(texto).not.toMatch(/anonimizad|anónim/i);
+    expect(texto).toContain('90 días después de la reserva o del turno, lo que ocurra último');
+    expect(texto).toContain('resolver consultas sobre tus turnos');
+    expect(texto).not.toMatch(/turnos 2\.0|n8n|hash|dirección IP/i);
   });
 
   it('regla de marca: no nombra el sistema interno ni la herramienta de automatización', () => {
