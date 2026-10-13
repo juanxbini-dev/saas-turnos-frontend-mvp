@@ -130,15 +130,15 @@ describe('/privacidad', () => {
   });
 
   // Spec seguimiento-reservas §8 caso 25: datos de la reserva web, 90 días, marca DEB Salón
-  it('explica los datos de la reserva web (lo escrito, el dispositivo, la conexión cifrada) y los 90 días', () => {
+  it('explica los datos de la reserva web (lo escrito, el dispositivo, la conexión codificada) y los 90 días', () => {
     renderRuta('/privacidad');
     const texto = seccion('Datos de tu reserva por la web.').textContent ?? '';
     expect(texto).toContain('DEB Salón');
     expect(texto).toContain('lo que escribiste en el formulario');
     expect(texto).toContain('dispositivo');
-    expect(texto).toContain('dato cifrado de tu conexión, que no guarda tu dirección de internet');
+    expect(texto).toContain('dato codificado de tu conexión, que no guarda tu dirección de internet');
     // Seudonimizado, no anónimo: no se promete de más
-    expect(texto).not.toMatch(/anonimizad|anónim/i);
+    expect(texto).not.toMatch(/anonimizad|anónim|cifrad/i);
     expect(texto).toContain('90 días después de la reserva o del turno, lo que ocurra último');
     expect(texto).toContain('resolver consultas sobre tus turnos');
     expect(texto).not.toMatch(/turnos 2\.0|n8n|hash|dirección IP/i);

@@ -65,7 +65,7 @@ export function turnoPanel(conCreador = true): SeguimientoTurno {
       id: 'tur-panel',
       fecha: '2026-10-21',
       hora: '11:30',
-      origen: 'panel',
+      origen: 'interno',
       creado_at: '2026-10-13T15:00:00Z',
       creado_por: conCreador ? { id: 'usr-1', nombre: 'Dani' } : null,
     },

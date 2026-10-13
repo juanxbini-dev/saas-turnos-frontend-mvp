@@ -59,10 +59,22 @@ describe('SeguimientoTurnoModal', () => {
     expect(await screen.findByText('Por la web')).toBeTruthy();
   });
 
-  it('404: avisa que no se encontró o no tiene acceso', async () => {
-    getSeguimiento.mockRejectedValueOnce({ response: { status: 404 } });
+  it('404 del backend (JSON): avisa que no se encontró o no tiene acceso', async () => {
+    getSeguimiento.mockRejectedValueOnce({ response: { status: 404, data: { success: false, message: 'No encontrado' } } });
     abrir();
     expect((await screen.findByRole('alert')).textContent).toContain('No encontramos este turno');
+  });
+
+  it('404 sin cuerpo JSON (backend viejo sin la ruta): "todavía no está disponible"', async () => {
+    getSeguimiento.mockRejectedValueOnce({ response: { status: 404, data: 'Cannot GET' } });
+    abrir();
+    expect((await screen.findByRole('alert')).textContent).toContain('El detalle de este turno todavía no está disponible.');
+  });
+
+  it('al abrir, el foco queda en el botón de cerrar', async () => {
+    abrir(turnoWeb());
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cerrar' }));
+    await screen.findByText('Por la web');
   });
 
   it('turno web completo: reserva, dispositivo, datos con ✓ y frase de cómo se eligió la ficha', async () => {
@@ -130,8 +142,10 @@ describe('SeguimientoTurnoModal', () => {
     expect(textoDialogo()).toContain('Ese link ya se había usado antes para otra reserva.');
   });
 
-  it('turno de panel con creado_por: muestra quién lo cargó y no la sección Datos', async () => {
-    abrir(turnoPanel(true));
+  it('turno de panel (origen "interno") con creado_por: muestra quién lo cargó y no la sección Datos', async () => {
+    const d = turnoPanel(true);
+    expect(d.turno.origen).toBe('interno');
+    abrir(d);
     await screen.findByText('Cargado desde el panel');
     expect(textoDialogo()).toContain('Cargado por');
     expect(textoDialogo()).toContain('Dani');
@@ -245,6 +259,22 @@ describe('SeguimientoTurnoModal', () => {
     expect(txt[8]).toContain('Motivo: El servicio de mensajes dio un error');
 
     sinJerga();
+  });
+
+  it('motivo n8n_no_envio: "El servicio de mensajes informó que no se envió"', async () => {
+    abrir(turnoWeb({ mensajes: [mensaje({ estado: 'no_enviado', motivo: 'n8n_no_envio', enviado_at: null, entregado_at: null, leido_at: null })] }));
+    await screen.findByText('Por la web');
+    expect(textoDialogo()).toContain('Motivo: El servicio de mensajes informó que no se envió');
+    sinJerga();
+  });
+
+  it('sin_confirmar + respuesta_sin_detalle: una sola línea, sin repetir', async () => {
+    abrir(turnoWeb({ mensajes: [mensaje({ tipo: 'recordatorio', estado: 'sin_confirmar', motivo: 'respuesta_sin_detalle', enviado_at: null, entregado_at: null, leido_at: null, email_enviado: null })] }));
+    await screen.findByText('Por la web');
+    const item = screen.getByTestId('seguimiento-mensaje').textContent ?? '';
+    expect(item).toContain('El servicio de mensajes recibió el pedido pero no avisó si el mensaje salió.');
+    expect(item).not.toContain('Motivo:');
+    expect(item.match(/no avisó/g)).toHaveLength(1);
   });
 
   it('un motivo desconocido se muestra legible y sin jerga', async () => {

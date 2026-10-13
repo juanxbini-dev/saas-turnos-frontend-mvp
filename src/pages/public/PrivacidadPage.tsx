@@ -81,7 +81,7 @@ export const PrivacidadPage: React.FC<PrivacidadPageProps> = ({ contacto = CONTA
           </Seccion>
 
           <Seccion titulo="Datos de tu reserva por la web.">
-            Cuando reservás por la web, en DEB Salón guardamos también lo que escribiste en el formulario (nombre, teléfono y email), un resumen del dispositivo desde el que reservaste (tipo de equipo, sistema y navegador) y un dato cifrado de tu conexión, que no guarda tu dirección de internet. Los usamos solo para resolver consultas sobre tus turnos y los borramos 90 días después de la reserva o del turno, lo que ocurra último.
+            Cuando reservás por la web, en DEB Salón guardamos también lo que escribiste en el formulario (nombre, teléfono y email), un resumen del dispositivo desde el que reservaste (tipo de equipo, sistema y navegador) y un dato codificado de tu conexión, que no guarda tu dirección de internet. Los usamos solo para resolver consultas sobre tus turnos y los borramos 90 días después de la reserva o del turno, lo que ocurra último.
           </Seccion>
 
           <Seccion titulo="Tus derechos.">

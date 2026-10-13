@@ -62,12 +62,22 @@ describe('useSeguimientoTurno', () => {
     expect(TTL.SHORT).toBe(60 * 1000);
   });
 
-  it('un 404 se traduce a un mensaje para el usuario', async () => {
-    get.mockRejectedValueOnce({ response: { status: 404 } });
+  it('un 404 con cuerpo JSON del backend: no existe o no tiene acceso', async () => {
+    get.mockRejectedValueOnce({ response: { status: 404, data: { success: false, message: 'Turno no encontrado' } } });
     const { result } = renderHook(() => useSeguimientoTurno('tur-x', true));
     await waitFor(() => expect(result.current.error).toBe('No encontramos este turno o no tenés acceso a su detalle.'));
     expect(result.current.loading).toBe(false);
     expect(result.current.data).toBeNull();
+  });
+
+  it.each([
+    ['sin cuerpo', undefined],
+    ['con HTML de Express', '<!DOCTYPE html><pre>Cannot GET /api/turnos/tur-z/seguimiento</pre>'],
+    ['con cuerpo vacío', ''],
+  ])('un 404 %s (la ruta todavía no existe): "todavía no está disponible"', async (_c, data) => {
+    get.mockRejectedValueOnce({ response: { status: 404, data } });
+    const { result } = renderHook(() => useSeguimientoTurno('tur-z', true));
+    await waitFor(() => expect(result.current.error).toBe('El detalle de este turno todavía no está disponible.'));
   });
 
   it('otro error muestra un mensaje genérico', async () => {

@@ -13,11 +13,20 @@ export interface UseSeguimientoTurnoResult {
   reintentar: () => void;
 }
 
-// Texto para el usuario según el error de la API. 404 = no existe o no lo puede
-// ver (el backend no distingue a propósito).
+// Texto para el usuario según el error de la API.
+// - 404 con cuerpo JSON del backend: no existe o no lo puede ver (el backend no
+//   distingue a propósito).
+// - 404 sin cuerpo JSON: la ruta todavía no existe (frontend deployado antes que
+//   el backend).
 export function mensajeErrorSeguimiento(error: unknown): string {
-  const status = (error as { response?: { status?: number } })?.response?.status;
-  if (status === 404) return 'No encontramos este turno o no tenés acceso a su detalle.';
+  const response = (error as { response?: { status?: number; data?: unknown } })?.response;
+  if (response?.status === 404) {
+    const data = response.data;
+    const esJsonDelBackend = !!data && typeof data === 'object' && !Array.isArray(data);
+    return esJsonDelBackend
+      ? 'No encontramos este turno o no tenés acceso a su detalle.'
+      : 'El detalle de este turno todavía no está disponible.';
+  }
   return 'No pudimos cargar cómo se sacó el turno. Probá de nuevo en un rato.';
 }
 

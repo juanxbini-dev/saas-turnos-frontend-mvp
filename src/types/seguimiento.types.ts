@@ -2,7 +2,8 @@
 // Solo lectura: "cómo se sacó el turno" y qué pasó con sus mensajes.
 // La API nunca devuelve ip_hash ni wamid.
 
-export type SeguimientoOrigenTurno = 'web' | 'panel' | string;
+// 'interno' = cargado desde el panel (es el valor de turnos.origen en el backend)
+export type SeguimientoOrigenTurno = 'web' | 'interno';
 
 export interface SeguimientoCreadoPor {
   id: string;

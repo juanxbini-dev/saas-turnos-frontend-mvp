@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Check, AlertTriangle } from 'lucide-react';
 import { useSeguimientoTurno } from '../../hooks/useSeguimientoTurno';
@@ -204,7 +204,9 @@ const Hito: React.FC<{ texto: string; iso: string | null; tono?: string }> = ({ 
 const MensajeItem: React.FC<{ m: SeguimientoMensaje }> = ({ m }) => {
   const estado = estiloEstado(m.estado);
   const explicacion = explicacionEstado(m.estado);
-  const motivo = traducirMotivo(m.motivo);
+  // "sin_confirmar" + "respuesta_sin_detalle" dicen lo mismo: una sola línea
+  const motivoRepetido = m.estado === 'sin_confirmar' && m.motivo === 'respuesta_sin_detalle';
+  const motivo = motivoRepetido ? null : traducirMotivo(m.motivo);
   const error = limpiarTextoError(m.error);
 
   return (
@@ -289,6 +291,12 @@ export const SeguimientoContenido: React.FC<{ s: SeguimientoTurno }> = ({ s }) =
 
 export const SeguimientoTurnoModal: React.FC<SeguimientoTurnoModalProps> = ({ turnoId, open, onClose, clienteNombre }) => {
   const { data, loading, error, reintentar } = useSeguimientoTurno(turnoId, open);
+  const cerrarRef = useRef<HTMLButtonElement>(null);
+
+  // Al abrir, el foco va al botón de cerrar (sin trampa de foco completa)
+  useEffect(() => {
+    if (open && turnoId) cerrarRef.current?.focus();
+  }, [open, turnoId]);
 
   useEffect(() => {
     if (!open) return;
@@ -321,6 +329,7 @@ export const SeguimientoTurnoModal: React.FC<SeguimientoTurnoModalProps> = ({ tu
               {subtitulo && <p className="text-sm text-gray-500 truncate">{subtitulo}</p>}
             </div>
             <button
+              ref={cerrarRef}
               type="button"
               onClick={onClose}
               aria-label="Cerrar"

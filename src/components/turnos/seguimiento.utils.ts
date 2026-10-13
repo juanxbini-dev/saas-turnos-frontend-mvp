@@ -178,6 +178,7 @@ const MOTIVOS: Record<string, string> = {
   n8n_timeout: 'El servicio de mensajes no respondió a tiempo (el mensaje pudo haber salido igual)',
   respuesta_sin_detalle: 'El servicio de mensajes no avisó si el mensaje salió',
   sin_motivo: 'El servicio de mensajes no lo envió y no dijo por qué',
+  n8n_no_envio: 'El servicio de mensajes informó que no se envió',
   profesional_sin_telefono: 'El profesional no tiene teléfono cargado',
 };
 
