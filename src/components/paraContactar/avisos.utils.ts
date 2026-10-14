@@ -98,9 +98,13 @@ export function textoOrigen(aviso: Pick<AvisoDetalle, 'campania' | 'motivo'>): s
   return 'WhatsApp';
 }
 
-/** Link para escribirle por WhatsApp (solo dígitos, con el código de país que ya trae). */
+/**
+ * Link para escribirle por WhatsApp (solo dígitos, con el código de país que ya trae).
+ * Si llega un número local argentino de 10 dígitos, se le agrega el 549.
+ */
 export function enlaceWhatsapp(telefono: string | null | undefined): string | null {
-  const digitos = (telefono ?? '').replace(/\D/g, '');
+  let digitos = (telefono ?? '').replace(/\D/g, '');
+  if (digitos.length === 10 && /^(11|2|3)/.test(digitos)) digitos = `549${digitos}`;
   return digitos.length >= 8 ? `https://wa.me/${digitos}` : null;
 }
 
