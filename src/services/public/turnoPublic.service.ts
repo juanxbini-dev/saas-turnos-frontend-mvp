@@ -36,6 +36,10 @@ export interface CreateTurnoPublicRequest {
   // código el campo NO se manda. El backend lo usa para atribuir la reserva al
   // mensaje; un código inválido o vencido se ignora y la reserva se crea igual.
   campania_codigo?: string;
+  // Qué tocó la persona en el modal "Te reconocemos". Sin modal NO se manda.
+  // 'confirmar' viaja junto con `cliente_id`; 'otros_datos' viaja SIN `cliente_id`
+  // (el backend crea una ficha nueva aunque el teléfono ya exista).
+  modal_accion?: 'confirmar' | 'otros_datos';
 }
 
 export interface CreateTurnoPublicResponse {

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { authService } from '../services/authService';
 import { clearGastosToken } from '../services/gastos.service';
+import { cacheService } from '../cache/cache.service';
+import { buildKey, ENTITIES } from '../cache/key.builder';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
@@ -218,6 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // El seguimiento trae datos personales (lo tipeado en la reserva): no
+      // queda en memoria para la próxima sesión. Va ANTES de clearTokens porque
+      // la clave lleva la empresa que sale del token.
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.SEGUIMIENTO));
       clearTokens();
       dispatch({ type: 'LOGOUT' });
     }
