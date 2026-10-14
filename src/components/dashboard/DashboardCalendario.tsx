@@ -20,6 +20,8 @@ import { TurnoPopover } from './TurnoPopover';
 import { DashboardTurnoModal } from './DashboardTurnoModal';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { TurnoEstadoBadge } from '../ui/TurnoEstadoBadge';
+import { SeguimientoTurnoBoton } from '../turnos/SeguimientoTurnoBoton';
+import { SeguimientoTurnoModal } from '../turnos/SeguimientoTurnoModal';
 import { useToast } from '../../hooks/useToast';
 import { cacheService } from '../../cache/cache.service';
 import { DateHelper } from '../../shared/utils/DateHelper';
@@ -257,6 +259,13 @@ export function DashboardCalendario({
   const [slotMenu, setSlotMenu] = useState<{ x: number; y: number; fecha: Date; hora: Date; bloqueoId?: string; noDisponible?: boolean; soloAgendar?: boolean } | null>(null);
   const [turnoMenu, setTurnoMenu] = useState<{ x: number; y: number; turno: TurnoConDetalle } | null>(null);
   const [cancelarConfirm, setCancelarConfirm] = useState<TurnoConDetalle | null>(null);
+  // Turno cuyo seguimiento ("Cómo se sacó el turno") está abierto
+  const [seguimientoTurno, setSeguimientoTurno] = useState<{ id: string; clienteNombre: string } | null>(null);
+  const abrirSeguimiento = useCallback((turno: TurnoConDetalle) => {
+    setTurnoMenu(null);
+    setSeguimientoTurno({ id: turno.id, clienteNombre: turno.cliente_nombre });
+  }, []);
+  const cerrarSeguimiento = useCallback(() => setSeguimientoTurno(null), []);
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
   const toast = useToast();
   const touchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
@@ -688,6 +697,8 @@ export function DashboardCalendario({
       cacheService.invalidateByPrefix(buildKey(ENTITIES.CALENDARIO));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.TURNOS));
       cacheService.invalidateByPrefix(buildKey(ENTITIES.SLOTS));
+      // Después de un cambio del turno, el seguimiento se vuelve a pedir fresco
+      cacheService.invalidateByPrefix(buildKey(ENTITIES.SEGUIMIENTO));
 
       // Refetch para consistencia eventual
       revalidate();
@@ -927,7 +938,10 @@ export function DashboardCalendario({
                   <p className="text-base font-semibold text-gray-900 leading-tight">
                     {turnoMenu.turno.cliente_nombre}
                   </p>
-                  <TurnoEstadoBadge estado={turnoMenu.turno.estado} />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <SeguimientoTurnoBoton onClick={() => abrirSeguimiento(turnoMenu.turno)} />
+                    <TurnoEstadoBadge estado={turnoMenu.turno.estado} />
+                  </div>
                 </div>
                 <p className="text-sm text-gray-600">{turnoMenu.turno.servicio}</p>
                 <div className="flex items-center gap-3 text-sm text-gray-500">
@@ -1044,7 +1058,10 @@ export function DashboardCalendario({
               <div className="px-4 py-3 border-b border-gray-100">
                 <div className="flex items-start justify-between gap-2 mb-0.5">
                   <p className="text-sm font-semibold text-gray-800 leading-tight">{turnoMenu.turno.cliente_nombre}</p>
-                  <TurnoEstadoBadge estado={turnoMenu.turno.estado} />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <SeguimientoTurnoBoton onClick={() => abrirSeguimiento(turnoMenu.turno)} />
+                    <TurnoEstadoBadge estado={turnoMenu.turno.estado} />
+                  </div>
                 </div>
                 <p className="text-xs text-gray-400">{turnoMenu.turno.hora} — {turnoMenu.turno.servicio}</p>
                 {turnoMenu.turno.cliente_telefono && (
@@ -1141,6 +1158,14 @@ export function DashboardCalendario({
         ),
         document.body
       )}
+
+      {/* Seguimiento del turno: cómo se sacó y qué pasó con sus mensajes */}
+      <SeguimientoTurnoModal
+        turnoId={seguimientoTurno?.id ?? null}
+        open={!!seguimientoTurno}
+        onClose={cerrarSeguimiento}
+        clienteNombre={seguimientoTurno?.clienteNombre}
+      />
 
       {/* Modal de confirmación para cancelar turno */}
       <ConfirmModal

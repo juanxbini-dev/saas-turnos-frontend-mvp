@@ -227,7 +227,13 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     }
   };
 
-  const createNewClienteAndTurno = async (useExisting = false) => {
+  // Acción del modal "Te reconocemos" que originó la reserva:
+  //   'confirmar'   → se manda `cliente_id` de la ficha mostrada + modal_accion
+  //   'otros_datos' → se manda modal_accion SIN `cliente_id` (ficha nueva)
+  //   null          → no hubo modal: no viaja ni `cliente_id` ni `modal_accion`
+  // La acción se pasa por parámetro y no se guarda en estado: si el modal se
+  // cierra con la X o el fondo, no queda ninguna acción "pegada" para la próxima.
+  const createNewClienteAndTurno = async (accion: 'confirmar' | 'otros_datos' | null = null) => {
     setSubmitError(null);
     if (!selectedServicio || !selectedDate || !selectedSlot) {
       setSubmitError('Elegí servicio, día y horario antes de confirmar.');
@@ -243,7 +249,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         fecha: selectedDate,
         hora: selectedSlot,
         cliente_data: buildClientePayload(),
-        cliente_id: useExisting ? existingCliente?.id : undefined,
+        ...(accion === 'confirmar' && existingCliente?.id ? { cliente_id: existingCliente.id } : {}),
+        ...(accion ? { modal_accion: accion } : {}),
         notas,
         marketing_consentimiento: quiereNovedades,
         // Solo si la persona llegó desde un mensaje; si no, el campo no viaja
@@ -273,12 +280,19 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
   const handleConfirmExistingCliente = () => {
     setShowMatchModal(false);
-    createNewClienteAndTurno(true);
+    createNewClienteAndTurno('confirmar');
+  };
+
+  // Cerrar sin elegir (X o fondo) olvida la ficha reconocida: la próxima reserva
+  // vuelve a validar y, si no hay match, no manda ni `cliente_id` ni `modal_accion`.
+  const handleCloseMatchModal = () => {
+    setShowMatchModal(false);
+    setExistingCliente(null);
   };
 
   const handleCreateNewCliente = () => {
     setShowMatchModal(false);
-    createNewClienteAndTurno(false);
+    createNewClienteAndTurno('otros_datos');
   };
 
   const resetModal = () => {
@@ -674,11 +688,12 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       {/* ── Modal cliente existente ── */}
       {showMatchModal && existingCliente && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80" onClick={() => setShowMatchModal(false)} />
+          <div className="absolute inset-0 bg-black/80" onClick={handleCloseMatchModal} />
           <div className="relative w-full max-w-sm bg-[#111] border border-white/15 p-6">
             {/* X cierre */}
             <button
-              onClick={() => setShowMatchModal(false)}
+              onClick={handleCloseMatchModal}
+              aria-label="Cerrar"
               className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
             >
               <X className="w-4 h-4" />
