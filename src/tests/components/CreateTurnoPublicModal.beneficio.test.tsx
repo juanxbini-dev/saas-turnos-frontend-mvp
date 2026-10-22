@@ -132,7 +132,8 @@ describe('CreateTurnoPublicModal — código de beneficio', () => {
 
     escribirCodigoYSalir('deb-7k3p9');
 
-    await waitFor(() => expect(validarCodigo).toHaveBeenCalledWith('DEB-7K3P9'));
+    // Viaja el empresaId que recibe el modal por prop
+    await waitFor(() => expect(validarCodigo).toHaveBeenCalledWith('DEB-7K3P9', 'emp-1'));
     expect(await screen.findByTestId('chip-beneficio')).toHaveTextContent('15 % en servicios aplicado · vence el 12/11');
     expect(campoCodigo().value).toBe('DEB-7K3P9');
     expect(screen.getByText('Código válido: 15 % en servicios.')).toBeTruthy();

@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { render, screen, fireEvent, waitFor, configure } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { DebSalonLandingPage } from '../../pages/public/DebSalonLandingPage';
+import { EMPRESA_ID } from '../../config/debsalon';
 
 // Plan mails-beneficios §4.1 / fase 4a: el botón del mail trae a la landing con
 // `?b=DEB-7K3P9`. Se saca de la barra, se valida UNA vez, y si sirve queda para
@@ -145,7 +146,7 @@ describe('DebSalonLandingPage — ?b= código de beneficio del mail', () => {
     await waitFor(() => expect(window.location.search).toBe('?utm_source=mail'));
     expect(window.location.hash).toBe('#equipo');
     expect(llamadasAValidar()).toHaveLength(1);
-    expect(llamadasAValidar()[0][1]).toEqual({ codigo: CODIGO });
+    expect(llamadasAValidar()[0][1]).toEqual({ codigo: CODIGO, empresa_id: EMPRESA_ID });
     await waitFor(() => expect(guardado()?.codigo).toBe(CODIGO));
     expect(Object.keys(guardado()).sort()).toEqual(['beneficio', 'codigo', 'guardado_at', 'vence_el']);
     // No abre nada solo: la persona elige con quién reservar

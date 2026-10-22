@@ -246,7 +246,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
     setValidandoBeneficio(true);
     try {
-      const resultado = await beneficioPublicService.validarCodigo(normalizado);
+      const resultado = await beneficioPublicService.validarCodigo(normalizado, empresaId);
       if (!resultado) {
         setBeneficioValidado(null);
         setBeneficioError(MENSAJE_SIN_VALIDAR);

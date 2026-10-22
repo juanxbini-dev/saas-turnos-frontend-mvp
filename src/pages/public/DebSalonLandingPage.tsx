@@ -20,8 +20,7 @@ import type { BeneficioDeVisita } from '../../types/beneficios.public.types';
 import { LandingConfig, LandingProfesional } from '../../types/landing.types';
 
 
-const EMPRESA_SLUG = 'debsalon';
-const EMPRESA_ID = 'emp_1774207299464_69450de1';
+import { EMPRESA_ID, EMPRESA_SLUG } from '../../config/debsalon';
 
 // ── Hook de animación al entrar en viewport ──────────────────────────────────
 function useInView(threshold = 0.15) {
@@ -573,7 +572,7 @@ export const DebSalonLandingPage: React.FC = () => {
     olvidarBeneficioDeVisita();
 
     // validarCodigo nunca rechaza: null = no se pudo consultar
-    beneficioPublicService.validarCodigo(codigo).then((resultado) => {
+    beneficioPublicService.validarCodigo(codigo, EMPRESA_ID).then((resultado) => {
       if (!resultado?.valido || !resultado.beneficio) return;
       const valor: BeneficioDeVisita = { codigo, beneficio: resultado.beneficio, vence_el: resultado.vence_el ?? null };
       guardarBeneficioDeVisita(valor);

@@ -129,27 +129,30 @@ export function leerBeneficioDeVisita(): BeneficioDeVisita | null {
   }
 }
 
+// Los tres endpoints reciben la empresa como los otros públicos
+// (/public/clientes/validate): `empresa_id` en la query del GET y en el body
+// de los POST. En `contexto` con `m` no hace falta, pero se manda igual.
 export const beneficioPublicService = {
   // Rechaza con el error de axios (la página decide qué mostrar según el status)
-  async getContexto(m?: string | null): Promise<ContextoBeneficio> {
-    const config: AxiosRequestConfig = { ...SIN_REPORTE, params: m ? { m } : undefined };
+  async getContexto(m: string | null | undefined, empresaId: string): Promise<ContextoBeneficio> {
+    const config: AxiosRequestConfig = { ...SIN_REPORTE, params: { empresa_id: empresaId, ...(m ? { m } : {}) } };
     const response = await axiosInstance.get('/public/beneficios/contexto', config);
     return response.data?.data as ContextoBeneficio;
   },
 
   // Rechaza con el error de axios: 400 (mensaje del backend), 404, 429
-  async solicitar(body: SolicitarBeneficioBody): Promise<SolicitarBeneficioRespuesta> {
-    const response = await axiosInstance.post('/public/beneficios/solicitar', body, SIN_REPORTE);
+  async solicitar(body: SolicitarBeneficioBody, empresaId: string): Promise<SolicitarBeneficioRespuesta> {
+    const response = await axiosInstance.post('/public/beneficios/solicitar', { ...body, empresa_id: empresaId }, SIN_REPORTE);
     return response.data?.data as SolicitarBeneficioRespuesta;
   },
 
   // Nunca rechaza: null = no se pudo consultar (red, backend caído). Un código
   // sin forma de código ni se consulta (sería un fallo más para el limitador).
-  async validarCodigo(codigo: string): Promise<ValidacionCodigoBeneficio | null> {
+  async validarCodigo(codigo: string, empresaId: string): Promise<ValidacionCodigoBeneficio | null> {
     const normalizado = normalizarCodigoBeneficio(codigo);
     if (!normalizado) return { valido: false, motivo: 'formato' };
     try {
-      const response = await axiosInstance.post('/public/beneficios/validar', { codigo: normalizado }, SIN_REPORTE);
+      const response = await axiosInstance.post('/public/beneficios/validar', { codigo: normalizado, empresa_id: empresaId }, SIN_REPORTE);
       const data = response.data?.data as ValidacionCodigoBeneficio | undefined;
       if (!data || typeof data.valido !== 'boolean') return null;
       return data;

@@ -17,6 +17,7 @@ vi.mock('../../api/axiosInstance', () => ({
 }));
 
 const BENEFICIO = { nombre: 'Bienvenida', porcentaje: 15, aplica_servicio: true, aplica_productos: false };
+const EMPRESA = 'emp-1';
 
 describe('beneficioPublic.service — forma del código', () => {
   it.each([
@@ -99,26 +100,35 @@ describe('beneficioPublic.service — llamadas', () => {
 
   it('validarCodigo manda el código normalizado y devuelve lo que dijo el backend', async () => {
     post.mockResolvedValue({ data: { success: true, data: { valido: true, beneficio: BENEFICIO, vence_el: '2026-11-12' } } });
-    const resultado = await beneficioPublicService.validarCodigo('deb-7k3p9');
-    expect(post).toHaveBeenCalledWith('/public/beneficios/validar', { codigo: 'DEB-7K3P9' }, expect.objectContaining({ _sinReporteGlobal: true }));
+    const resultado = await beneficioPublicService.validarCodigo('deb-7k3p9', EMPRESA);
+    expect(post).toHaveBeenCalledWith('/public/beneficios/validar', { codigo: 'DEB-7K3P9', empresa_id: EMPRESA }, expect.objectContaining({ _sinReporteGlobal: true }));
     expect(resultado).toEqual({ valido: true, beneficio: BENEFICIO, vence_el: '2026-11-12' });
   });
 
   it('validarCodigo con un texto sin forma de código no consulta y contesta formato', async () => {
-    expect(await beneficioPublicService.validarCodigo('abc')).toEqual({ valido: false, motivo: 'formato' });
+    expect(await beneficioPublicService.validarCodigo('abc', EMPRESA)).toEqual({ valido: false, motivo: 'formato' });
     expect(post).not.toHaveBeenCalled();
   });
 
   it('validarCodigo nunca rechaza: null si falla la red', async () => {
     post.mockRejectedValue(new Error('Network Error'));
-    expect(await beneficioPublicService.validarCodigo('DEB-7K3P9')).toBeNull();
+    expect(await beneficioPublicService.validarCodigo('DEB-7K3P9', EMPRESA)).toBeNull();
   });
 
-  it('getContexto manda ?m= solo si viene', async () => {
+  it('getContexto manda siempre empresa_id en la query y ?m= solo si viene', async () => {
     get.mockResolvedValue({ data: { success: true, data: { valido: false, motivo: 'sin_beneficio' } } });
-    await beneficioPublicService.getContexto();
-    expect(get.mock.calls[0][1]).toMatchObject({ params: undefined });
-    await beneficioPublicService.getContexto('Xk92mPq7Lt');
-    expect(get.mock.calls[1][1]).toMatchObject({ params: { m: 'Xk92mPq7Lt' } });
+    await beneficioPublicService.getContexto(null, EMPRESA);
+    expect(get.mock.calls[0][1]).toMatchObject({ params: { empresa_id: EMPRESA } });
+    expect(get.mock.calls[0][1].params).not.toHaveProperty('m');
+    await beneficioPublicService.getContexto('Xk92mPq7Lt', EMPRESA);
+    expect(get.mock.calls[1][1]).toMatchObject({ params: { m: 'Xk92mPq7Lt', empresa_id: EMPRESA } });
+  });
+
+  it('solicitar suma empresa_id al body', async () => {
+    post.mockResolvedValue({ data: { success: true, data: { enviado: true, email_enmascarado: 'j***@gmail.com' } } });
+    const body = { nombre: 'Juan', telefono: '2915134540', email: 'juan@gmail.com', acepta_novedades: true, m: 'Xk92mPq7Lt' };
+    const resultado = await beneficioPublicService.solicitar(body, EMPRESA);
+    expect(post).toHaveBeenCalledWith('/public/beneficios/solicitar', { ...body, empresa_id: EMPRESA }, expect.objectContaining({ _sinReporteGlobal: true }));
+    expect(resultado).toEqual({ enviado: true, email_enmascarado: 'j***@gmail.com' });
   });
 });

@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { BeneficioPage } from '../../pages/public/BeneficioPage';
 import AppRouter from '../../router/AppRouter';
+import { EMPRESA_ID } from '../../config/debsalon';
 
 // Plan mails-beneficios §4.1 y fase 4a: página pública /beneficio. Llega con
 // `?m=` desde el mail (trae nombre y beneficio), pide los datos, y el código
@@ -96,7 +97,7 @@ describe('/beneficio', () => {
     expect(enlace.closest('label')).toBeNull();
 
     expect(llamadasContexto()).toHaveLength(1);
-    expect(llamadasContexto()[0][1]).toMatchObject({ params: { m: M } });
+    expect(llamadasContexto()[0][1]).toMatchObject({ params: { m: M, empresa_id: EMPRESA_ID } });
   });
 
   it('con StrictMode (dev monta los efectos dos veces) igual carga: pide el contexto UNA vez y sale del spinner', async () => {
@@ -104,7 +105,7 @@ describe('/beneficio', () => {
 
     expect(await screen.findByText('15 % de descuento en servicios')).toBeTruthy();
     expect(llamadasContexto()).toHaveLength(1);
-    expect(llamadasContexto()[0][1]).toMatchObject({ params: { m: M } });
+    expect(llamadasContexto()[0][1]).toMatchObject({ params: { m: M, empresa_id: EMPRESA_ID } });
     expect((screen.getByLabelText('Nombre *') as HTMLInputElement).value).toBe('Juan');
   });
 
@@ -117,12 +118,12 @@ describe('/beneficio', () => {
     expect(window.location.hash).toBe('#arriba');
     expect(window.location.pathname).toBe('/beneficio');
     expect(llamadasContexto()).toHaveLength(1);
-    expect(llamadasContexto()[0][1]).toMatchObject({ params: { m: M } });
+    expect(llamadasContexto()[0][1]).toMatchObject({ params: { m: M, empresa_id: EMPRESA_ID } });
 
     // Y al pedir el código, sigue viajando el m original aunque ya no esté en la barra
     completarYEnviar();
     await waitFor(() => expect(llamadasSolicitar()).toHaveLength(1));
-    expect(llamadasSolicitar()[0][1]).toMatchObject({ m: M });
+    expect(llamadasSolicitar()[0][1]).toMatchObject({ m: M, empresa_id: EMPRESA_ID });
   });
 
   it('si el backend no manda el mail enmascarado, dice "a tu mail" y nunca el mail completo', async () => {
@@ -137,16 +138,18 @@ describe('/beneficio', () => {
     expect(document.body.textContent).not.toContain('juan@gmail.com');
   });
 
-  it('sin ?m= pide el contexto sin parámetro (beneficio de la landing); un m sin forma de código tampoco se manda', async () => {
+  it('sin ?m= pide el contexto solo con empresa_id (beneficio de la landing); un m sin forma de código tampoco se manda', async () => {
     renderPagina('/beneficio');
     await screen.findByText('15 % de descuento en servicios');
-    expect(llamadasContexto()[0][1]).toMatchObject({ params: undefined });
+    expect(llamadasContexto()[0][1]).toMatchObject({ params: { empresa_id: EMPRESA_ID } });
+    expect(llamadasContexto()[0][1].params).not.toHaveProperty('m');
 
     cleanup();
     vi.clearAllMocks();
     renderPagina('/beneficio?m=<script>');
     await screen.findByText('15 % de descuento en servicios');
-    expect(llamadasContexto()[0][1]).toMatchObject({ params: undefined });
+    expect(llamadasContexto()[0][1]).toMatchObject({ params: { empresa_id: EMPRESA_ID } });
+    expect(llamadasContexto()[0][1].params).not.toHaveProperty('m');
   });
 
   it('el beneficio que aplica a servicios y productos se describe así', async () => {
@@ -194,6 +197,7 @@ describe('/beneficio', () => {
       email: 'juan@gmail.com',
       acepta_novedades: true,
       m: M,
+      empresa_id: EMPRESA_ID,
     });
 
     expect(await screen.findByText('Listo')).toBeTruthy();
@@ -210,7 +214,7 @@ describe('/beneficio', () => {
     completarYEnviar({ nombre: 'Ana López' });
 
     await waitFor(() => expect(llamadasSolicitar()).toHaveLength(1));
-    expect(llamadasSolicitar()[0][1]).toMatchObject({ nombre: 'Ana López', acepta_novedades: false });
+    expect(llamadasSolicitar()[0][1]).toMatchObject({ nombre: 'Ana López', acepta_novedades: false, empresa_id: EMPRESA_ID });
     expect(llamadasSolicitar()[0][1]).not.toHaveProperty('m');
   });
 

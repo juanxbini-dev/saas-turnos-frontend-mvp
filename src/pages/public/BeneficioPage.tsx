@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ChevronLeft } from 'lucide-react';
 import { Spinner } from '../../components/ui';
 import { RUTA_PRIVACIDAD } from '../../config/privacidad';
+import { EMPRESA_ID } from '../../config/debsalon';
 import { esCodigoDeEnlace } from '../../services/public/campaniaPublic.service';
 import { beneficioPublicService, formatearPorcentaje, textoAplicaBeneficio } from '../../services/public/beneficioPublic.service';
 import type { ContextoBeneficio } from '../../types/beneficios.public.types';
@@ -121,7 +122,7 @@ export const BeneficioPage: React.FC = () => {
 
     setCargando(true);
     setErrorContexto(null);
-    beneficioPublicService.getContexto(m)
+    beneficioPublicService.getContexto(m, EMPRESA_ID)
       .then((data) => {
         if (contextoPedidoRef.current !== clave) return;
         setContexto(data);
@@ -149,7 +150,7 @@ export const BeneficioPage: React.FC = () => {
         email: datos.email,
         acepta_novedades: datos.acepta_novedades,
         ...(m ? { m } : {}),
-      });
+      }, EMPRESA_ID);
       // Nunca el mail completo: si el backend no lo mandó enmascarado, "a tu mail"
       setEmailEnmascarado(respuesta?.email_enmascarado || 'tu mail');
     } catch (error) {
