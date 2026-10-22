@@ -35,7 +35,7 @@ const tabLabels: Record<Tab, string> = {
 };
 
 // Pestañas según rol: admin ve todas; el resto solo Ventas, más "Para contactar" si el rol la ve
-// (recepción). Un profesional sin permiso sigue viendo solo Ventas.
+// (recepción, que comparte el rol staff con los profesionales). Sin permiso sigue viendo solo Ventas.
 function tabsDisponibles(isAdmin: boolean, veParaContactar: boolean): readonly Tab[] {
   return TODAS_LAS_TABS.filter(t => {
     if (t === 'ventas') return true;
@@ -69,7 +69,7 @@ function ProductosPage() {
   }, [availableTabs]);
 
   // Clientes que esperan que les escriban: badge en la pestaña "Para contactar".
-  // Solo se pide si el rol la ve (a un profesional el backend le da 403).
+  // Solo se pide si el rol la ve (a otro rol el backend le da 403).
   const { pendientes: avisosPendientes } = useContadorParaContactar(veParaContactar);
 
   // Catálogo state
