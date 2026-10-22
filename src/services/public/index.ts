@@ -9,6 +9,18 @@ export {
   olvidarCodigoDeVisita,
 } from './campaniaPublic.service';
 export type { EnlaceCampania, DestinoEnlaceCampania } from './campaniaPublic.service';
+export {
+  beneficioPublicService,
+  esCodigoBeneficio,
+  normalizarCodigoBeneficio,
+  describirBeneficio,
+  textoAplicaBeneficio,
+  formatearPorcentaje,
+  formatearVenceEl,
+  guardarBeneficioDeVisita,
+  leerBeneficioDeVisita,
+  olvidarBeneficioDeVisita,
+} from './beneficioPublic.service';
 export type {
   EmpresaPublica, 
   ProfesionalPublic, 

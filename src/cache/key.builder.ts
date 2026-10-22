@@ -25,7 +25,8 @@ export const ENTITIES = {
   CAMPANIAS: 'campanias',
   PUNTUACIONES: 'puntuaciones',
   AVISOS: 'avisos',
-  SEGUIMIENTO: 'seguimiento'
+  SEGUIMIENTO: 'seguimiento',
+  BENEFICIOS: 'beneficios'
 } as const;
 
 function decodeJWT(token: string): any | null {

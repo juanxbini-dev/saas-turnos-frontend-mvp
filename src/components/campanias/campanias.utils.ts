@@ -179,6 +179,7 @@ export const NOMBRE_CAMPANIA: Record<CampaniaTipo, string> = {
   turno_abandonado: 'Turno cancelado',
   reposicion_producto: 'Reposición',
   seguimiento_producto: 'Seguimiento',
+  lista_vieja: 'Lista vieja (mail)',
 };
 
 export function motivosDe(tipo: CampaniaTipo = 'recencia'): MotivoExclusion[] {

@@ -47,6 +47,9 @@ vi.mock('../../hooks/useDisponibilidad', async () => {
 import { DebSalonLandingPage } from '../../pages/public/DebSalonLandingPage';
 import { useDisponibilidad } from '../../hooks/useDisponibilidad';
 
+
+// Con la suite entera esta máquina tarda ~4-5 min y un test de ~5 s queda al borde del timeout
+vi.setConfig({ testTimeout: 20000 });
 const CODIGO = 'Xk92mPq7Lt';
 
 const PROFESIONALES = [

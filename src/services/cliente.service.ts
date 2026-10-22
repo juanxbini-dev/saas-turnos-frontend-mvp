@@ -1,5 +1,5 @@
 import axiosInstance from '../api/axiosInstance';
-import { Cliente, CreateClienteData, UpdateClienteData, ClientePerfil, ClienteMarketing } from '../types/cliente.types';
+import { Cliente, CreateClienteData, UpdateClienteData, ClientePerfil, ClienteMarketing, ClienteBeneficioCodigo } from '../types/cliente.types';
 import { cacheService } from '../cache/cache.service';
 import { buildKey, ENTITIES } from '../cache/key.builder';
 import { invalidarCacheCampanias } from './campanias.service';
@@ -80,5 +80,12 @@ export const clienteService = {
   async getPerfilCliente(id: string): Promise<ClientePerfil> {
     const response = await axiosInstance.get(`/api/clientes/${id}/perfil`);
     return response.data.data;
+  },
+
+  // Códigos de beneficio vigentes (emitidos) del cliente. Sin cache: la lista
+  // cambia con cada reserva o cobro y se consulta solo al elegir el cliente.
+  async getBeneficios(id: string): Promise<ClienteBeneficioCodigo[]> {
+    const response = await axiosInstance.get(`/api/clientes/${encodeURIComponent(id)}/beneficios`);
+    return response.data.data?.items ?? [];
   }
 };

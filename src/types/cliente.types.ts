@@ -41,6 +41,21 @@ export interface UpdateClienteData {
   telefono?: string | null
 }
 
+// GET /api/clientes/:id/beneficios — códigos de beneficio emitidos y vigentes
+// del cliente, para elegir uno al crear un turno a mano (plan mails-beneficios §4.5)
+export interface ClienteBeneficioCodigo {
+  id: string
+  codigo: string
+  estado: 'emitido'
+  vence_at: string
+  beneficio: {
+    nombre: string
+    porcentaje: number
+    aplica_servicio: boolean
+    aplica_productos: boolean
+  }
+}
+
 export type TurnoEstadoPerfil = 'pendiente' | 'confirmado' | 'completado' | 'cancelado';
 
 export interface TurnoResumen {

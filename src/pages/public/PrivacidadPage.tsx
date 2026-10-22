@@ -7,6 +7,8 @@ import { CONTACTO_PRIVACIDAD, ContactoPrivacidad } from '../../config/privacidad
 // backend/docs/campanias-n8n-spec.md §16.2: no se edita acá sin cambiar la spec.
 // La sección "Datos de tu reserva por la web" sale de
 // backend/docs/seguimiento-reservas-spec.md (US5, §5 Frontend).
+// Lo del canal mail (novedades y códigos de descuento por email, baja desde el
+// link de cada mail) sale de backend/docs/mails-beneficios-plan.md §2 (P3).
 // La pide Meta para publicar la app de WhatsApp y respalda el tilde de
 // novedades de la reserva.
 
@@ -65,11 +67,11 @@ export const PrivacidadPage: React.FC<PrivacidadPageProps> = ({ contacto = CONTA
           </Seccion>
 
           <Seccion titulo="Para qué los usamos.">
-            Para reservar y gestionar tus turnos; para enviarte por WhatsApp la confirmación y el recordatorio de cada turno; y, solo si aceptaste recibirlas, para enviarte novedades por WhatsApp.
+            Para reservar y gestionar tus turnos; para enviarte por WhatsApp la confirmación y el recordatorio de cada turno; para mandarte por email el código de descuento que nos pidas; y, solo si aceptaste recibirlas, para enviarte novedades por WhatsApp o por email.
           </Seccion>
 
           <Seccion titulo="Cómo dejar de recibir novedades.">
-            Podés escribirnos BAJA por WhatsApp en cualquier momento, destildar la opción de novedades la próxima vez que reserves, o pedirlo en el salón. Si volvés a reservar por la web, el tilde de novedades aparece marcado de nuevo: si no querés recibirlas, destildalo antes de confirmar. Los avisos de tus turnos (confirmación y recordatorio) te van a seguir llegando, porque son parte del servicio.
+            Podés escribirnos BAJA por WhatsApp en cualquier momento, destildar la opción de novedades la próxima vez que reserves, o pedirlo en el salón. Si volvés a reservar por la web, el tilde de novedades aparece marcado de nuevo: si no querés recibirlas, destildalo antes de confirmar. Las novedades por email traen en cada mail un enlace para darte de baja con un solo clic. Los avisos de tus turnos (confirmación y recordatorio) y el mail con tu código de descuento te van a seguir llegando, porque son parte del servicio.
           </Seccion>
 
           <Seccion titulo="Con quién los compartimos.">

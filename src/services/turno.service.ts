@@ -73,6 +73,8 @@ export const turnoService = {
     return response.data.data;
   },
 
+  // `data.usar_beneficio` viaja tal cual (plan mails-beneficios §4.5): solo lo
+  // manda el modal de cobro cuando el turno tiene código de beneficio.
   async finalizarTurno(id: string, data: FinalizarTurnoData): Promise<Turno> {
     const response = await axiosInstance.put(`/api/turnos/${id}/finalizar`, data);
     return response.data.data;

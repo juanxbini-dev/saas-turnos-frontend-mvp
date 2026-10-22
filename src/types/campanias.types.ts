@@ -23,17 +23,24 @@ export interface CampaniasAccesoFallo {
 // turno y no sacó otro (backend/docs/campania-turno-abandonado-spec.md).
 // 'reposicion_producto' = "se te debe estar terminando"; 'seguimiento_producto' =
 // opinión del producto (backend/docs/campania-productos-spec.md §4, §5 y §11.2).
+// 'lista_vieja' = invitación por MAIL (no WhatsApp) a los contactos de la lista
+// vieja, con un código de beneficio (backend/docs/mails-beneficios-plan.md §4.3).
 export type CampaniaTipo =
   | 'recencia'
   | 'post_servicio'
   | 'turno_abandonado'
   | 'reposicion_producto'
-  | 'seguimiento_producto';
+  | 'seguimiento_producto'
+  | 'lista_vieja';
 
 export const TIPOS_PRODUCTO: CampaniaTipo[] = ['reposicion_producto', 'seguimiento_producto'];
 
 export const esTipoProducto = (tipo: CampaniaTipo): tipo is 'reposicion_producto' | 'seguimiento_producto' =>
   tipo === 'reposicion_producto' || tipo === 'seguimiento_producto';
+
+// Campañas que salen por mail: tienen su propio panel (vista previa, historial
+// y resultados distintos a los de WhatsApp)
+export const esTipoEmail = (tipo: CampaniaTipo): tipo is 'lista_vieja' => tipo === 'lista_vieja';
 
 export interface ParametrosRecencia {
   dias_gracia: number;
@@ -70,6 +77,13 @@ export interface ParametrosReposicion {
 // Seguimiento: desde compra + días de seguimiento del producto, durante `ventana_dias`.
 export interface ParametrosSeguimiento {
   ventana_dias: number;        // 1 a 30
+}
+
+// Lista vieja: un solo recordatorio a los `dias_recordatorio` (0 = ninguno) a
+// quien no abrió ni tocó el primer mail; `beneficio_id` es obligatorio para prender.
+export interface ParametrosListaVieja {
+  dias_recordatorio: number;       // 0 a 60
+  beneficio_id: string | null;
 }
 
 // Compatibilidad: antes había un solo tipo de campaña
@@ -124,13 +138,35 @@ export interface CampaniaSeguimiento extends CampaniaBase {
   parametros: ParametrosSeguimiento;
 }
 
+export interface BeneficioResumen {
+  id: string;
+  nombre: string;
+  porcentaje: number;
+}
+
+// Avisos propios del canal mail (plan mails-beneficios §4.3)
+export interface CampaniaAvisosListaVieja extends CampaniaAvisos {
+  canal: 'email';
+  beneficio: BeneficioResumen | null;
+  contactos_pendientes: number;
+  // RESEND_WEBHOOK_SECRET y EMAILS_HMAC_SECRET cargados en el servidor
+  resend_configurado: boolean;
+}
+
+export interface CampaniaListaVieja extends CampaniaBase {
+  tipo: 'lista_vieja';
+  parametros: ParametrosListaVieja;
+  avisos: CampaniaAvisosListaVieja;
+}
+
 // Unión discriminada por `tipo`: los parámetros dependen de la campaña
 export type Campania =
   | CampaniaRecencia
   | CampaniaPostServicio
   | CampaniaTurnoAbandonado
   | CampaniaReposicion
-  | CampaniaSeguimiento;
+  | CampaniaSeguimiento
+  | CampaniaListaVieja;
 
 // Subconjunto editable. Una clave desconocida devuelve 400, así que nunca se
 // manda nada fuera de esta lista (y nunca un parámetro de otro tipo).
@@ -168,12 +204,18 @@ export interface CampaniaPatchSeguimiento extends CampaniaPatchComun {
   ventana_dias?: number;
 }
 
+export interface CampaniaPatchListaVieja extends CampaniaPatchComun {
+  dias_recordatorio?: number;
+  beneficio_id?: string | null;   // null lo saca (y la campaña no se puede prender)
+}
+
 export type CampaniaPatch =
   | CampaniaPatchRecencia
   | CampaniaPatchPostServicio
   | CampaniaPatchTurnoAbandonado
   | CampaniaPatchReposicion
-  | CampaniaPatchSeguimiento;
+  | CampaniaPatchSeguimiento
+  | CampaniaPatchListaVieja;
 
 // --- Vista previa (§3.3) ---
 
@@ -377,4 +419,107 @@ export interface CampaniaMetricas {
   // Opcionales: los suma el backend de campañas de productos
   respuestas?: CampaniaMetricasRespuestas;
   seguimiento?: CampaniaMetricasSeguimiento;
+}
+
+// --- Lista vieja (canal mail): plan mails-beneficios §4.3 ---
+
+// Estados de un mail (tabla email_envios)
+export type EstadoEmail = 'pendiente' | 'enviado' | 'entregado' | 'rebotado' | 'queja' | 'fallido';
+
+export const ESTADOS_EMAIL: EstadoEmail[] = ['pendiente', 'enviado', 'entregado', 'rebotado', 'queja', 'fallido'];
+
+export type ListaViejaTipoMail = 'primero' | 'recordatorio';
+
+export interface ListaViejaMotivos {
+  apagada?: true;
+  sin_beneficio?: true;
+  fuera_de_horario?: true;
+}
+
+export interface ListaViejaMuestraItem {
+  nombre: string;
+  email_enmascarado: string;
+  tipo: ListaViejaTipoMail;
+}
+
+export interface ListaViejaVistaPrevia {
+  pendientes: number;
+  recordatorios_pendientes: number;
+  saldrian_hoy: number;
+  cupo_restante: number;
+  mails_dudosos: number;
+  motivos: ListaViejaMotivos;
+  // Los primeros 20 que saldrían
+  muestra: ListaViejaMuestraItem[];
+}
+
+export interface ListaViejaEnvio {
+  id: string;
+  nombre: string;
+  email_enmascarado: string;
+  // 'lista_vieja' (primer mail) o 'lista_vieja_recordatorio'
+  plantilla: string;
+  estado: EstadoEmail;
+  created_at: string;
+  enviado_at: string | null;
+  entregado_at: string | null;
+  abierto_at: string | null;
+  primer_clic_at: string | null;
+  convertido: boolean;
+}
+
+export interface ListaViejaEnviosFiltros {
+  estado?: EstadoEmail | '';
+  pagina: number;
+  por_pagina?: number;
+}
+
+export interface ListaViejaEnviosRespuesta {
+  items: ListaViejaEnvio[];
+  total: number;
+  pagina: number;
+  por_pagina: number;
+}
+
+export interface ListaViejaMetricasContactos {
+  total: number;
+  pendientes: number;
+  enviados: number;
+  entregados: number;
+  rebotados: number;
+  quejas: number;
+  bajas: number;
+  convertidos: number;
+}
+
+export interface ListaViejaMetricasMails {
+  enviados: number;
+  entregados: number;
+  abiertos: number;
+  clics: number;
+  fallidos: number;
+  recordatorios: number;
+}
+
+export interface ListaViejaMetricasCodigos {
+  emitidos: number;
+  reservados: number;
+  usados: number;
+  vencidos: number;
+}
+
+export interface ListaViejaMetricasPunto {
+  fecha: string;   // 'YYYY-MM-DD'
+  enviados: number;
+  entregados: number;
+  abiertos: number;
+  clics: number;
+  convertidos: number;
+}
+
+export interface ListaViejaMetricas {
+  contactos: ListaViejaMetricasContactos;
+  mails: ListaViejaMetricasMails;
+  codigos: ListaViejaMetricasCodigos;
+  serie_diaria: ListaViejaMetricasPunto[];
 }

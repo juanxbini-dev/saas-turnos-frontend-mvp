@@ -16,6 +16,9 @@ interface CampaniaEstadoCardProps {
   error: boolean;
   onReintentar: () => void;
   onCambio: (campania: Campania) => void;
+  // No se pudo encender/apagar (ya se mostró el toast): el panel puede
+  // reaccionar al código del error (p. ej. BENEFICIO_REQUERIDO en la lista vieja)
+  onFalloCambio?: (error: unknown) => void;
 }
 
 interface TextosCampania {
@@ -23,6 +26,8 @@ interface TextosCampania {
   subtitulo: string;
   encendida: string;
   confirmar: (tope: number) => string;
+  // "Hoy salieron X de Y mensajes." salvo que la campaña cuente otra cosa (mails)
+  hoy?: (usados: number, tope: number) => string;
 }
 
 // Textos de cada campaña. Spec recencia §4.3 A; post-servicio §7.
@@ -57,11 +62,18 @@ const TEXTOS: Record<CampaniaTipo, TextosCampania> = {
     encendida: 'Campaña encendida. Las preguntas salen una vez por día, unos días después de cada compra.',
     confirmar: (tope) => `Vas a encender las preguntas de seguimiento. Unos días después de comprar un producto, se le escribe por WhatsApp al cliente para que cuente cómo le está resultando, hasta ${tope} por día. Podés apagarlo cuando quieras.`,
   },
+  lista_vieja: {
+    titulo: 'Lista vieja (mail)',
+    subtitulo: 'Un mail con un beneficio a los contactos de la lista vieja, en tandas diarias.',
+    encendida: 'Campaña encendida. Los mails salen todos los días a las 11:00.',
+    confirmar: (tope) => `Vas a encender la campaña por mail. Todos los días a las 11:00 se les manda un mail con el beneficio a los contactos de la lista vieja que todavía no lo recibieron, hasta ${tope} por día. Podés apagarlo cuando quieras.`,
+    hoy: (usados, tope) => `Hoy salieron ${usados} de ${tope} mails.`,
+  },
 };
 
 // A. Tarjeta de estado de la campaña: encender (con confirmación) / apagar
 // (inmediato), estado del día y avisos. Textos: spec §4.3 A.
-export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintentar, onCambio }: CampaniaEstadoCardProps) {
+export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintentar, onCambio, onFalloCambio }: CampaniaEstadoCardProps) {
   const textos = TEXTOS[campania?.tipo ?? tipo ?? 'recencia'];
   const { bloquear } = useCampaniasGate();
   const [confirmando, setConfirmando] = useState(false);
@@ -85,6 +97,8 @@ export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintenta
       toastService.error(mensajeDeError(err, activa
         ? 'No se pudo encender la campaña. Probá de nuevo.'
         : 'No se pudo apagar la campaña. Probá de nuevo.'));
+      setConfirmando(false);
+      onFalloCambio?.(err);
     } finally {
       setGuardando(false);
     }
@@ -154,9 +168,20 @@ export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintenta
 
       <p className="text-sm text-gray-700 mt-3">
         {activa
-          ? `Hoy salieron ${hoy.usados} de ${tope_diario} mensajes.`
-          : 'Está apagada: no se envía ningún mensaje.'}
+          ? (textos.hoy ?? ((usados, tope) => `Hoy salieron ${usados} de ${tope} mensajes.`))(hoy.usados, tope_diario)
+          : campania.tipo === 'lista_vieja'
+            ? 'Está apagada: no se envía ningún mail.'
+            : 'Está apagada: no se envía ningún mensaje.'}
       </p>
+
+      {campania.tipo === 'lista_vieja' && (
+        <p className="text-sm text-gray-600 mt-1" data-testid="lista-vieja-resumen">
+          {campania.avisos.beneficio
+            ? `Beneficio: ${campania.avisos.beneficio.nombre} (${campania.avisos.beneficio.porcentaje} %). `
+            : 'Sin beneficio elegido. '}
+          {new Intl.NumberFormat('es-AR').format(campania.avisos.contactos_pendientes ?? 0)} contactos todavía no recibieron el mail.
+        </p>
+      )}
 
       <div className="mt-4 space-y-2">
         {/* La frecuencia de los servicios solo le importa a "Ya te toca volver" */}

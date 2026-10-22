@@ -9,6 +9,10 @@ import { cacheService } from '../../cache/cache.service';
 import { turnoPublicService, servicioPublicService } from '../../services/public';
 import { DateHelper } from '../../shared/utils/DateHelper';
 import { RUTA_PRIVACIDAD } from '../../config/privacidad';
+import {
+  beneficioPublicService, normalizarCodigoBeneficio, describirBeneficio, formatearPorcentaje, formatearVenceEl,
+} from '../../services/public/beneficioPublic.service';
+import type { BeneficioDeVisita, BeneficioReserva, MotivoCodigoBeneficio } from '../../types/beneficios.public.types';
 
 interface CreateTurnoPublicModalProps {
   isOpen: boolean;
@@ -29,7 +33,22 @@ interface CreateTurnoPublicModalProps {
   servicioInicialId?: string | null;
   campaniaCodigo?: string | null;
   onCampaniaCodigoUsado?: () => void;
+  // Código de beneficio ya validado para esta visita (llegó por `?b=`, plan
+  // mails-beneficios §4.1). Prellena el campo del paso 3 y muestra el chip 🎟.
+  //   - onBeneficioUsado: la reserva se creó con el código → la landing lo olvida.
+  beneficioInicial?: BeneficioDeVisita | null;
+  onBeneficioUsado?: () => void;
 }
+
+const MENSAJE_MOTIVO_CODIGO: Record<MotivoCodigoBeneficio, string> = {
+  formato: 'El código tiene la forma DEB-XXXXX',
+  inexistente: 'Ese código no existe',
+  vencido: 'Ese código ya venció',
+  usado: 'Ese código ya se usó',
+  reservado: 'Ese código ya está reservado en otro turno',
+  anulado: 'Ese código fue anulado',
+};
+const MENSAJE_SIN_VALIDAR = 'No pudimos validar el código. Probá de nuevo en un momento.';
 
 interface ClienteFormData {
   nombre: string;
@@ -69,7 +88,9 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   empresaId,
   servicioInicialId = null,
   campaniaCodigo = null,
-  onCampaniaCodigoUsado
+  onCampaniaCodigoUsado,
+  beneficioInicial = null,
+  onBeneficioUsado
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedServicio, setSelectedServicio] = useState<ServicioProfesional | null>(null);
@@ -91,6 +112,28 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const [existingCliente, setExistingCliente] = useState<ExistingCliente | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Código de beneficio (paso 3, opcional).
+  //   - codigoBeneficio: lo que hay escrito en el campo.
+  //   - beneficioValidado: el último código que el backend dio por bueno; es lo
+  //     que pinta el chip 🎟. Se borra apenas el texto del campo cambia.
+  //   - beneficioError: motivo de validación o el 400 de la reserva.
+  //   - beneficioAplicado: lo que devolvió la reserva (pantalla de éxito).
+  const [codigoBeneficio, setCodigoBeneficio] = useState(beneficioInicial?.codigo ?? '');
+  const [beneficioValidado, setBeneficioValidado] = useState<BeneficioDeVisita | null>(beneficioInicial);
+  const [beneficioError, setBeneficioError] = useState<string | null>(null);
+  const [validandoBeneficio, setValidandoBeneficio] = useState(false);
+  const [beneficioAplicado, setBeneficioAplicado] = useState<BeneficioReserva | null>(null);
+
+  // Si el `?b=` se validó después de que el asistente ya estaba montado (y la
+  // persona todavía no escribió nada), se adopta igual.
+  useEffect(() => {
+    if (!beneficioInicial || codigoBeneficio || beneficioValidado) return;
+    setCodigoBeneficio(beneficioInicial.codigo);
+    setBeneficioValidado(beneficioInicial);
+    setBeneficioError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beneficioInicial]);
 
   const slotsRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -176,6 +219,50 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setSubmitError(null);
   };
 
+  const handleCodigoBeneficioChange = (valor: string) => {
+    setCodigoBeneficio(valor);
+    setBeneficioError(null);
+    // El chip solo vale para el código que se validó: si cambia el texto, afuera
+    if (beneficioValidado && normalizarCodigoBeneficio(valor) !== beneficioValidado.codigo) {
+      setBeneficioValidado(null);
+    }
+  };
+
+  // Al salir del campo: el backend dice si el código sirve (sin datos personales)
+  const validarCodigoBeneficio = async () => {
+    const texto = codigoBeneficio.trim();
+    if (!texto) {
+      setBeneficioValidado(null);
+      setBeneficioError(null);
+      return;
+    }
+    const normalizado = normalizarCodigoBeneficio(texto);
+    if (!normalizado) {
+      setBeneficioValidado(null);
+      setBeneficioError(MENSAJE_MOTIVO_CODIGO.formato);
+      return;
+    }
+    if (beneficioValidado?.codigo === normalizado) return;   // ya validado, nada que consultar
+
+    setValidandoBeneficio(true);
+    try {
+      const resultado = await beneficioPublicService.validarCodigo(normalizado);
+      if (!resultado) {
+        setBeneficioValidado(null);
+        setBeneficioError(MENSAJE_SIN_VALIDAR);
+      } else if (resultado.valido && resultado.beneficio) {
+        setCodigoBeneficio(normalizado);
+        setBeneficioValidado({ codigo: normalizado, beneficio: resultado.beneficio, vence_el: resultado.vence_el ?? null });
+        setBeneficioError(null);
+      } else {
+        setBeneficioValidado(null);
+        setBeneficioError(MENSAJE_MOTIVO_CODIGO[resultado.motivo ?? 'inexistente'] ?? MENSAJE_MOTIVO_CODIGO.inexistente);
+      }
+    } finally {
+      setValidandoBeneficio(false);
+    }
+  };
+
   const validateForm = (): boolean => {
     const errors: FieldErrors = {};
     if (!clienteData.nombre.trim()) errors.nombre = 'El nombre es requerido';
@@ -187,6 +274,11 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     }
     if (!clienteData.telefono.trim()) errors.telefono = 'El teléfono es requerido';
     setFieldErrors(errors);
+    // Un código escrito sin forma de código no se manda: se avisa y se puede borrar
+    if (codigoBeneficio.trim() && !normalizarCodigoBeneficio(codigoBeneficio)) {
+      setBeneficioError(MENSAJE_MOTIVO_CODIGO.formato);
+      return false;
+    }
     return Object.keys(errors).length === 0;
   };
 
@@ -243,6 +335,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     try {
       setLoading(true);
 
+      const codigoBeneficioNormalizado = normalizarCodigoBeneficio(codigoBeneficio);
+
       const turnoData = {
         profesional_id: profesionalId,
         servicio_id: selectedServicio.id,
@@ -254,12 +348,19 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         notas,
         marketing_consentimiento: quiereNovedades,
         // Solo si la persona llegó desde un mensaje; si no, el campo no viaja
-        ...(campaniaCodigo ? { campania_codigo: campaniaCodigo } : {})
+        ...(campaniaCodigo ? { campania_codigo: campaniaCodigo } : {}),
+        // Solo si escribió (o trajo) un código de beneficio; si no, no viaja
+        ...(codigoBeneficioNormalizado ? { beneficio_codigo: codigoBeneficioNormalizado } : {})
       };
 
-      await turnoPublicService.createTurno(turnoData);
+      const respuesta = await turnoPublicService.createTurno(turnoData);
 
       if (campaniaCodigo) onCampaniaCodigoUsado?.();
+
+      // El descuento que quedó aplicado al turno (solo si viajó código)
+      const beneficioRespuesta = (respuesta as any)?.data?.data?.beneficio ?? null;
+      setBeneficioAplicado(codigoBeneficioNormalizado ? beneficioRespuesta : null);
+      if (codigoBeneficioNormalizado) onBeneficioUsado?.();
 
       if (profesionalId && selectedDate) {
         cacheService.invalidate(buildKey(ENTITIES.SLOTS, profesionalId, selectedDate));
@@ -267,6 +368,17 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
       setShowSuccessModal(true);
     } catch (error: any) {
+      const codigoError: string | undefined = error.response?.data?.code;
+      if (error.response?.status === 400 && (codigoError === 'BENEFICIO_INVALIDO' || codigoError === 'BENEFICIO_NO_CORRESPONDE')) {
+        // El turno NO se creó. El problema está en el código: se muestra en el
+        // paso 3, al lado del campo, y la persona puede borrarlo y seguir.
+        setBeneficioValidado(null);
+        setBeneficioError(codigoError === 'BENEFICIO_NO_CORRESPONDE'
+          ? 'Ese código no es tuyo: el teléfono o el mail no coinciden con los del pedido'
+          : (error.response?.data?.message || 'Ese código no es válido'));
+        setStep(3);
+        return;
+      }
       const msg = error.response?.data?.message || 'Error al crear el turno. Intentá nuevamente.';
       setSubmitError(msg);
       setShowErrorModal(true);
@@ -307,6 +419,11 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setFieldErrors({});
     setSubmitError(null);
     setShowErrorModal(false);
+    setCodigoBeneficio('');
+    setBeneficioValidado(null);
+    setBeneficioError(null);
+    setValidandoBeneficio(false);
+    setBeneficioAplicado(null);
     resetDisponibilidad();
   };
 
@@ -349,6 +466,20 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
   const darkInput = (hasError: boolean) =>
     `w-full bg-[#1a1a1a] border ${hasError ? 'border-red-500' : 'border-white/20'} text-white text-sm px-3 py-2.5 focus:outline-none focus:border-white/50 placeholder:text-white/20 disabled:opacity-40`;
+
+  // Chip 🎟 "15 % en servicios aplicado · vence el 12/11": arriba del cuerpo, en los tres pasos
+  const venceEl = formatearVenceEl(beneficioValidado?.vence_el);
+  const chipBeneficio = beneficioValidado && (
+    <div
+      data-testid="chip-beneficio"
+      className="flex items-center gap-2 border border-white/30 bg-white/5 px-3 py-2 text-xs tracking-wide text-white"
+    >
+      <span aria-hidden="true">🎟</span>
+      <span>
+        {describirBeneficio(beneficioValidado.beneficio)} aplicado{venceEl ? ` · vence el ${venceEl}` : ''}
+      </span>
+    </div>
+  );
 
   return (
     <>
@@ -404,6 +535,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
           {/* Body */}
           <div ref={bodyRef} className="overflow-y-auto flex-1 px-6 py-5">
+
+            {chipBeneficio && <div className="mb-4">{chipBeneficio}</div>}
 
               {/* Step 1 - Servicio */}
             {step === 1 && (
@@ -563,6 +696,36 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   />
                   {fieldErrors.telefono && (
                     <p className="text-red-400 text-xs mt-1">{fieldErrors.telefono}</p>
+                  )}
+                </div>
+
+                {/* Código de beneficio (opcional). Se valida al salir del campo. */}
+                <div>
+                  <label htmlFor="codigo-beneficio" className={darkLabel}>¿Tenés un código de descuento?</label>
+                  <input
+                    id="codigo-beneficio"
+                    type="text"
+                    value={codigoBeneficio}
+                    onChange={(e) => handleCodigoBeneficioChange(e.target.value)}
+                    onBlur={validarCodigoBeneficio}
+                    placeholder="DEB-XXXXX"
+                    maxLength={12}
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    disabled={loading || validandoBeneficio}
+                    className={`${darkInput(!!beneficioError)} uppercase tracking-[0.2em]`}
+                  />
+                  {validandoBeneficio && (
+                    <p className="text-white/40 text-xs mt-1">Validando...</p>
+                  )}
+                  {beneficioError && (
+                    <p role="alert" className="text-red-400 text-xs mt-1">{beneficioError}</p>
+                  )}
+                  {!beneficioError && !validandoBeneficio && beneficioValidado && (
+                    <p className="text-white/50 text-xs mt-1">
+                      Código válido: {describirBeneficio(beneficioValidado.beneficio)}.
+                    </p>
                   )}
                 </div>
 
@@ -762,6 +925,11 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
             <p className="text-sm text-white/50 mb-6">
               Tu turno fue reservado exitosamente. Vas a recibir la confirmación por WhatsApp.
             </p>
+            {beneficioAplicado && (
+              <p className="text-sm text-white mb-6 border border-white/30 bg-white/5 px-3 py-2">
+                🎟 Tu descuento del {formatearPorcentaje(beneficioAplicado.porcentaje)} queda aplicado al pagar.
+              </p>
+            )}
             <div className="bg-[#1a1a1a] border border-white/10 p-4 mb-6 space-y-1.5 text-sm text-left">
               {[
                 ['Profesional', profesionalNombre],
