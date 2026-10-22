@@ -71,7 +71,10 @@ export interface GastoMesItem {
   monto_default?: number;   // solo en overrides: a qué valor vuelve si se restaura
 }
 
-export type GastoDerivadoClave = 'comisiones' | 'mercaderia';
+// Desde gastos-ganancias-spec §4.3 queda un solo rubro automático: lo que hay
+// que pagarles a los profesionales (sin el dueño). El costo de mercadería ya no
+// es gasto; si un backend viejo lo manda, la pantalla lo ignora.
+export type GastoDerivadoClave = 'comisiones';
 
 export interface GastoDerivado {
   clave: GastoDerivadoClave;
@@ -106,6 +109,11 @@ export interface GastosResumenPeriodo {
   ingresos: number;
   neto: number;
   margen_pct: number;
+  // gastos-ganancias-spec §8: nuevos; opcionales mientras el backend no los mande
+  a_profesionales?: number;   // Σ a pagar sin el dueño (= derivados)
+  gastos_salon?: number;      // fijos + únicos
+  ganancia_salon?: number;    // Σ facturado − Σ a pagar
+  facturado_duenio?: number;  // lo que facturó el dueño (ya incluido en ganancia_salon)
 }
 
 export interface GastosResumen extends GastosResumenPeriodo {
@@ -125,14 +133,27 @@ export interface GastosEvolucionPunto {
   neto: number;
 }
 
-export interface GastosComisionProfesional {
-  profesional_id: string;
+// Fila "Por profesional" de GET /api/gastos/detalle (gastos-ganancias-spec §4.4).
+// Invariante: facturado = a_pagar + ganancia_salon. Para el dueño a_pagar = 0.
+export interface GastosProfesionalMes {
+  // null = ventas sin vendedor asignado (no debería pasar; el backend igual las
+  // lista para que el total cierre)
+  profesional_id: string | null;
   nombre: string;
   avatar_url: string | null;
-  servicios: number;
-  productos: number;
-  total: number;
-  turnos_cobrados: number;
+  es_duenio: boolean;
+  activo: boolean;
+  facturado_servicios: number;
+  facturado_productos: number;
+  facturado: number;
+  a_pagar_servicios: number;
+  a_pagar_productos: number;
+  a_pagar: number;
+  ganancia_salon: number;
+  turnos_cobrados: number;     // sin canjes, igual que Finanzas
+  canjes: number;              // servicios + unidades entregadas en canje
+  unidades_vendidas: number;
+  pendiente_cobro: number;     // hecho sin cobrar, no suma a nada
 }
 
 export interface GastosIngresosDetalle {
@@ -144,13 +165,44 @@ export interface GastosIngresosDetalle {
   pendiente_cobro: number;
 }
 
+// Totales de la tabla por profesional
+export interface GastosProfesionalesTotales {
+  facturado: number;
+  a_pagar: number;
+  ganancia_salon: number;
+  facturado_duenio: number;     // "de eso, $X lo atendiste vos" (P2)
+}
+
+// Costo de lo vendido y de lo entregado en canje: solo referencia, no se resta.
+export interface GastosProductosDato {
+  costo_vendido: number;
+  costo_canjes: number;
+  unidades: number;
+}
+
+// Lo que responde el backend. Durante la transición conviven los campos nuevos
+// (profesionales, productos, a_pagar_total) con los viejos (comisiones,
+// mercaderia_*); gastosService.getDetalle lo normaliza a GastosDetalleMes.
+export interface GastosDetalleMesApi {
+  periodo: string;
+  ingresos: GastosIngresosDetalle;
+  profesionales?: GastosProfesionalMes[];
+  totales?: GastosProfesionalesTotales;
+  productos?: GastosProductosDato;
+  a_pagar_total?: number;
+  comisiones_total?: number;      // alias de a_pagar_total
+  mercaderia_costo?: number;      // viejo: costo de lo vendido
+  mercaderia_unidades?: number;   // viejo
+}
+
+// Detalle del mes ya normalizado: lo que consumen los componentes.
 export interface GastosDetalleMes {
   periodo: string;
   ingresos: GastosIngresosDetalle;
-  comisiones: GastosComisionProfesional[];
-  comisiones_total: number;
-  mercaderia_costo: number;
-  mercaderia_unidades: number;
+  profesionales: GastosProfesionalMes[];
+  totales: GastosProfesionalesTotales;
+  productos: GastosProductosDato;
+  a_pagar_total: number;
 }
 
 export interface GastosPorCategoriaItem {

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Card, Table, Button, DataControls, EmptyState, ConfirmModal } from '../ui';
 import { TurnoConDetalle, TurnoEstado } from '../../types/turno.types';
 import { TurnoEstadoBadge } from '../ui/TurnoEstadoBadge';
+import { SeguimientoTurnoBoton } from './SeguimientoTurnoBoton';
+import { SeguimientoTurnoModal } from './SeguimientoTurnoModal';
 
 interface TurnosCatalogoProps {
   turnos: TurnoConDetalle[];
@@ -22,6 +24,8 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
 }) => {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
+  // Turno cuyo seguimiento ("Cómo se sacó el turno") está abierto
+  const [seguimientoTurno, setSeguimientoTurno] = useState<TurnoConDetalle | null>(null);
   const [confirmarModal, setConfirmarModal] = useState<{ isOpen: boolean; turno: TurnoConDetalle | null }>({
     isOpen: false,
     turno: null
@@ -143,6 +147,7 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
       render: (value: any, turno: TurnoConDetalle) => (
         <div className="flex items-center gap-1.5 flex-wrap">
           <TurnoEstadoBadge estado={turno.estado} />
+          <SeguimientoTurnoBoton onClick={() => setSeguimientoTurno(turno)} />
           {turno.origen === 'web' && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-700">
               Web
@@ -285,6 +290,7 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
                           )}
                         </div>
                         <div className="flex items-center gap-2 ml-2 shrink-0">
+                          <SeguimientoTurnoBoton onClick={() => setSeguimientoTurno(turno)} />
                           <TurnoEstadoBadge estado={turno.estado} />
                           <span className="text-gray-400 text-sm">
                             {expandedRows.has(turno.id) ? '−' : '+'}
@@ -413,6 +419,13 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
         message={`¿Estás seguro de que deseas cancelar el turno de ${cancelarModal.turno?.cliente_nombre}?`}
         confirmText="Cancelar turno"
         variant="danger"
+      />
+
+      <SeguimientoTurnoModal
+        turnoId={seguimientoTurno?.id ?? null}
+        open={!!seguimientoTurno}
+        onClose={() => setSeguimientoTurno(null)}
+        clienteNombre={seguimientoTurno?.cliente_nombre}
       />
     </>
   );

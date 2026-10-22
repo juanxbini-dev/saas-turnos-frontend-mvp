@@ -17,28 +17,9 @@ import { MetricasEquipoTabla } from '../components/metricas/MetricasEquipoTabla'
 import { MetricasClientesNuevos } from '../components/metricas/MetricasClientesNuevos';
 import { MetricasComparativa } from '../components/metricas/MetricasComparativa';
 import { UsuarioMetricasModal } from '../components/usuarios/UsuarioMetricasModal';
-import type { MetricasPeriodo } from '../types/metricas.types';
 import type { Usuario } from '../types/usuario.types';
 
-type ModoPeriodo = 'mes' | 'anio';
-
-const toLocalStr = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
-const periodoDe = (base: Date, modo: ModoPeriodo): MetricasPeriodo =>
-  modo === 'mes'
-    ? {
-        fecha_desde: toLocalStr(new Date(base.getFullYear(), base.getMonth(), 1)),
-        fecha_hasta: toLocalStr(new Date(base.getFullYear(), base.getMonth() + 1, 0)),
-      }
-    : {
-        fecha_desde: `${base.getFullYear()}-01-01`,
-        fecha_hasta: `${base.getFullYear()}-12-31`,
-      };
+import { comparacionDe, esPeriodoEnCurso, periodoDe, type ModoPeriodo } from '../components/metricas/metricasComparacion';
 
 // Pestañas de Métricas. "Puntuaciones" (encuesta de después de cada visita)
 // es solo del super admin; la elegida queda en la URL (?vista=puntuaciones).
@@ -77,22 +58,16 @@ function MetricasPage() {
   const [detalleUsuario, setDetalleUsuario] = useState<Usuario | null>(null);
 
   const periodo = useMemo(() => periodoDe(base, modo), [base, modo]);
-  const baseAnterior = useMemo(
-    () => modo === 'mes'
-      ? new Date(base.getFullYear(), base.getMonth() - 1, 1)
-      : new Date(base.getFullYear() - 1, 0, 1),
+  // El período en curso se compara con el anterior hasta la misma fecha (ver comparacionDe)
+  const { periodo: periodoAnterior, etiqueta: etiquetaComparacion } = useMemo(
+    () => comparacionDe(base, modo, new Date()),
     [base, modo]
   );
-  const periodoAnterior = useMemo(() => periodoDe(baseAnterior, modo), [baseAnterior, modo]);
 
   const agrupar = modo === 'mes' ? 'dia' : 'mes';
-  const etiquetaComparacion = modo === 'mes' ? 'vs mes anterior' : 'vs año anterior';
   const cacheKeyPeriodo = `${modo}-${periodo.fecha_desde}`;
 
-  const now = new Date();
-  const esPeriodoActual = modo === 'mes'
-    ? base.getFullYear() === now.getFullYear() && base.getMonth() === now.getMonth()
-    : base.getFullYear() === now.getFullYear();
+  const esPeriodoActual = esPeriodoEnCurso(base, modo, new Date());
 
   const etiquetaPeriodo = useMemo(() => {
     if (modo === 'anio') return base.getFullYear().toString();
@@ -119,7 +94,7 @@ function MetricasPage() {
   );
 
   const { data: resumenAnterior } = useFetch(
-    enNegocio ? buildKey(ENTITIES.METRICAS, 'resumen', `${modo}-${periodoAnterior.fecha_desde}`) : null,
+    enNegocio ? buildKey(ENTITIES.METRICAS, 'resumen', `${modo}-${periodoAnterior.fecha_desde}-${periodoAnterior.fecha_hasta}`) : null,
     () => metricasService.getResumen(periodoAnterior),
     { ttl: TTL.MEDIUM }
   );

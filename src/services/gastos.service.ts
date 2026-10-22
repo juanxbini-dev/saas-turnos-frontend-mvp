@@ -1,4 +1,5 @@
 import axiosInstance from '../api/axiosInstance';
+import { sumarMontos } from '../components/gastos/gastos.utils';
 import { cacheService } from '../cache/cache.service';
 import { buildKey, ENTITIES } from '../cache/key.builder';
 import type {
@@ -6,6 +7,9 @@ import type {
   GastosMes,
   GastosResumen,
   GastosDetalleMes,
+  GastosDetalleMesApi,
+  GastosProfesionalMes,
+  GastosProfesionalesTotales,
   GastosEvolucionPunto,
   GastosPorCategoriaItem,
   GastoCategoria,
@@ -82,6 +86,45 @@ export function invalidarCacheGastos(): void {
   cacheService.invalidateByPrefix(buildKey(ENTITIES.GASTOS));
 }
 
+// Dueño primero, después por facturado de mayor a menor (gastos-ganancias-spec
+// §4.4). El backend ya los manda así; se reordena por si acaso, sin mutar.
+export function ordenarProfesionales(filas: GastosProfesionalMes[]): GastosProfesionalMes[] {
+  return [...filas].sort((a, b) => {
+    if (a.es_duenio !== b.es_duenio) return a.es_duenio ? -1 : 1;
+    return b.facturado - a.facturado;
+  });
+}
+
+// Totales de la tabla por profesional calculados acá, solo si el backend no los
+// manda. Suma en centavos; al dueño nunca se le "paga".
+export function totalesDeProfesionales(filas: GastosProfesionalMes[]): GastosProfesionalesTotales {
+  return {
+    facturado: sumarMontos(filas.map((f) => f.facturado)),
+    a_pagar: sumarMontos(filas.map((f) => (f.es_duenio ? 0 : f.a_pagar))),
+    ganancia_salon: sumarMontos(filas.map((f) => f.ganancia_salon)),
+    facturado_duenio: sumarMontos(filas.filter((f) => f.es_duenio).map((f) => f.facturado)),
+  };
+}
+
+// Lleva la respuesta de /detalle a la forma que usan los componentes, tolerando
+// el contrato viejo (comisiones_total, mercaderia_costo/unidades) durante la
+// transición: si falta un campo nuevo, se usa su alias.
+export function normalizarDetalle(api: GastosDetalleMesApi): GastosDetalleMes {
+  const profesionales = ordenarProfesionales(api.profesionales ?? []);
+  return {
+    periodo: api.periodo,
+    ingresos: api.ingresos,
+    profesionales,
+    totales: api.totales ?? totalesDeProfesionales(profesionales),
+    productos: api.productos ?? {
+      costo_vendido: api.mercaderia_costo ?? 0,
+      costo_canjes: 0,
+      unidades: api.mercaderia_unidades ?? api.ingresos?.productos_vendidos ?? 0,
+    },
+    a_pagar_total: api.a_pagar_total ?? api.comisiones_total ?? 0,
+  };
+}
+
 export const gastosService = {
   // ------------------------------------------------------------------ Acceso
 
@@ -123,7 +166,7 @@ export const gastosService = {
 
   async getDetalle(periodo: string): Promise<GastosDetalleMes> {
     const response = await axiosInstance.get(`${BASE}/detalle?periodo=${periodo}`, conToken());
-    return response.data.data;
+    return normalizarDetalle(response.data.data as GastosDetalleMesApi);
   },
 
   async getEvolucion(desde: string, hasta: string): Promise<GastosEvolucionPunto[]> {

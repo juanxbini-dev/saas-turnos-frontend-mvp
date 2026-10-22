@@ -1,5 +1,5 @@
 // Helpers de período y formato de la sección de gastos.
-import type { GastoMesItem, MarcarPagadoItem } from '../../types/gastos.types';
+import type { GastoMesItem, GastosPorCategoriaItem, MarcarPagadoItem } from '../../types/gastos.types';
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -105,4 +105,23 @@ export function estaVencido(periodo: string, diaVencimiento: number | null): boo
   if (periodo < actual) return true;
   if (periodo > actual) return false;
   return new Date().getDate() > Math.min(diaVencimiento, ultimoDiaDelMes(periodo));
+}
+
+// Suma montos en centavos enteros para no arrastrar errores de float al total
+// (0.1 + 0.2). Devuelve pesos con dos decimales exactos.
+export function sumarMontos(valores: number[]): number {
+  return valores.reduce((t, v) => t + Math.round(v * 100), 0) / 100;
+}
+
+// Rubro automático único desde gastos-ganancias-spec §4.6
+export const NOMBRE_RUBRO_PROFESIONALES = 'A pagar a profesionales';
+const ID_DERIVADO_COMISIONES = 'derivado:comisiones';
+const ID_DERIVADO_MERCADERIA = 'derivado:mercaderia';
+
+// El costo de mercadería ya no es un gasto: se saca del reparto por rubro aunque
+// un backend viejo lo siga mandando, y las comisiones se rotulan con el nombre nuevo.
+export function limpiarPorCategoria(items: GastosPorCategoriaItem[]): GastosPorCategoriaItem[] {
+  return items
+    .filter((c) => c.categoria_id !== ID_DERIVADO_MERCADERIA)
+    .map((c) => (c.categoria_id === ID_DERIVADO_COMISIONES ? { ...c, nombre: NOMBRE_RUBRO_PROFESIONALES } : c));
 }
