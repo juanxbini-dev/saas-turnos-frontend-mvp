@@ -13,6 +13,10 @@ vi.mock('../../context/AuthContext', () => ({
 vi.mock('../../services/toast.service', () => ({
   toastService: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
+// La pestaña "Para contactar" pide su contador al servidor: acá no interesa (ParaContactar.roles)
+vi.mock('../../hooks/useContadorParaContactar', () => ({
+  useContadorParaContactar: () => ({ pendientes: 0, alta: 0, media: 0, loading: false, error: null, revalidate: vi.fn() }),
+}));
 
 const base = {
   empresa_id: 'e1',

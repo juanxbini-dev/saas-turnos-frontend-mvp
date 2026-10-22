@@ -1,24 +1,26 @@
 import { useEffect, useState } from 'react';
-import { Card, Pagination, Select, Spinner } from '../components/ui';
-import { useFetchVigente } from '../components/campanias/CampaniaSeccion';
-import { AvisoTarjeta } from '../components/paraContactar/AvisoTarjeta';
-import { ClasificarAvisoModal } from '../components/paraContactar/ClasificarAvisoModal';
-import { OPCIONES_FILTRO } from '../components/paraContactar/avisos.utils';
-import { useContadorParaContactar } from '../hooks/useContadorParaContactar';
-import { buildKey, ENTITIES } from '../cache/key.builder';
-import { TTL } from '../cache/ttl';
+import { Card, Pagination, Select, Spinner } from '../ui';
+import { useFetchVigente } from '../campanias/CampaniaSeccion';
+import { AvisoTarjeta } from './AvisoTarjeta';
+import { ClasificarAvisoModal } from './ClasificarAvisoModal';
+import { OPCIONES_FILTRO } from './avisos.utils';
+import { useContadorParaContactar } from '../../hooks/useContadorParaContactar';
+import { buildKey, ENTITIES } from '../../cache/key.builder';
+import { TTL } from '../../cache/ttl';
 import {
   AVISOS_POR_PAGINA,
   MENSAJE_FALLO,
   avisosService,
   tipoDeFallo,
-} from '../services/avisos.service';
-import { toastService } from '../services/toast.service';
-import type { AvisoDetalle, ClasificacionAviso, FiltroEstadoAviso } from '../types/avisos.types';
+} from '../../services/avisos.service';
+import { toastService } from '../../services/toast.service';
+import type { AvisoDetalle, ClasificacionAviso, FiltroEstadoAviso } from '../../types/avisos.types';
 
 // "Para contactar" (spec de productos §11.1 y §11.3): clientes que contestaron por WhatsApp y
 // necesitan que alguien del salón les escriba. Pendientes primero (alta arriba, el más viejo
-// primero: el orden lo da el servidor). Lo ven recepción, admin y super admin.
+// primero: el orden lo da el servidor). Vive como pestaña de Productos porque la usa recepción
+// y Campañas queda detrás de la contraseña de super admin. La pinta ProductosPage solo para
+// los roles que la ven (recepción, admin y super admin), por eso acá el contador va siempre.
 
 const totalPaginas = (total: number, porPagina: number) => Math.max(1, Math.ceil(total / porPagina));
 
@@ -31,7 +33,7 @@ const VACIO: Record<FiltroEstadoAviso, string> = {
   todos: 'Todavía no hay avisos.',
 };
 
-export default function ParaContactarPage() {
+export function ParaContactarTab() {
   const [estado, setEstado] = useState<FiltroEstadoAviso>('pendiente');
   const [pagina, setPagina] = useState(1);
   const [clasificando, setClasificando] = useState<AvisoDetalle | null>(null);
@@ -77,13 +79,10 @@ export default function ParaContactarPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-4">
-      <div className="mb-2">
-        <h1 className="text-3xl font-bold text-gray-900">Para contactar</h1>
-        <p className="text-gray-600 mt-2">
-          Clientes que contestaron por WhatsApp y esperan que alguien del salón les escriba.
-        </p>
-      </div>
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600">
+        Clientes que contestaron por WhatsApp y esperan que alguien del salón les escriba.
+      </p>
 
       <Card
         title={estado === 'pendiente' ? 'Esperando respuesta' : 'Avisos'}

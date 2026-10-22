@@ -13,38 +13,64 @@ import { MarcaModal } from '../components/productos/MarcaModal';
 import { ConfiguracionProductosTab } from '../components/productos/ConfiguracionProductosTab';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../context/AuthContext';
+import { useContadorParaContactar } from '../hooks/useContadorParaContactar';
+import { ParaContactarTab } from '../components/paraContactar/ParaContactarTab';
+import { PARAM_TAB_PRODUCTOS, TAB_PARA_CONTACTAR, puedeVerParaContactar } from '../services/avisos.service';
 import { FILTRO_SIN_DURACION, PARAM_FILTRO_PRODUCTOS, filtrarSinDuracion, textoDuracion } from '../utils/productoCampanias.utils';
 
 const PAGE_SIZE = 10;
 
+// Todas las pestañas, en el orden en que se muestran
+const TODAS_LAS_TABS = ['catalogo', 'marcas', 'estadisticas', 'ventas', TAB_PARA_CONTACTAR, 'por-profesional', 'configuracion'] as const;
+type Tab = typeof TODAS_LAS_TABS[number];
+
+const tabLabels: Record<Tab, string> = {
+  catalogo: 'Catálogo',
+  marcas: 'Marcas',
+  estadisticas: 'Estadísticas',
+  ventas: 'Ventas',
+  'para-contactar': 'Para contactar',
+  'por-profesional': 'Por profesional',
+  configuracion: 'Configuración',
+};
+
+// Pestañas según rol: admin ve todas; el resto solo Ventas, más "Para contactar" si el rol la ve
+// (recepción). Un profesional sin permiso sigue viendo solo Ventas.
+function tabsDisponibles(isAdmin: boolean, veParaContactar: boolean): readonly Tab[] {
+  return TODAS_LAS_TABS.filter(t => {
+    if (t === 'ventas') return true;
+    if (t === TAB_PARA_CONTACTAR) return veParaContactar;
+    return isAdmin;
+  });
+}
+
 function ProductosPage() {
   const toast = useToast();
   const { state } = useAuth();
-  const isAdmin = state.roles?.includes('admin');
+  const isAdmin = !!state.roles?.includes('admin');
+  const veParaContactar = puedeVerParaContactar(state.roles);
 
-  // Tabs disponibles según rol
-  const availableTabs = isAdmin
-    ? (['catalogo', 'marcas', 'estadisticas', 'ventas', 'por-profesional', 'configuracion'] as const)
-    : (['ventas'] as const);
-  type Tab = typeof availableTabs[number];
+  const availableTabs = useMemo(() => tabsDisponibles(isAdmin, veParaContactar), [isAdmin, veParaContactar]);
+  const tabPorDefecto: Tab = isAdmin ? 'catalogo' : 'ventas';
 
-  const [activeTab, setActiveTab] = useState<Tab>(isAdmin ? 'catalogo' : 'ventas');
+  // ?tab=para-contactar abre esa pestaña (el menú y los links viejos a /para-contactar llegan así).
+  // Se lee de la URL sin depender del router, igual que ?filtro (la página se usa suelta en los tests).
+  // Si el rol no tiene esa pestaña, se cae a la de siempre.
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const pedida = new URLSearchParams(window.location.search).get(PARAM_TAB_PRODUCTOS);
+    return pedida && (availableTabs as readonly string[]).includes(pedida) ? (pedida as Tab) : tabPorDefecto;
+  });
 
   // Si el tab activo no está disponible (ej: staff), forzar a 'ventas'
   useEffect(() => {
-    if (!(availableTabs as readonly string[]).includes(activeTab)) {
+    if (!availableTabs.includes(activeTab)) {
       setActiveTab('ventas');
     }
-  }, [isAdmin]);
+  }, [availableTabs]);
 
-  const tabLabels: Record<string, string> = {
-    catalogo: 'Catálogo',
-    marcas: 'Marcas',
-    estadisticas: 'Estadísticas',
-    ventas: 'Ventas',
-    'por-profesional': 'Por profesional',
-    configuracion: 'Configuración',
-  };
+  // Clientes que esperan que les escriban: badge en la pestaña "Para contactar".
+  // Solo se pide si el rol la ve (a un profesional el backend le da 403).
+  const { pendientes: avisosPendientes } = useContadorParaContactar(veParaContactar);
 
   // Catálogo state
   const [productoModal, setProductoModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
@@ -439,6 +465,15 @@ function ProductosPage() {
               }`}
             >
               {tabLabels[t]}
+              {t === TAB_PARA_CONTACTAR && avisosPendientes > 0 && (
+                <span
+                  className="ml-2 inline-flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 align-middle"
+                  title={`${avisosPendientes} ${avisosPendientes === 1 ? 'cliente espera' : 'clientes esperan'} que le escriban`}
+                  data-testid="badge-para-contactar-tab"
+                >
+                  {avisosPendientes > 99 ? '99+' : avisosPendientes}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -1385,6 +1420,11 @@ function ProductosPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* TAB: PARA CONTACTAR (recepción, admin y super admin) */}
+        {activeTab === TAB_PARA_CONTACTAR && veParaContactar && (
+          <ParaContactarTab />
         )}
 
         {/* TAB: POR PROFESIONAL */}
