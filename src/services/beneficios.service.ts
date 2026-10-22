@@ -38,6 +38,12 @@ export function invalidarCacheBeneficios(): void {
   cacheService.invalidateByPrefix(buildKey(ENTITIES.BENEFICIOS));
 }
 
+// La config de la campaña "Lista vieja" muestra el beneficio elegido (nombre,
+// %, activo): crear o editar un beneficio la deja vieja.
+function invalidarConfigListaVieja(): void {
+  cacheService.invalidate(buildKey(ENTITIES.CAMPANIAS, 'lista_vieja', 'config'));
+}
+
 // Quita claves vacías para no mandar `estado=` o `busqueda=` en la query
 function limpiarParams(params: Record<string, string | number | undefined | null>): Record<string, string | number> {
   const limpio: Record<string, string | number> = {};
@@ -57,12 +63,14 @@ export const beneficiosService = {
   async crear(data: CrearBeneficioData): Promise<Beneficio> {
     const response = await axiosInstance.post(BASE, data);
     invalidarCacheBeneficios();
+    invalidarConfigListaVieja();
     return response.data.data;
   },
 
   async editar(id: string, data: EditarBeneficioData): Promise<Beneficio> {
     const response = await axiosInstance.patch(`${BASE}/${id}`, data);
     invalidarCacheBeneficios();
+    invalidarConfigListaVieja();
     return response.data.data;
   },
 

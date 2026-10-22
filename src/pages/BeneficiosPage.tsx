@@ -92,9 +92,7 @@ function BeneficiosPage() {
                   return (
                     <tr
                       key={b.id}
-                      className={`transition-colors cursor-pointer ${esElegido ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                      onClick={() => setElegidoId(esElegido ? null : b.id)}
-                      aria-selected={esElegido}
+                      className={`transition-colors ${esElegido ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
                     >
                       <td className="py-2.5 px-4 text-sm">
                         <div className="font-medium text-gray-900">{b.nombre}</div>
@@ -117,7 +115,17 @@ function BeneficiosPage() {
                           {b.activo ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </td>
-                      <td className="py-2.5 px-4 text-sm text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-2.5 px-4 text-sm text-right whitespace-nowrap">
+                        <Button
+                          variant={esElegido ? 'secondary' : 'ghost'}
+                          size="sm"
+                          leftIcon={Ticket}
+                          onClick={() => setElegidoId(esElegido ? null : b.id)}
+                          aria-label={`${esElegido ? 'Ocultar' : 'Ver'} códigos de ${b.nombre}`}
+                          aria-expanded={esElegido}
+                        >
+                          {esElegido ? 'Ocultar códigos' : 'Ver códigos'}
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -144,7 +152,7 @@ function BeneficiosPage() {
                 })}
               </tbody>
             </table>
-            <p className="text-xs text-gray-500 mt-3">Tocá un beneficio para ver sus códigos.</p>
+            <p className="text-xs text-gray-500 mt-3">Tocá «Ver códigos» para ver los códigos de un beneficio.</p>
           </div>
         )}
       </section>

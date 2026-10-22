@@ -1,5 +1,12 @@
+import type { AxiosResponse } from 'axios';
 import axiosInstance from '../../api/axiosInstance';
 import type { BeneficioReserva } from '../../types/beneficios.public.types';
+
+// Formato de todas las respuestas del backend: { success, data }
+export interface RespuestaApi<T> {
+  success: boolean;
+  data: T;
+}
 
 export interface ValidateClienteRequest {
   email?: string;
@@ -65,7 +72,7 @@ export const turnoPublicService = {
     return axiosInstance.post('/public/clientes/validate', data);
   },
 
-  createTurno: (data: CreateTurnoPublicRequest): Promise<{ data: CreateTurnoPublicResponse }> => {
+  createTurno: (data: CreateTurnoPublicRequest): Promise<AxiosResponse<RespuestaApi<CreateTurnoPublicResponse>>> => {
     return axiosInstance.post('/public/turnos', data);
   },
 

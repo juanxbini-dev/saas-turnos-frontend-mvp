@@ -265,7 +265,7 @@ describe('BeneficiosPage', () => {
       renderPage();
       await screen.findByText('20 % en tu próximo servicio');
 
-      fireEvent.click(screen.getByText('20 % en tu próximo servicio'));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver códigos de 20 % en tu próximo servicio' }));
 
       expect(await screen.findByRole('heading', { name: 'Códigos de «20 % en tu próximo servicio»' })).toBeTruthy();
       await waitFor(() => expect(getCodigos).toHaveBeenCalledWith('ben-1', { estado: '', busqueda: '', pagina: 1, por_pagina: 20 }));
@@ -290,7 +290,7 @@ describe('BeneficiosPage', () => {
     it('el filtro por estado vuelve a pedir con ese estado', async () => {
       renderPage();
       await screen.findByText('20 % en tu próximo servicio');
-      fireEvent.click(screen.getByText('20 % en tu próximo servicio'));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver códigos de 20 % en tu próximo servicio' }));
       await screen.findByText('DEB-A7K2M');
 
       fireEvent.change(screen.getByLabelText('Filtrar códigos por estado'), { target: { value: 'usado' } });
@@ -301,7 +301,7 @@ describe('BeneficiosPage', () => {
       anularCodigo.mockResolvedValue({ id: 'cod-1', estado: 'anulado' });
       renderPage();
       await screen.findByText('20 % en tu próximo servicio');
-      fireEvent.click(screen.getByText('20 % en tu próximo servicio'));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver códigos de 20 % en tu próximo servicio' }));
       await screen.findByText('DEB-A7K2M');
 
       fireEvent.click(screen.getByRole('button', { name: 'Anular el código DEB-A7K2M' }));
@@ -324,7 +324,7 @@ describe('BeneficiosPage', () => {
       emitirCodigo.mockResolvedValue({ id: 'cod-9', codigo: 'DEB-ZZ123', vence_at: '2026-11-21T03:00:00.000Z', email_enviado: true });
       renderPage();
       await screen.findByText('20 % en tu próximo servicio');
-      fireEvent.click(screen.getByText('20 % en tu próximo servicio'));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver códigos de 20 % en tu próximo servicio' }));
       await screen.findByText('DEB-A7K2M');
 
       fireEvent.click(screen.getByRole('button', { name: 'Emitir código a un cliente' }));

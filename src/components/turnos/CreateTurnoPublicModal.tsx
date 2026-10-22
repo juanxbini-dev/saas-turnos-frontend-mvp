@@ -358,7 +358,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       if (campaniaCodigo) onCampaniaCodigoUsado?.();
 
       // El descuento que quedó aplicado al turno (solo si viajó código)
-      const beneficioRespuesta = (respuesta as any)?.data?.data?.beneficio ?? null;
+      const beneficioRespuesta = respuesta.data?.data?.beneficio ?? null;
       setBeneficioAplicado(codigoBeneficioNormalizado ? beneficioRespuesta : null);
       if (codigoBeneficioNormalizado) onBeneficioUsado?.();
 

@@ -116,7 +116,10 @@ export function FinalizarTurnoModal({
       setDescuentoPorcentaje(String(turno.beneficio.porcentaje));
       setDescuentoAplicarA({ servicio: turno.beneficio.aplica_servicio, productos: turno.beneficio.aplica_productos });
     }
-  }, [isOpen, mode, turno]);
+    // Depende del turno (id) y de su código, no del objeto: un re-render del
+    // padre con un objeto nuevo no debe pisar el tilde "Cobrar sin el código".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mode, turno.id, turno.beneficio?.codigo_id]);
 
   // Cambiar método de pago de un producto y recalcular su precio ('canje' = gratis, $0)
   const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje') => {

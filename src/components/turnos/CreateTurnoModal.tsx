@@ -853,7 +853,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
           {/* Código de descuento del cliente (solo si tiene alguno vigente) */}
           {selectedCliente && errorBeneficios && (
-            <p className="text-xs text-red-600">{errorBeneficios}</p>
+            <p role="alert" className="text-xs text-red-600">{errorBeneficios}</p>
           )}
           {selectedCliente && beneficiosCliente.length > 0 && (
             <div>

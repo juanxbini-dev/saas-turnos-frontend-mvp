@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -65,16 +65,23 @@ const input = (hasError: boolean) =>
   `w-full bg-[#1a1a1a] border ${hasError ? 'border-red-500' : 'border-white/20'} text-white text-sm px-3 py-2.5 focus:outline-none focus:border-white/50 placeholder:text-white/20 disabled:opacity-40`;
 
 export const BeneficioPage: React.FC = () => {
-  const { search } = useLocation();
-  const parametros = new URLSearchParams(search);
-  const mCrudo = parametros.get('m');
-  // Un `m` sin forma de código (10 alfanuméricos) ni se manda: se ofrece el
-  // beneficio de la landing, como si no hubiera venido nada
-  const m = esCodigoDeEnlace(mCrudo) ? mCrudo : null;
-  // `?r=` (llegada desde WhatsApp, win-back): se lee y se guarda para cuando
-  // exista esa campaña. Hoy no se manda al backend ni cambia nada en la página.
-  const codigoWhatsappRef = useRef<string | null>(null);
-  codigoWhatsappRef.current = parametros.get('r');
+  // `?m=` se captura UNA sola vez al montar. Un `m` sin forma de código (10
+  // alfanuméricos) ni se manda: se ofrece el beneficio de la landing, como si
+  // no hubiera venido nada. (`?r=`, llegada desde WhatsApp / win-back, queda
+  // para cuando exista esa campaña: hoy no se lee.)
+  const [m] = useState<string | null>(() => {
+    const crudo = new URLSearchParams(window.location.search).get('m');
+    return esCodigoDeEnlace(crudo) ? crudo : null;
+  });
+
+  // El token sale de la barra apenas se lee (ya está en el estado), como el
+  // `?b=` de la landing: recargar o compartir la página no vuelve a contar clics.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('m')) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('m');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   const [cargando, setCargando] = useState(true);
   const [contexto, setContexto] = useState<ContextoBeneficio | null>(null);
@@ -101,33 +108,36 @@ export const BeneficioPage: React.FC = () => {
     return () => { document.title = tituloAnterior; };
   }, []);
 
-  // El contexto se pide UNA vez por `m` (cuenta el clic). El guard por ref
-  // evita la doble llamada de StrictMode en desarrollo.
+  // El contexto se pide UNA vez por intento (cuenta el clic). El guard es un
+  // ref y NO hay cleanup: StrictMode monta el efecto dos veces en desarrollo y
+  // con un flag de cleanup la única respuesta se descartaría (spinner infinito).
+  // La vigencia de la respuesta se valida contra la misma ref: si en el medio
+  // se pidió un reintento, la respuesta vieja no pisa la nueva.
   const contextoPedidoRef = useRef<string | null>(null);
   useEffect(() => {
     const clave = `${m ?? ''}#${intento}`;
     if (contextoPedidoRef.current === clave) return;
     contextoPedidoRef.current = clave;
 
-    let vigente = true;
     setCargando(true);
     setErrorContexto(null);
     beneficioPublicService.getContexto(m)
       .then((data) => {
-        if (!vigente) return;
+        if (contextoPedidoRef.current !== clave) return;
         setContexto(data);
         if (data?.nombre) setValue('nombre', data.nombre);
       })
       .catch((error: any) => {
-        if (!vigente) return;
+        if (contextoPedidoRef.current !== clave) return;
         setErrorContexto(error?.response?.status === 429
           ? 'Demasiados intentos, probá más tarde.'
           : 'No pudimos cargar el beneficio. Probá de nuevo más tarde.');
       })
-      .finally(() => { if (vigente) setCargando(false); });
-
-    return () => { vigente = false; };
-  }, [m, intento, setValue]);
+      .finally(() => {
+        if (contextoPedidoRef.current === clave) setCargando(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intento]);
 
   const enviar = async (datos: FormularioBeneficio) => {
     setErrorEnvio(null);
@@ -140,7 +150,8 @@ export const BeneficioPage: React.FC = () => {
         acepta_novedades: datos.acepta_novedades,
         ...(m ? { m } : {}),
       });
-      setEmailEnmascarado(respuesta?.email_enmascarado || datos.email);
+      // Nunca el mail completo: si el backend no lo mandó enmascarado, "a tu mail"
+      setEmailEnmascarado(respuesta?.email_enmascarado || 'tu mail');
     } catch (error) {
       setErrorEnvio(mensajeDeErrorAlSolicitar(error));
     } finally {

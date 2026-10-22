@@ -34,11 +34,16 @@ const falla = (status: number, data: Record<string, unknown> = {}) =>
 
 const CONTEXTO_VALIDO = ok({ valido: true, nombre: 'Juan', beneficio: BENEFICIO });
 
-const renderPagina = (ruta = `/beneficio?m=${M}`) => render(
-  <MemoryRouter initialEntries={[ruta]}>
-    <BeneficioPage />
-  </MemoryRouter>
-);
+// La página lee `?m=` de la barra de direcciones (window.location), no del router
+const renderPagina = (ruta = `/beneficio?m=${M}`, { strict = false } = {}) => {
+  window.history.replaceState({}, '', ruta);
+  const arbol = (
+    <MemoryRouter initialEntries={[ruta]}>
+      <BeneficioPage />
+    </MemoryRouter>
+  );
+  return render(strict ? <React.StrictMode>{arbol}</React.StrictMode> : arbol);
+};
 
 const llamadasContexto = () => get.mock.calls.filter(([url]) => url === '/public/beneficios/contexto');
 const llamadasSolicitar = () => post.mock.calls.filter(([url]) => url === '/public/beneficios/solicitar');
@@ -65,6 +70,7 @@ describe('/beneficio', () => {
   });
 
   it('está en el router como ruta pública, sin login', async () => {
+    window.history.replaceState({}, '', `/beneficio?m=${M}`);
     render(
       <MemoryRouter initialEntries={[`/beneficio?m=${M}`]}>
         <AppRouter />
@@ -91,6 +97,44 @@ describe('/beneficio', () => {
 
     expect(llamadasContexto()).toHaveLength(1);
     expect(llamadasContexto()[0][1]).toMatchObject({ params: { m: M } });
+  });
+
+  it('con StrictMode (dev monta los efectos dos veces) igual carga: pide el contexto UNA vez y sale del spinner', async () => {
+    renderPagina(`/beneficio?m=${M}`, { strict: true });
+
+    expect(await screen.findByText('15 % de descuento en servicios')).toBeTruthy();
+    expect(llamadasContexto()).toHaveLength(1);
+    expect(llamadasContexto()[0][1]).toMatchObject({ params: { m: M } });
+    expect((screen.getByLabelText('Nombre *') as HTMLInputElement).value).toBe('Juan');
+  });
+
+  it('saca ?m= de la barra apenas lo lee, conserva el resto de la URL, y el contexto se pidió con el m original', async () => {
+    renderPagina(`/beneficio?m=${M}&utm_source=mail#arriba`, { strict: true });
+    await screen.findByText('15 % de descuento en servicios');
+
+    await waitFor(() => expect(window.location.search).not.toContain('m='));
+    expect(window.location.search).toBe('?utm_source=mail');
+    expect(window.location.hash).toBe('#arriba');
+    expect(window.location.pathname).toBe('/beneficio');
+    expect(llamadasContexto()).toHaveLength(1);
+    expect(llamadasContexto()[0][1]).toMatchObject({ params: { m: M } });
+
+    // Y al pedir el código, sigue viajando el m original aunque ya no esté en la barra
+    completarYEnviar();
+    await waitFor(() => expect(llamadasSolicitar()).toHaveLength(1));
+    expect(llamadasSolicitar()[0][1]).toMatchObject({ m: M });
+  });
+
+  it('si el backend no manda el mail enmascarado, dice "a tu mail" y nunca el mail completo', async () => {
+    post.mockResolvedValueOnce(ok({ enviado: true }));
+    renderPagina();
+    await screen.findByText('15 % de descuento en servicios');
+
+    completarYEnviar({ email: 'juan@gmail.com' });
+
+    expect(await screen.findByText('Listo')).toBeTruthy();
+    expect(document.body.textContent).toContain('Te mandamos el código a tu mail.');
+    expect(document.body.textContent).not.toContain('juan@gmail.com');
   });
 
   it('sin ?m= pide el contexto sin parámetro (beneficio de la landing); un m sin forma de código tampoco se manda', async () => {
