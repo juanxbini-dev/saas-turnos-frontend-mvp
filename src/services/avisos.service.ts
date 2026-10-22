@@ -11,11 +11,12 @@ import type {
 } from '../types/avisos.types';
 
 // "Para contactar" (spec de productos §11.1 y §11.3). Va con el login de siempre: lo ven
-// recepción, admin y super admin; a un profesional el backend le responde 403.
+// staff (recepción y profesionales comparten ese rol: no hay un rol "recepción" propio todavía),
+// admin y super admin; a cualquier otro rol el backend le responde 403.
 const BASE = '/api/avisos';
 
 /** Roles que ven "Para contactar" (los mismos que acepta el backend: ROLES_AVISOS). */
-export const ROLES_PARA_CONTACTAR = ['recepcion', 'admin', 'super_admin'] as const;
+export const ROLES_PARA_CONTACTAR = ['staff', 'admin', 'super_admin'] as const;
 
 export function puedeVerParaContactar(roles: readonly string[] | null | undefined): boolean {
   return !!roles && roles.some((r) => (ROLES_PARA_CONTACTAR as readonly string[]).includes(r));

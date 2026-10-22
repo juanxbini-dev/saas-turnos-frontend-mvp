@@ -3,9 +3,9 @@ import { BrowserRouter, MemoryRouter, Outlet } from 'react-router-dom';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-// "Para contactar" lo ven recepción, admin y super admin (los roles que acepta el backend en
-// /api/avisos); los profesionales no: ni la pestaña en Productos, ni el contador en el menú,
-// ni el pedido del contador. Vive como pestaña de Productos (no como sección propia) y los
+// "Para contactar" lo ven staff (recepción comparte el rol con los profesionales), admin y super
+// admin (los roles que acepta el backend en /api/avisos); cualquier otro rol no: ni la pestaña en
+// Productos, ni el contador en el menú, ni el pedido del contador. Vive como pestaña de Productos (no como sección propia) y los
 // links viejos a /para-contactar siguen andando.
 
 let roles: string[] = [];
@@ -94,16 +94,16 @@ beforeEach(() => { vi.clearAllMocks(); roles = []; });
 afterEach(() => { cleanup(); window.history.pushState({}, '', '/'); });
 
 describe('Para contactar · quién lo ve', () => {
-  it('la regla: recepción, admin y super admin sí; un profesional no', () => {
-    expect(puedeVerParaContactar(['recepcion'])).toBe(true);
+  it('la regla: staff, admin y super admin sí; otro rol no', () => {
+    expect(puedeVerParaContactar(['staff'])).toBe(true);
     expect(puedeVerParaContactar(['admin'])).toBe(true);
     expect(puedeVerParaContactar(['super_admin'])).toBe(true);
-    expect(puedeVerParaContactar(['staff'])).toBe(false);
+    expect(puedeVerParaContactar(['otro'])).toBe(false);
     expect(puedeVerParaContactar([])).toBe(false);
     expect(puedeVerParaContactar(undefined)).toBe(false);
   });
 
-  it.each([[['admin']], [['admin', 'super_admin']], [['recepcion']]])('roles %j: el contador va en el ítem Productos del menú', (r) => {
+  it.each([[['admin']], [['admin', 'super_admin']], [['staff']]])('roles %j: el contador va en el ítem Productos del menú', (r) => {
     roles = r;
     renderSidebar();
     expect(screen.queryAllByRole('link', { name: /Para contactar/ })).toHaveLength(0);
@@ -114,8 +114,8 @@ describe('Para contactar · quién lo ve', () => {
     expect(habilitado).toHaveBeenCalledWith(true);
   });
 
-  it('un profesional (staff) ve Productos sin el contador y no se pide el contador', () => {
-    roles = ['staff'];
+  it('un usuario sin esos roles ve Productos sin el contador y no se pide el contador', () => {
+    roles = ['otro'];
     renderSidebar();
     expect(linksProductos().length).toBeGreaterThan(0);
     expect(screen.queryByTestId('badge-para-contactar')).toBeNull();
@@ -136,8 +136,8 @@ describe('Para contactar · pestaña de Productos', () => {
     expect(screen.queryByText('CONTENIDO para contactar')).toBeNull();
   });
 
-  it('recepción ve solo Ventas y Para contactar', () => {
-    roles = ['recepcion'];
+  it('recepción (staff) ve solo Ventas y Para contactar', () => {
+    roles = ['staff'];
     render(<ProductosPage />);
     expect(tabVentas()).toBeTruthy();
     expect(tabParaContactar()).toBeTruthy();
@@ -145,22 +145,22 @@ describe('Para contactar · pestaña de Productos', () => {
     expect(screen.queryByRole('button', { name: 'Configuración' })).toBeNull();
   });
 
-  it('un profesional (staff) sigue viendo solo Ventas', () => {
-    roles = ['staff'];
+  it('un usuario sin esos roles sigue viendo solo Ventas', () => {
+    roles = ['otro'];
     render(<ProductosPage />);
     expect(tabVentas()).toBeTruthy();
     expect(tabParaContactar()).toBeNull();
     expect(screen.queryByText('CONTENIDO para contactar')).toBeNull();
   });
 
-  it('?tab=para-contactar abre la pestaña; un profesional cae en Ventas', () => {
-    roles = ['recepcion'];
+  it('?tab=para-contactar abre la pestaña; sin permiso cae en Ventas', () => {
+    roles = ['staff'];
     window.history.pushState({}, '', '/productos?tab=para-contactar');
     render(<ProductosPage />);
     expect(screen.getByText('CONTENIDO para contactar')).toBeTruthy();
     cleanup();
 
-    roles = ['staff'];
+    roles = ['otro'];
     render(<ProductosPage />);
     expect(screen.queryByText('CONTENIDO para contactar')).toBeNull();
     expect(screen.getByRole('button', { name: 'Registro de ventas' })).toBeTruthy();
@@ -168,7 +168,7 @@ describe('Para contactar · pestaña de Productos', () => {
 });
 
 describe('Para contactar · el link viejo /para-contactar', () => {
-  it.each([[['admin']], [['super_admin']], [['recepcion']]])('roles %j: terminan en Productos con la pestaña abierta', async (r) => {
+  it.each([[['admin']], [['super_admin']], [['staff']]])('roles %j: terminan en Productos con la pestaña abierta', async (r) => {
     roles = r;
     entrarA('/para-contactar');
     expect(await screen.findByText('CONTENIDO para contactar')).toBeTruthy();
@@ -177,8 +177,8 @@ describe('Para contactar · el link viejo /para-contactar', () => {
     expect(tabParaContactar()).toBeTruthy();
   });
 
-  it('un profesional que escribe la URL a mano termina en Productos, sin esa pestaña', async () => {
-    roles = ['staff'];
+  it('un usuario sin permiso que escribe la URL a mano termina en Productos, sin esa pestaña', async () => {
+    roles = ['otro'];
     entrarA('/para-contactar');
     expect(await screen.findByRole('button', { name: 'Ventas' })).toBeTruthy();
     expect(window.location.pathname).toBe('/productos');
