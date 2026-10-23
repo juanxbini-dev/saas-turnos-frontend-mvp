@@ -35,6 +35,21 @@ export interface Turno {
   recordatorio_enviado?: boolean;
 }
 
+// Código de beneficio atado al turno (plan mails-beneficios §4.5). `estado` es
+// el del código: 'reservado' mientras el turno está abierto, 'usado' una vez
+// cobrado con el código. Si se cobró "sin el código", el turno ya no lo trae.
+export type TurnoBeneficioEstado = 'emitido' | 'reservado' | 'usado' | 'vencido' | 'anulado';
+
+export interface TurnoBeneficio {
+  codigo_id: string;
+  codigo: string;
+  nombre: string;
+  porcentaje: number;
+  aplica_servicio: boolean;
+  aplica_productos: boolean;
+  estado: TurnoBeneficioEstado;
+}
+
 export interface TurnoConDetalle extends Turno {
   cliente_nombre: string;
   cliente_email: string;
@@ -43,6 +58,8 @@ export interface TurnoConDetalle extends Turno {
   usuario_username: string;
   // Detalle del canje (qué se recibió a cambio / motivo) cuando hubo canje en el turno
   canje_detalle?: string | null;
+  // Código de beneficio del turno, o null/ausente si no tiene
+  beneficio?: TurnoBeneficio | null;
 }
 
 export interface CreateTurnoData {
@@ -52,6 +69,9 @@ export interface CreateTurnoData {
   fecha: string;
   hora: string;
   notas?: string;
+  // Código de beneficio del cliente elegido en el panel (GET /api/clientes/:id/beneficios).
+  // Sin código el campo no se manda.
+  beneficio_codigo_id?: string;
 }
 
 export interface DisponibilidadSemanal {
@@ -125,6 +145,10 @@ export interface FinalizarTurnoData {
   productos?: VentaProductoData[];
   // Detalle del canje: requerido cuando el servicio o algún producto va en canje
   canjeDetalle?: string;
+  // Solo si el turno tiene código de beneficio. true (default del backend): el
+  // descuento es el del código y el código pasa a 'usado'. false ("Cobrar sin el
+  // código"): el código vuelve a 'emitido' y vale el descuento del body.
+  usar_beneficio?: boolean;
 }
 
 export interface EditarPagoData {
@@ -135,6 +159,8 @@ export interface EditarPagoData {
   productos?: VentaProductoData[];
   // Detalle del canje: requerido cuando el servicio o algún producto va en canje
   canjeDetalle?: string;
+  // Igual que en FinalizarTurnoData
+  usar_beneficio?: boolean;
 }
 
 export interface VentaProductoData {

@@ -17,6 +17,7 @@ import { cacheService } from '../../cache/cache.service';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { FinalizarTurnoModal } from '../turnos/FinalizarTurnoModal';
+import { BeneficioTurnoBadge } from '../turnos/BeneficioTurnoBadge';
 
 interface DashboardTurnoModalProps {
   isOpen: boolean;
@@ -514,6 +515,14 @@ export function DashboardTurnoModal({
                 {turno?.estado ? turno.estado.charAt(0).toUpperCase() + turno.estado.slice(1) : 'N/A'}
               </p>
             </div>
+            {turno?.beneficio && (
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Descuento</p>
+                <p className="text-sm font-semibold text-gray-900 mt-0.5">
+                  <BeneficioTurnoBadge beneficio={turno.beneficio} variante="chip" />
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Botones de acción según estado */}

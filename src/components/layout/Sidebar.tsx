@@ -21,6 +21,7 @@ import {
   BarChart3,
   Wallet,
   Megaphone,
+  Ticket,
   X,
   LogOut,
 } from 'lucide-react';
@@ -41,6 +42,7 @@ const menuItems = [
   { path: '/metricas',       icon: BarChart3,       label: 'Métricas',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
   { path: '/gastos',         icon: Wallet,          label: 'Gastos',        adminOnly: true,  hideSuperAdmin: false, superAdminOnly: true  },
   { path: '/campanias',      icon: Megaphone,       label: 'Campañas',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: true  },
+  { path: '/beneficios',     icon: Ticket,          label: 'Beneficios',    adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
   { path: '/perfil',         icon: UserCircle,      label: 'Perfil',        adminOnly: false, hideSuperAdmin: true,  superAdminOnly: false },
   { path: '/usuarios',       icon: Users,           label: 'Usuarios',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
   { path: '/turnos',         icon: Calendar,        label: 'Turnos',        adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },

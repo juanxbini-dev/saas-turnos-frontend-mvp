@@ -1,4 +1,12 @@
+import type { AxiosResponse } from 'axios';
 import axiosInstance from '../../api/axiosInstance';
+import type { BeneficioReserva } from '../../types/beneficios.public.types';
+
+// Formato de todas las respuestas del backend: { success, data }
+export interface RespuestaApi<T> {
+  success: boolean;
+  data: T;
+}
 
 export interface ValidateClienteRequest {
   email?: string;
@@ -40,6 +48,11 @@ export interface CreateTurnoPublicRequest {
   // 'confirmar' viaja junto con `cliente_id`; 'otros_datos' viaja SIN `cliente_id`
   // (el backend crea una ficha nueva aunque el teléfono ya exista).
   modal_accion?: 'confirmar' | 'otros_datos';
+  // Código de beneficio (`DEB-7K3P9`) escrito en el paso 3 o llegado por `?b=`.
+  // Sin código el campo NO se manda. El backend exige que esté emitido, vigente
+  // y que sea de esa persona; si no, 400 BENEFICIO_INVALIDO /
+  // BENEFICIO_NO_CORRESPONDE y el turno NO se crea (plan mails-beneficios §4.1).
+  beneficio_codigo?: string;
 }
 
 export interface CreateTurnoPublicResponse {
@@ -50,6 +63,8 @@ export interface CreateTurnoPublicResponse {
   cliente_nombre: string;
   profesional_nombre: string;
   servicio_nombre: string;
+  // Solo cuando la reserva llevó código: el descuento que queda aplicado al pagar
+  beneficio?: BeneficioReserva | null;
 }
 
 export const turnoPublicService = {
@@ -57,7 +72,7 @@ export const turnoPublicService = {
     return axiosInstance.post('/public/clientes/validate', data);
   },
 
-  createTurno: (data: CreateTurnoPublicRequest): Promise<{ data: CreateTurnoPublicResponse }> => {
+  createTurno: (data: CreateTurnoPublicRequest): Promise<AxiosResponse<RespuestaApi<CreateTurnoPublicResponse>>> => {
     return axiosInstance.post('/public/turnos', data);
   },
 

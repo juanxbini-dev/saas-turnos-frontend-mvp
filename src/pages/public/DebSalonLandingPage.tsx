@@ -12,11 +12,15 @@ import {
 } from '../../services/public';
 import { RUTA_PRIVACIDAD } from '../../config/privacidad';
 import { servicioPublicService } from '../../services/public/servicioPublic.service';
+import {
+  beneficioPublicService, esCodigoBeneficio, normalizarCodigoBeneficio,
+  guardarBeneficioDeVisita, leerBeneficioDeVisita, olvidarBeneficioDeVisita,
+} from '../../services/public/beneficioPublic.service';
+import type { BeneficioDeVisita } from '../../types/beneficios.public.types';
 import { LandingConfig, LandingProfesional } from '../../types/landing.types';
 
 
-const EMPRESA_SLUG = 'debsalon';
-const EMPRESA_ID = 'emp_1774207299464_69450de1';
+import { EMPRESA_ID, EMPRESA_SLUG } from '../../config/debsalon';
 
 // ── Hook de animación al entrar en viewport ──────────────────────────────────
 function useInView(threshold = 0.15) {
@@ -535,8 +539,45 @@ export const DebSalonLandingPage: React.FC = () => {
   const enlaceConsultadoRef = useRef(false);
   const enlaceAplicadoRef = useRef(false);
 
+  // Código de beneficio del mail: la landing llega con `?b=DEB-7K3P9` (plan
+  // mails-beneficios §4.1). Se valida UNA vez con el backend; si sirve, queda
+  // para toda la visita (sessionStorage, como `?r=`) y el asistente lo muestra
+  // como chip 🎟 y lo prellena en el paso 3. Si no sirve, landing normal: la
+  // persona igual puede escribirlo en el paso 3 y ahí ve el motivo.
+  const [beneficioVisita, setBeneficioVisita] = useState<BeneficioDeVisita | null>(() => (
+    esCodigoBeneficio(new URLSearchParams(window.location.search).get('b')) ? null : leerBeneficioDeVisita()
+  ));
+  const beneficioConsultadoRef = useRef(false);
+
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    if (beneficioConsultadoRef.current) return;
+    beneficioConsultadoRef.current = true;
+
+    const crudo = new URLSearchParams(window.location.search).get('b');
+    if (crudo === null) return;
+
+    // Sale de la barra apenas se lee: compartir la página no comparte el código
+    const url = new URL(window.location.href);
+    url.searchParams.delete('b');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+
+    const codigo = normalizarCodigoBeneficio(crudo);
+    if (!codigo) return;
+
+    // Un `?b=` nuevo reemplaza al que hubiera quedado de antes
+    olvidarBeneficioDeVisita();
+
+    // validarCodigo nunca rechaza: null = no se pudo consultar
+    beneficioPublicService.validarCodigo(codigo, EMPRESA_ID).then((resultado) => {
+      if (!resultado?.valido || !resultado.beneficio) return;
+      const valor: BeneficioDeVisita = { codigo, beneficio: resultado.beneficio, vence_el: resultado.vence_el ?? null };
+      guardarBeneficioDeVisita(valor);
+      setBeneficioVisita(valor);
+    });
   }, []);
 
   // Resolver el código UNA sola vez: cada llamada cuenta un clic. El guard es un
@@ -660,6 +701,12 @@ export const DebSalonLandingPage: React.FC = () => {
   const handleCampaniaCodigoUsado = () => {
     olvidarCodigoDeVisita();
     setCampaniaCodigo(null);
+  };
+
+  // El código de beneficio quedó reservado en ese turno: no sirve para otro
+  const handleBeneficioUsado = () => {
+    olvidarBeneficioDeVisita();
+    setBeneficioVisita(null);
   };
 
   const titulo = landingConfig?.titulo || null;
@@ -984,6 +1031,8 @@ export const DebSalonLandingPage: React.FC = () => {
           servicioInicialId={servicioInicialId}
           campaniaCodigo={campaniaCodigo}
           onCampaniaCodigoUsado={handleCampaniaCodigoUsado}
+          beneficioInicial={beneficioVisita}
+          onBeneficioUsado={handleBeneficioUsado}
         />
       )}
     </div>

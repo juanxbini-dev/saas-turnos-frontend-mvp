@@ -7,6 +7,7 @@ import axiosInstance from '../../api/axiosInstance';
 import { Modal, Button, Card } from '../ui';
 import { formatCurrency } from '../../utils/calculos.utils';
 import { useToast } from '../../hooks/useToast';
+import { BeneficioTurnoBadge } from '../turnos/BeneficioTurnoBadge';
 
 interface ProductoConPrecios {
   id: string;
@@ -185,6 +186,14 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
               <p className="text-sm text-gray-500">{turno.servicio} · {fechaStr} {turno.hora}</p>
             </div>
           </div>
+          {/* El descuento del código ya quedó fijado al finalizar el turno (plan
+              mails-beneficios §4.5). Para sacarlo: "Editar pago" → "Cobrar sin el código". */}
+          {turno.beneficio && (
+            <div className="mb-3 flex items-center gap-2 flex-wrap">
+              <BeneficioTurnoBadge beneficio={turno.beneficio} variante="chip" />
+              <span className="text-xs text-gray-500">Para cobrar sin el código, usá "Editar pago".</span>
+            </div>
+          )}
           <div className="space-y-1.5 text-sm border-t border-gray-200 pt-3">
             <div className="flex justify-between">
               <span className="text-gray-600">Servicio</span>

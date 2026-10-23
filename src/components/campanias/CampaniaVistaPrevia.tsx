@@ -27,6 +27,8 @@ const PIE_POR_TIPO: Record<CampaniaTipo, string> = {
   turno_abandonado: 'Esta lista se calcula en el momento: salen los turnos cancelados desde la web hace unos días. Si alguien saca otro turno o pide no recibir más, deja de aparecer.',
   reposicion_producto: 'Esta lista se calcula en el momento: salen las compras de productos que se están por terminar. Si alguien lo vuelve a comprar o pide no recibir más, deja de aparecer.',
   seguimiento_producto: 'Esta lista se calcula en el momento: salen las compras de hace unos días, para preguntar cómo le está resultando el producto. Si alguien pide no recibir más, deja de aparecer.',
+  // La lista vieja sale por mail y tiene su propia vista previa (ListaViejaVistaPrevia)
+  lista_vieja: 'Esta lista se calcula en el momento. Si alguien pide no recibir más mails, deja de aparecer.',
 };
 
 const GRUPOS: { id: VistaPreviaGrupo; label: string; vacio: string }[] = [

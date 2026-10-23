@@ -7,6 +7,7 @@ import { cacheService } from '../../cache/cache.service';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import type {
   Campania,
+  CampaniaListaVieja,
   CampaniaMetricas,
   CampaniaReposicion,
   CampaniaSeguimiento,
@@ -42,6 +43,17 @@ vi.mock('../../services/campanias.service', async () => {
       getEnvios: (...a: unknown[]) => getEnvios(...a),
       getMetricas: (...a: unknown[]) => getMetricas(...a),
       actualizarCampania: vi.fn(),
+      // La pestaña por mail tiene sus propias llamadas (se prueban en CampaniasPage.listaVieja)
+      getVistaPreviaListaVieja: () => Promise.resolve({
+        pendientes: 0, recordatorios_pendientes: 0, saldrian_hoy: 0, cupo_restante: 0, mails_dudosos: 0, motivos: {}, muestra: [],
+      }),
+      getEnviosListaVieja: () => Promise.resolve({ items: [], total: 0, pagina: 1, por_pagina: 20 }),
+      getMetricasListaVieja: () => Promise.resolve({
+        contactos: { total: 0, pendientes: 0, enviados: 0, entregados: 0, rebotados: 0, quejas: 0, bajas: 0, convertidos: 0 },
+        mails: { enviados: 0, entregados: 0, abiertos: 0, clics: 0, fallidos: 0, recordatorios: 0 },
+        codigos: { emitidos: 0, reservados: 0, usados: 0, vencidos: 0 },
+        serie_diaria: [],
+      }),
     },
   };
 });
@@ -51,6 +63,12 @@ const getProductos = vi.fn();
 vi.mock('../../services/productos.service', () => ({
   productosService: { getProductos: (...a: unknown[]) => getProductos(...a) },
 }));
+
+// La configuración de la lista vieja lista los beneficios para elegir
+vi.mock('../../services/beneficios.service', async () => {
+  const real = await vi.importActual<typeof import('../../services/beneficios.service')>('../../services/beneficios.service');
+  return { ...real, beneficiosService: { listar: () => Promise.resolve([]) } };
+});
 
 vi.mock('../../services/toast.service', () => ({
   toastService: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
@@ -98,9 +116,17 @@ const SEGUIMIENTO: CampaniaSeguimiento = {
   avisos: AVISOS,
 };
 
+const LISTA_VIEJA: CampaniaListaVieja = {
+  id: 'camp-6', tipo: 'lista_vieja', activa: false, tope_diario: 50, cooldown_dias: 0,
+  parametros: { dias_recordatorio: 10, beneficio_id: null },
+  updated_at: '2026-10-22T13:00:00.000Z',
+  hoy: { fecha: '2026-10-22', usados: 0, cupo_restante: 50 },
+  avisos: { ...AVISOS, canal: 'email', beneficio: null, contactos_pendientes: 0, resend_configurado: true },
+};
+
 const POR_TIPO: Record<CampaniaTipo, Campania> = {
   recencia: RECENCIA, post_servicio: POST, turno_abandonado: ABANDONO,
-  reposicion_producto: REPOSICION, seguimiento_producto: SEGUIMIENTO,
+  reposicion_producto: REPOSICION, seguimiento_producto: SEGUIMIENTO, lista_vieja: LISTA_VIEJA,
 };
 
 const PREVIEW_VACIA: VistaPreviaRespuesta = {
@@ -229,18 +255,22 @@ describe('CampaniasPage — una pestaña por campaña', () => {
     fireEvent.keyDown(pestania('Gracias por venir'), { key: 'ArrowRight' });
     await waitFor(() => expect(pestania('Turno cancelado').getAttribute('aria-selected')).toBe('true'));
 
-    // Desde la última ("Seguimiento"), la flecha derecha da la vuelta a la primera
+    // Desde la última ("Lista vieja (mail)"), la flecha derecha da la vuelta a la primera
     fireEvent.keyDown(pestania('Turno cancelado'), { key: 'End' });
-    await waitFor(() => expect(document.activeElement).toBe(pestania('Seguimiento')));
-    fireEvent.keyDown(pestania('Seguimiento'), { key: 'ArrowRight' });
+    await waitFor(() => expect(document.activeElement).toBe(pestania('Lista vieja (mail)')));
+    fireEvent.keyDown(pestania('Lista vieja (mail)'), { key: 'ArrowRight' });
     await waitFor(() => expect(pestania('Ya te toca volver').getAttribute('aria-selected')).toBe('true'));
     expect(document.activeElement).toBe(pestania('Ya te toca volver'));
 
     fireEvent.keyDown(pestania('Ya te toca volver'), { key: 'End' });
-    await waitFor(() => expect(document.activeElement).toBe(pestania('Seguimiento')));
-    fireEvent.keyDown(pestania('Seguimiento'), { key: 'Home' });
+    await waitFor(() => expect(document.activeElement).toBe(pestania('Lista vieja (mail)')));
+    fireEvent.keyDown(pestania('Lista vieja (mail)'), { key: 'Home' });
     await waitFor(() => expect(document.activeElement).toBe(pestania('Ya te toca volver')));
     fireEvent.keyDown(pestania('Ya te toca volver'), { key: 'ArrowLeft' });
+    await waitFor(() => expect(pestania('Lista vieja (mail)').getAttribute('aria-selected')).toBe('true'));
+    expect(await screen.findByLabelText('Días para el recordatorio')).toBeTruthy();
+    // Y "Seguimiento" sigue siendo la anterior a la última
+    fireEvent.keyDown(pestania('Lista vieja (mail)'), { key: 'ArrowLeft' });
     await waitFor(() => expect(pestania('Seguimiento').getAttribute('aria-selected')).toBe('true'));
     expect(await screen.findByLabelText('Durante cuántos días se le puede preguntar')).toBeTruthy();
   });

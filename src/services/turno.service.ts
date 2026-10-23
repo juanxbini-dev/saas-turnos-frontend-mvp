@@ -1,6 +1,17 @@
 import axiosInstance from '../api/axiosInstance';
 import { Turno, TurnoConDetalle, CreateTurnoData, FinalizarTurnoData, EditarPagoData } from '../types/turno.types';
 import { SeguimientoTurno } from '../types/seguimiento.types';
+import { cacheService } from '../cache/cache.service';
+import { buildKey, ENTITIES } from '../cache/key.builder';
+import { invalidarCacheBeneficios } from './beneficios.service';
+
+// Crear, cobrar, editar el pago o cancelar un turno puede mover un código de
+// beneficio (reservado / usado / vuelve a emitido) y, con él, los contadores
+// de la pantalla Beneficios y las métricas de la campaña "Lista vieja".
+function invalidarCacheDeCodigos(): void {
+  invalidarCacheBeneficios();
+  cacheService.invalidateByPrefix(buildKey(ENTITIES.CAMPANIAS, 'lista_vieja'));
+}
 
 export const turnoService = {
   async getTurnos(): Promise<TurnoConDetalle[]> {
@@ -60,6 +71,7 @@ export const turnoService = {
 
   async createTurno(data: CreateTurnoData): Promise<Turno> {
     const response = await axiosInstance.post('/api/turnos', data);
+    invalidarCacheDeCodigos();
     return response.data.data;
   },
 
@@ -70,16 +82,21 @@ export const turnoService = {
 
   async cancelarTurno(id: string): Promise<Turno> {
     const response = await axiosInstance.put(`/api/turnos/${id}/estado`, { estado: 'cancelado' });
+    invalidarCacheDeCodigos();
     return response.data.data;
   },
 
+  // `data.usar_beneficio` viaja tal cual (plan mails-beneficios §4.5): solo lo
+  // manda el modal de cobro cuando el turno tiene código de beneficio.
   async finalizarTurno(id: string, data: FinalizarTurnoData): Promise<Turno> {
     const response = await axiosInstance.put(`/api/turnos/${id}/finalizar`, data);
+    invalidarCacheDeCodigos();
     return response.data.data;
   },
 
   async editarPago(id: string, data: EditarPagoData): Promise<Turno> {
     const response = await axiosInstance.put(`/api/turnos/${id}/editar-pago`, data);
+    invalidarCacheDeCodigos();
     return response.data.data;
   },
 

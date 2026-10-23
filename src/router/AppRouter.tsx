@@ -12,8 +12,10 @@ import { FinanzasPage } from '../pages/FinanzasPage';
 import MetricasPage from '../pages/MetricasPage';
 import GastosPage from '../pages/GastosPage';
 import CampaniasPage from '../pages/CampaniasPage';
+import BeneficiosPage from '../pages/BeneficiosPage';
 import { DebSalonLandingPage } from '../pages/public/DebSalonLandingPage';
 import { PrivacidadPage } from '../pages/public/PrivacidadPage';
+import { BeneficioPage } from '../pages/public/BeneficioPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
@@ -21,6 +23,7 @@ import { SuperAdminRoute } from '../components/SuperAdminRoute';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { RUTA_PARA_CONTACTAR } from '../services/avisos.service';
+import { RUTA_BENEFICIO } from '../config/beneficio';
 
 function PerfilRoute() {
   const { state } = useAuth();
@@ -36,6 +39,8 @@ const AppRouter = () => {
       <Route path="/" element={<DebSalonLandingPage />} />
       {/* Pública, sin login: la pide Meta y la enlaza el tilde de novedades de la reserva */}
       <Route path="/privacidad" element={<PrivacidadPage />} />
+      {/* Pública, sin login: pedir el código de beneficio (llega desde el mail con ?m=) */}
+      <Route path={RUTA_BENEFICIO} element={<BeneficioPage />} />
       <Route path="/login" element={<LoginPage />} />
 
       {/* Rutas privadas */}
@@ -58,6 +63,11 @@ const AppRouter = () => {
             <SuperAdminRoute>
               <CampaniasPage />
             </SuperAdminRoute>
+          } />
+          <Route path="/beneficios" element={
+            <AdminRoute>
+              <BeneficiosPage />
+            </AdminRoute>
           } />
           {/* "Para contactar" pasó a ser una pestaña de Productos: los links viejos siguen andando */}
           <Route path="/para-contactar" element={<Navigate to={RUTA_PARA_CONTACTAR} replace />} />
