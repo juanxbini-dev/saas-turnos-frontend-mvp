@@ -20,6 +20,7 @@ import { AdminRoute } from '../components/AdminRoute';
 import { SuperAdminRoute } from '../components/SuperAdminRoute';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
+import { RUTA_PARA_CONTACTAR } from '../services/avisos.service';
 
 function PerfilRoute() {
   const { state } = useAuth();
@@ -58,6 +59,8 @@ const AppRouter = () => {
               <CampaniasPage />
             </SuperAdminRoute>
           } />
+          {/* "Para contactar" pasó a ser una pestaña de Productos: los links viejos siguen andando */}
+          <Route path="/para-contactar" element={<Navigate to={RUTA_PARA_CONTACTAR} replace />} />
           <Route path="/usuarios" element={
             <AdminRoute>
               <UsuariosPage />

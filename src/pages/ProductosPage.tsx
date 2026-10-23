@@ -13,37 +13,64 @@ import { MarcaModal } from '../components/productos/MarcaModal';
 import { ConfiguracionProductosTab } from '../components/productos/ConfiguracionProductosTab';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../context/AuthContext';
+import { useContadorParaContactar } from '../hooks/useContadorParaContactar';
+import { ParaContactarTab } from '../components/paraContactar/ParaContactarTab';
+import { PARAM_TAB_PRODUCTOS, TAB_PARA_CONTACTAR, puedeVerParaContactar } from '../services/avisos.service';
+import { FILTRO_SIN_DURACION, PARAM_FILTRO_PRODUCTOS, filtrarSinDuracion, textoDuracion } from '../utils/productoCampanias.utils';
 
 const PAGE_SIZE = 10;
+
+// Todas las pestañas, en el orden en que se muestran
+const TODAS_LAS_TABS = ['catalogo', 'marcas', 'estadisticas', 'ventas', TAB_PARA_CONTACTAR, 'por-profesional', 'configuracion'] as const;
+type Tab = typeof TODAS_LAS_TABS[number];
+
+const tabLabels: Record<Tab, string> = {
+  catalogo: 'Catálogo',
+  marcas: 'Marcas',
+  estadisticas: 'Estadísticas',
+  ventas: 'Ventas',
+  'para-contactar': 'Para contactar',
+  'por-profesional': 'Por profesional',
+  configuracion: 'Configuración',
+};
+
+// Pestañas según rol: admin ve todas; el resto solo Ventas, más "Para contactar" si el rol la ve
+// (recepción, que comparte el rol staff con los profesionales). Sin permiso sigue viendo solo Ventas.
+function tabsDisponibles(isAdmin: boolean, veParaContactar: boolean): readonly Tab[] {
+  return TODAS_LAS_TABS.filter(t => {
+    if (t === 'ventas') return true;
+    if (t === TAB_PARA_CONTACTAR) return veParaContactar;
+    return isAdmin;
+  });
+}
 
 function ProductosPage() {
   const toast = useToast();
   const { state } = useAuth();
-  const isAdmin = state.roles?.includes('admin');
+  const isAdmin = !!state.roles?.includes('admin');
+  const veParaContactar = puedeVerParaContactar(state.roles);
 
-  // Tabs disponibles según rol
-  const availableTabs = isAdmin
-    ? (['catalogo', 'marcas', 'estadisticas', 'ventas', 'por-profesional', 'configuracion'] as const)
-    : (['ventas'] as const);
-  type Tab = typeof availableTabs[number];
+  const availableTabs = useMemo(() => tabsDisponibles(isAdmin, veParaContactar), [isAdmin, veParaContactar]);
+  const tabPorDefecto: Tab = isAdmin ? 'catalogo' : 'ventas';
 
-  const [activeTab, setActiveTab] = useState<Tab>(isAdmin ? 'catalogo' : 'ventas');
+  // ?tab=para-contactar abre esa pestaña (el menú y los links viejos a /para-contactar llegan así).
+  // Se lee de la URL sin depender del router, igual que ?filtro (la página se usa suelta en los tests).
+  // Si el rol no tiene esa pestaña, se cae a la de siempre.
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const pedida = new URLSearchParams(window.location.search).get(PARAM_TAB_PRODUCTOS);
+    return pedida && (availableTabs as readonly string[]).includes(pedida) ? (pedida as Tab) : tabPorDefecto;
+  });
 
   // Si el tab activo no está disponible (ej: staff), forzar a 'ventas'
   useEffect(() => {
-    if (!(availableTabs as readonly string[]).includes(activeTab)) {
+    if (!availableTabs.includes(activeTab)) {
       setActiveTab('ventas');
     }
-  }, [isAdmin]);
+  }, [availableTabs]);
 
-  const tabLabels: Record<string, string> = {
-    catalogo: 'Catálogo',
-    marcas: 'Marcas',
-    estadisticas: 'Estadísticas',
-    ventas: 'Ventas',
-    'por-profesional': 'Por profesional',
-    configuracion: 'Configuración',
-  };
+  // Clientes que esperan que les escriban: badge en la pestaña "Para contactar".
+  // Solo se pide si el rol la ve (a otro rol el backend le da 403).
+  const { pendientes: avisosPendientes } = useContadorParaContactar(veParaContactar);
 
   // Catálogo state
   const [productoModal, setProductoModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
@@ -53,6 +80,12 @@ function ProductosPage() {
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState('');
   const [filtroMarca, setFiltroMarca] = useState('');
+  // Campañas de WhatsApp: ver solo los productos a los que les falta la duración
+  // Desde Campañas → Reposición se llega con ?filtro=sin-duracion para completar las duraciones.
+  // Se lee de la URL sin depender del router (la página también se usa suelta en los tests).
+  const [soloSinDuracion, setSoloSinDuracion] = useState(
+    () => new URLSearchParams(window.location.search).get(PARAM_FILTRO_PRODUCTOS) === FILTRO_SIN_DURACION
+  );
   const [pagina, setPagina] = useState(1);
 
   // Marcas state — accordion de apertura única
@@ -233,8 +266,13 @@ function ProductosPage() {
     if (filtroMarca) {
       lista = lista.filter(p => p.marca_id === filtroMarca);
     }
+    if (soloSinDuracion) {
+      lista = filtrarSinDuracion(lista);
+    }
     return lista;
-  }, [productos, busqueda, filtroMarca]);
+  }, [productos, busqueda, filtroMarca, soloSinDuracion]);
+
+  const cantidadSinDuracion = useMemo(() => filtrarSinDuracion(productos || []).length, [productos]);
 
   const totalPaginas = Math.max(1, Math.ceil(productosFiltrados.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -427,6 +465,15 @@ function ProductosPage() {
               }`}
             >
               {tabLabels[t]}
+              {t === TAB_PARA_CONTACTAR && avisosPendientes > 0 && (
+                <span
+                  className="ml-2 inline-flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 align-middle"
+                  title={`${avisosPendientes} ${avisosPendientes === 1 ? 'cliente espera' : 'clientes esperan'} que le escriban`}
+                  data-testid="badge-para-contactar-tab"
+                >
+                  {avisosPendientes > 99 ? '99+' : avisosPendientes}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -457,6 +504,15 @@ function ProductosPage() {
                   <option key={m.id} value={m.id}>{m.nombre}</option>
                 ))}
               </select>
+              <label className="inline-flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={soloSinDuracion}
+                  onChange={e => { setSoloSinDuracion(e.target.checked); setPagina(1); }}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Sin duración cargada ({cantidadSinDuracion})
+              </label>
             </div>
 
             {loadingProductos ? (
@@ -478,6 +534,7 @@ function ProductosPage() {
                         <th className="text-left px-4 py-3 font-medium text-gray-700">Marca</th>
                         <th className="text-right px-4 py-3 font-medium text-gray-700">Ef. / Transf. / Tarj.</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Stock</th>
+                        <th className="text-center px-4 py-3 font-medium text-gray-700">Duración</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Estado</th>
                         {isAdmin && <th className="text-right px-4 py-3 font-medium text-gray-700">Acciones</th>}
                       </tr>
@@ -523,6 +580,11 @@ function ProductosPage() {
                             }`}>
                               {p.stock}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-center text-xs text-gray-600 whitespace-nowrap">
+                            {p.duracion_estimada_dias != null
+                              ? textoDuracion(p.duracion_estimada_dias)
+                              : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <Badge variant={p.activo ? 'green' : 'gray'}>
@@ -609,6 +671,11 @@ function ProductosPage() {
                           }`}>
                             Stock: {p.stock}
                           </span>
+                          {p.duracion_estimada_dias != null && (
+                            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                              {textoDuracion(p.duracion_estimada_dias)}
+                            </span>
+                          )}
                           <Badge variant={p.activo ? 'green' : 'gray'}>
                             {p.activo ? 'Activo' : 'Inactivo'}
                           </Badge>
@@ -1353,6 +1420,11 @@ function ProductosPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* TAB: PARA CONTACTAR (recepción, admin y super admin) */}
+        {activeTab === TAB_PARA_CONTACTAR && veParaContactar && (
+          <ParaContactarTab />
         )}
 
         {/* TAB: POR PROFESIONAL */}

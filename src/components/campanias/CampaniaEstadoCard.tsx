@@ -45,6 +45,18 @@ const TEXTOS: Record<CampaniaTipo, TextosCampania> = {
     encendida: 'Campaña encendida. Los mensajes salen una vez por día, unos días después de cada cancelación.',
     confirmar: (tope) => `Vas a encender los avisos a quien canceló su turno. Unos días después de cancelar, si no sacó otro turno, se le escribe por WhatsApp para que elija un nuevo horario, hasta ${tope} por día. Podés apagarlo cuando quieras.`,
   },
+  reposicion_producto: {
+    titulo: 'Reposición de producto',
+    subtitulo: 'Un aviso por WhatsApp a quien compró un producto que se le debe estar terminando.',
+    encendida: 'Campaña encendida. Los mensajes salen una vez por día, unos días antes de que se le termine el producto.',
+    confirmar: (tope) => `Vas a encender los avisos de reposición. Unos días antes de que se le termine un producto que compró, se le escribe por WhatsApp para que pida otro o reserve turno, hasta ${tope} por día. Podés apagarlo cuando quieras.`,
+  },
+  seguimiento_producto: {
+    titulo: 'Seguimiento de producto',
+    subtitulo: 'Unos días después de la compra, le preguntamos al cliente cómo le está resultando el producto.',
+    encendida: 'Campaña encendida. Las preguntas salen una vez por día, unos días después de cada compra.',
+    confirmar: (tope) => `Vas a encender las preguntas de seguimiento. Unos días después de comprar un producto, se le escribe por WhatsApp al cliente para que cuente cómo le está resultando, hasta ${tope} por día. Podés apagarlo cuando quieras.`,
+  },
 };
 
 // A. Tarjeta de estado de la campaña: encender (con confirmación) / apagar

@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import { productosService } from '../../services/productos.service';
 import { useContadorParaRevisar } from '../../hooks/useContadorParaRevisar';
+import { useContadorParaContactar } from '../../hooks/useContadorParaContactar';
+import { puedeVerParaContactar } from '../../services/avisos.service';
 import {
   LayoutDashboard,
   Calendar,
@@ -32,6 +34,7 @@ interface SidebarProps {
 }
 
 // superAdminOnly: solo visible para super_admin (el rol 'admin' no alcanza)
+// "Para contactar" no es ítem: es una pestaña de Productos; su contador se muestra en ese ítem.
 const menuItems = [
   { path: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard',     adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
   { path: '/finanzas',       icon: TrendingUp,      label: 'Finanzas',      adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
@@ -68,6 +71,11 @@ const SidebarContent = ({
 
   // Puntuaciones Regular/Malo sin revisar: aviso en "Métricas", solo super admin
   const { pendientes: puntuacionesPendientes } = useContadorParaRevisar(isSuperAdminUser);
+
+  // Clientes que esperan que les escriban: aviso en "Productos" (ahí vive la pestaña "Para contactar").
+  // Solo se pide si el rol la ve: a un profesional el backend le responde 403.
+  const veParaContactar = puedeVerParaContactar(roles);
+  const { pendientes: avisosPendientes } = useContadorParaContactar(veParaContactar);
 
   const { data: productosStats } = useFetch(
     isAdmin ? 'productos:stats:sidebar' : null,
@@ -124,7 +132,11 @@ const SidebarContent = ({
                 ].join(' ')
               }
               title={collapsed && !isMobile
-                ? (path === '/metricas' && puntuacionesPendientes > 0 ? `${label} (${puntuacionesPendientes} para revisar)` : label)
+                ? (path === '/metricas' && puntuacionesPendientes > 0
+                  ? `${label} (${puntuacionesPendientes} para revisar)`
+                  : path === '/productos' && avisosPendientes > 0
+                    ? `${label} (${avisosPendientes} para contactar)`
+                    : label)
                 : undefined}
             >
               <span className="relative flex-shrink-0">
@@ -132,10 +144,17 @@ const SidebarContent = ({
                 {collapsed && !isMobile && path === '/metricas' && puntuacionesPendientes > 0 && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" aria-hidden="true" />
                 )}
+                {collapsed && !isMobile && path === '/productos' && avisosPendientes > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" aria-hidden="true" />
+                )}
               </span>
               {(!collapsed || isMobile) && <span className="truncate flex-1">{label}</span>}
+              {/* Dos avisos en Productos: bajo stock (ámbar, solo admin) y "Para contactar" (rojo) */}
               {(!collapsed || isMobile) && path === '/productos' && isAdmin && (productosStats?.bajo_stock_count ?? 0) > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0">
+                <span
+                  className="bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0"
+                  title={`${productosStats!.bajo_stock_count} con bajo stock`}
+                >
                   {productosStats!.bajo_stock_count}
                 </span>
               )}
@@ -146,6 +165,15 @@ const SidebarContent = ({
                   data-testid="badge-puntuaciones"
                 >
                   {puntuacionesPendientes > 99 ? '99+' : puntuacionesPendientes}
+                </span>
+              )}
+              {(!collapsed || isMobile) && path === '/productos' && avisosPendientes > 0 && (
+                <span
+                  className="bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center shrink-0"
+                  title={`${avisosPendientes} ${avisosPendientes === 1 ? 'cliente espera' : 'clientes esperan'} que le escriban`}
+                  data-testid="badge-para-contactar"
+                >
+                  {avisosPendientes > 99 ? '99+' : avisosPendientes}
                 </span>
               )}
             </NavLink>

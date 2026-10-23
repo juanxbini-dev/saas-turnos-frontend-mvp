@@ -24,6 +24,7 @@ export const ENTITIES = {
   GASTOS: 'gastos',
   CAMPANIAS: 'campanias',
   PUNTUACIONES: 'puntuaciones',
+  AVISOS: 'avisos',
   SEGUIMIENTO: 'seguimiento'
 } as const;
 
