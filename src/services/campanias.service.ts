@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios';
 import axiosInstance from '../api/axiosInstance';
 import { cacheService } from '../cache/cache.service';
 import { buildKey, ENTITIES } from '../cache/key.builder';
@@ -134,6 +135,24 @@ export const campaniasService = {
   async getCampania(tipo: CampaniaTipo): Promise<Campania> {
     const response = await axiosInstance.get(`${BASE}/${tipo}`, conToken());
     return response.data.data;
+  },
+
+  // ¿La campaña Lista vieja está prendida? Para avisar en Beneficios antes de
+  // desactivar o reemplazar el activo (beneficios-tipos D13). Usa la config ya
+  // cacheada por la pestaña si está; si no, el mismo GET de siempre, y solo si
+  // hay token de la sección (sin token no se puede saber). Nunca rechaza:
+  // null = no se sabe. Un fallo acá no abre el modal de reporte.
+  async estaPrendidaListaVieja(): Promise<boolean | null> {
+    const cacheada = cacheService.get<Campania>(buildKey(ENTITIES.CAMPANIAS, 'lista_vieja', 'config'));
+    if (cacheada && typeof cacheada.activa === 'boolean') return cacheada.activa;
+    if (!getCampaniasToken()) return null;
+    try {
+      const response = await axiosInstance.get(`${BASE}/lista_vieja`, { ...conToken(), _sinReporteGlobal: true } as AxiosRequestConfig);
+      const activa = response.data?.data?.activa;
+      return typeof activa === 'boolean' ? activa : null;
+    } catch {
+      return null;
+    }
   },
 
   async actualizarCampania(tipo: CampaniaTipo, cambios: CampaniaPatch): Promise<Campania> {

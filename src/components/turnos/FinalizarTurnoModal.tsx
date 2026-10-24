@@ -9,7 +9,8 @@ import { productosService } from '../../services/productos.service';
 import { Producto } from '../../types/producto.types';
 import { useFetch } from '../../hooks/useFetch';
 import axiosInstance from '../../api/axiosInstance';
-import { BeneficioTurnoBadge } from './BeneficioTurnoBadge';
+import { BeneficioTurnoBadge, textoVieneCon } from './BeneficioTurnoBadge';
+import { esBeneficioOtro } from '../../config/beneficio';
 
 interface FinalizarTurnoModalProps {
   isOpen: boolean;
@@ -47,18 +48,24 @@ export function FinalizarTurnoModal({
   // Código de beneficio del turno (plan mails-beneficios §4.5, P8): el descuento
   // viene precargado y bloqueado. "Cobrar sin el código" lo desbloquea (queda en
   // 0) y manda usar_beneficio:false → el código vuelve a 'emitido'.
+  // Tipo 'otro' (beneficios-tipos §3.4/§3.7): NO hay descuento precargado ni
+  // bloqueado; aparece el aviso "Este turno viene con: …" y quien cobra carga
+  // un descuento a mano si corresponde. usar_beneficio viaja igual.
   const beneficio = turno.beneficio ?? null;
+  const beneficioOtro = !!beneficio && esBeneficioOtro(beneficio);
   const [usarBeneficio, setUsarBeneficio] = useState(true);
-  const descuentoBloqueado = !!beneficio && usarBeneficio;
+  const descuentoBloqueado = !!beneficio && usarBeneficio && !beneficioOtro;
 
   const aplicarDescuentoDelBeneficio = () => {
-    if (!beneficio) return;
+    if (!beneficio || beneficioOtro || typeof beneficio.porcentaje !== 'number') return;
     setDescuentoPorcentaje(String(beneficio.porcentaje));
     setDescuentoAplicarA({ servicio: beneficio.aplica_servicio, productos: beneficio.aplica_productos });
   };
 
   const handleCobrarSinCodigo = (sinCodigo: boolean) => {
     setUsarBeneficio(!sinCodigo);
+    // Con 'otro' el descuento es el que haya cargado quien cobra: no se toca
+    if (beneficioOtro) return;
     if (sinCodigo) {
       setDescuentoPorcentaje('');
       setDescuentoAplicarA({ servicio: true, productos: true });
@@ -110,11 +117,14 @@ export function FinalizarTurnoModal({
         .finally(() => setLoadingProductosExistentes(false));
     }
 
-    // Con código de beneficio, el descuento es el del código (pisa lo que haya)
+    // Con código de descuento, el descuento es el del código (pisa lo que haya).
+    // Con 'otro' no se precarga nada (en editar queda el descuento que ya tenía).
     if (turno.beneficio) {
       setUsarBeneficio(true);
-      setDescuentoPorcentaje(String(turno.beneficio.porcentaje));
-      setDescuentoAplicarA({ servicio: turno.beneficio.aplica_servicio, productos: turno.beneficio.aplica_productos });
+      if (!esBeneficioOtro(turno.beneficio) && typeof turno.beneficio.porcentaje === 'number') {
+        setDescuentoPorcentaje(String(turno.beneficio.porcentaje));
+        setDescuentoAplicarA({ servicio: turno.beneficio.aplica_servicio, productos: turno.beneficio.aplica_productos });
+      }
     }
     // Depende del turno (id) y de su código, no del objeto: un re-render del
     // padre con un objeto nuevo no debe pisar el tilde "Cobrar sin el código".
@@ -347,9 +357,18 @@ export function FinalizarTurnoModal({
             <div className="flex items-center gap-2 flex-wrap">
               <BeneficioTurnoBadge beneficio={beneficio} variante="chip" />
               <span className="text-xs text-amber-800">
-                {usarBeneficio ? 'El descuento del código queda aplicado.' : 'Se cobra sin el código: queda libre para otro turno.'}
+                {!usarBeneficio
+                  ? 'Se cobra sin el código: queda libre para otro turno.'
+                  : beneficioOtro
+                    ? 'No es un descuento: entregalo vos. Si además corresponde un descuento, cargalo abajo a mano.'
+                    : 'El descuento del código queda aplicado.'}
               </span>
             </div>
+            {beneficioOtro && usarBeneficio && (
+              <p className="text-sm font-medium text-amber-900" data-testid="beneficio-viene-con">
+                {textoVieneCon(beneficio)}
+              </p>
+            )}
             <label className="flex items-center gap-2 cursor-pointer w-fit">
               <input
                 type="checkbox"

@@ -16,7 +16,7 @@ const fmtNumero = new Intl.NumberFormat('es-AR');
 
 export const MOTIVO_TEXTO_LISTA_VIEJA: Record<keyof ListaViejaMotivos, string> = {
   apagada: 'La campaña está apagada: hoy no sale ningún mail.',
-  sin_beneficio: 'No hay un beneficio elegido: hoy no sale ningún mail.',
+  sin_beneficio: 'No hay beneficio activo: hoy no sale ningún mail.',
   fuera_de_horario: 'Fuera del horario de envío: los mails salen a las 11:00.',
 };
 

@@ -118,7 +118,7 @@ const SEGUIMIENTO: CampaniaSeguimiento = {
 
 const LISTA_VIEJA: CampaniaListaVieja = {
   id: 'camp-6', tipo: 'lista_vieja', activa: false, tope_diario: 50, cooldown_dias: 0,
-  parametros: { dias_recordatorio: 10, beneficio_id: null },
+  parametros: { dias_recordatorio: 10 },
   updated_at: '2026-10-22T13:00:00.000Z',
   hoy: { fecha: '2026-10-22', usados: 0, cupo_restante: 50 },
   avisos: { ...AVISOS, canal: 'email', beneficio: null, contactos_pendientes: 0, resend_configurado: true },

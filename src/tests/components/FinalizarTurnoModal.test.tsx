@@ -140,13 +140,13 @@ describe('FinalizarTurnoModal', () => {
       expect(screen.getByText('pendiente')).toBeInTheDocument();
     });
 
-    it('al hacer click en efectivo, ese botón recibe la clase de activo (border-blue-500)', () => {
+    it('al hacer click en efectivo, ese botón recibe la clase de activo (bg-blue-600 border-blue-600)', () => {
       render(<FinalizarTurnoModal {...defaultProps} />);
       const btnEfectivo = screen.getByText('efectivo').closest('button')!;
 
       fireEvent.click(btnEfectivo);
 
-      expect(btnEfectivo.className).toContain('border-blue-500');
+      expect(btnEfectivo.className).toContain('border-blue-600');
     });
 
     it('al hacer click en transferencia, ese botón recibe la clase de activo', () => {
@@ -155,7 +155,7 @@ describe('FinalizarTurnoModal', () => {
 
       fireEvent.click(btnTransferencia);
 
-      expect(btnTransferencia.className).toContain('border-blue-500');
+      expect(btnTransferencia.className).toContain('border-blue-600');
     });
 
     it('al hacer click en efectivo, el botón de pendiente pierde la clase activa', () => {
@@ -165,7 +165,7 @@ describe('FinalizarTurnoModal', () => {
 
       fireEvent.click(btnEfectivo);
 
-      expect(btnPendiente.className).not.toContain('border-blue-500');
+      expect(btnPendiente.className).not.toContain('border-blue-600');
     });
   });
 

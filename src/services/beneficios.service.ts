@@ -2,6 +2,7 @@ import axiosInstance from '../api/axiosInstance';
 import { cacheService } from '../cache/cache.service';
 import { buildKey, ENTITIES } from '../cache/key.builder';
 import type {
+  ActivarBeneficioRespuesta,
   Beneficio,
   BeneficioConCodigos,
   CodigoEmitido,
@@ -11,7 +12,8 @@ import type {
   EditarBeneficioData,
 } from '../types/beneficios.types';
 
-// Beneficios y códigos de descuento (backend/docs/mails-beneficios-plan.md §4.4).
+// Beneficios y sus códigos (backend/docs/mails-beneficios-plan.md §4.4 y
+// beneficios-tipos-plan.md §3.3: tipo y un solo activo).
 // Solo admin: el backend responde 403 a los demás roles.
 const BASE = '/api/beneficios';
 
@@ -38,10 +40,12 @@ export function invalidarCacheBeneficios(): void {
   cacheService.invalidateByPrefix(buildKey(ENTITIES.BENEFICIOS));
 }
 
-// La config de la campaña "Lista vieja" muestra el beneficio elegido (nombre,
-// %, activo): crear o editar un beneficio la deja vieja.
+// La campaña "Lista vieja" ofrece el beneficio ACTIVO: su config trae
+// `avisos.beneficio` y la vista previa el motivo `sin_beneficio`. Crear, editar,
+// activar o desactivar un beneficio las deja viejas.
 function invalidarConfigListaVieja(): void {
   cacheService.invalidate(buildKey(ENTITIES.CAMPANIAS, 'lista_vieja', 'config'));
+  cacheService.invalidate(buildKey(ENTITIES.CAMPANIAS, 'lista_vieja', 'preview'));
 }
 
 // Quita claves vacías para no mandar `estado=` o `busqueda=` en la query
@@ -69,6 +73,23 @@ export const beneficiosService = {
 
   async editar(id: string, data: EditarBeneficioData): Promise<Beneficio> {
     const response = await axiosInstance.patch(`${BASE}/${id}`, data);
+    invalidarCacheBeneficios();
+    invalidarConfigListaVieja();
+    return response.data.data;
+  },
+
+  // Un solo activo por empresa: activar apaga el anterior en la misma
+  // transacción y devuelve a quién reemplazó (o null).
+  async activar(id: string): Promise<ActivarBeneficioRespuesta> {
+    const response = await axiosInstance.post(`${BASE}/${id}/activar`);
+    invalidarCacheBeneficios();
+    invalidarConfigListaVieja();
+    return response.data.data;
+  },
+
+  // Puede quedar sin ningún activo (las campañas no salen hasta activar otro)
+  async desactivar(id: string): Promise<Beneficio> {
+    const response = await axiosInstance.post(`${BASE}/${id}/desactivar`);
     invalidarCacheBeneficios();
     invalidarConfigListaVieja();
     return response.data.data;

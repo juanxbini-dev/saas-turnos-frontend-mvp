@@ -143,7 +143,8 @@ describe('Campañas · Reposición y Seguimiento', () => {
     renderPage('reposicion_producto');
 
     expect(await screen.findByLabelText('Días antes de que se le termine')).toBeTruthy();
-    expect((screen.getByLabelText('Días antes de que se le termine') as HTMLInputElement).value).toBe('5');
+    // El formulario toma los valores del servidor apenas llegan (con la suite entera puede tardar un render)
+    await waitFor(() => expect((screen.getByLabelText('Días antes de que se le termine') as HTMLInputElement).value).toBe('5'));
     expect((screen.getByLabelText('Durante cuántos días se le puede escribir') as HTMLInputElement).value).toBe('10');
     expect((screen.getByLabelText('Días mínimos entre dos avisos a la misma persona') as HTMLInputElement).value).toBe('14');
     expect(screen.getByRole('tab', { name: 'Reposición' }).getAttribute('aria-selected')).toBe('true');

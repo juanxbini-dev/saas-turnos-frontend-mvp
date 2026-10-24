@@ -80,7 +80,7 @@ export function BeneficioCodigosTabla({ beneficio, onCambio }: BeneficioCodigosT
       subtitulo="Cada código que se emitió, a quién, y qué pasó con él."
       etiqueta="Códigos del beneficio"
       accion={
-        <Button leftIcon={Ticket} onClick={() => setEmitiendo(true)} disabled={!beneficio.activo} title={beneficio.activo ? undefined : 'El beneficio está desactivado'}>
+        <Button leftIcon={Ticket} onClick={() => setEmitiendo(true)}>
           Emitir código a un cliente
         </Button>
       }

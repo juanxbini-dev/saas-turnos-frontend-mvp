@@ -9,12 +9,12 @@ import {
   configListaViejaSchema,
   crearConfigListaViejaSchema,
 } from '../../components/campanias/listaVieja/CampaniaConfigListaVieja';
-import { cacheService } from '../../cache/cache.service';
-import { buildKey, ENTITIES } from '../../cache/key.builder';
 import type { CampaniaListaVieja } from '../../types/campanias.types';
 
-// Configuración de "Lista vieja (mail)" (plan mails-beneficios §4.3): tope, días
-// para el recordatorio (0 a 60) y el beneficio, obligatorio para prender.
+// Configuración de "Lista vieja (mail)" (mails-beneficios §4.3 + beneficios-tipos
+// §3.5/§3.7): tope y días para el recordatorio (0 a 60). Sin selector de
+// beneficio: muestra el activo ("Ofrece: … · Se cambia en Beneficios") o el
+// aviso de que sin activo la campaña no puede salir.
 
 configure({ asyncUtilTimeout: 5000 });
 
@@ -29,6 +29,7 @@ vi.mock('../../services/campanias.service', () => ({
     error?.response?.data?.message || porDefecto,
 }));
 
+// La pestaña ya no pide la lista de beneficios
 const listar = vi.fn();
 vi.mock('../../services/beneficios.service', async () => {
   const real = await vi.importActual<typeof import('../../services/beneficios.service')>('../../services/beneficios.service');
@@ -39,28 +40,27 @@ vi.mock('../../services/toast.service', () => ({
   toastService: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
-const BENEFICIOS = [
-  { id: 'ben-1', nombre: 'Bienvenida', porcentaje: 20, aplica_servicio: true, aplica_productos: false, vigencia_dias: 30, activo: true, en_landing: true, created_at: '', updated_at: '', codigos: { emitidos: 0, reservados: 0, usados: 0, vencidos: 0 } },
-  { id: 'ben-2', nombre: 'Viejo', porcentaje: 10, aplica_servicio: true, aplica_productos: true, vigencia_dias: 30, activo: false, en_landing: false, created_at: '', updated_at: '', codigos: { emitidos: 0, reservados: 0, usados: 0, vencidos: 0 } },
-];
+type BeneficioAviso = CampaniaListaVieja['avisos']['beneficio'];
 
-const campania = (over: Partial<CampaniaListaVieja['parametros']> = {}): CampaniaListaVieja => ({
+const DESCUENTO: BeneficioAviso = { id: 'ben-1', nombre: 'Bienvenida', tipo: 'descuento', porcentaje: 20 };
+const REGALO: BeneficioAviso = { id: 'ben-2', nombre: 'Ampolla de tratamiento de regalo', tipo: 'otro', porcentaje: null };
+
+const campania = (beneficio: BeneficioAviso = null, over: Partial<CampaniaListaVieja['parametros']> = {}): CampaniaListaVieja => ({
   id: 'camp-6',
   tipo: 'lista_vieja',
   activa: false,
   tope_diario: 50,
   cooldown_dias: 0,
-  parametros: { dias_recordatorio: 10, beneficio_id: null, ...over },
+  parametros: { dias_recordatorio: 10, ...over },
   updated_at: '2026-10-22T13:00:00.000Z',
   hoy: { fecha: '2026-10-22', usados: 0, cupo_restante: 50 },
-  avisos: { servicios_activos: 9, servicios_con_frecuencia: 3, modo_prueba: false, conexion_configurada: true, canal: 'email', beneficio: null, contactos_pendientes: 100, resend_configurado: true },
+  avisos: { servicios_activos: 9, servicios_con_frecuencia: 3, modo_prueba: false, conexion_configurada: true, canal: 'email', beneficio, contactos_pendientes: 100, resend_configurado: true },
 });
 
 const campo = (label: string) => screen.getByLabelText(label) as HTMLInputElement;
-const select = () => screen.getByLabelText('Beneficio del mail') as HTMLSelectElement;
 const guardar = () => screen.getByRole('button', { name: 'Guardar cambios' }) as HTMLButtonElement;
 
-function renderForm(c: CampaniaListaVieja | null = campania(), errorBeneficio: string | null = null) {
+function renderForm(c: CampaniaListaVieja | null = campania(DESCUENTO), errorBeneficio: string | null = null) {
   const props = { campania: c, loading: false, error: false, onReintentar: vi.fn(), onGuardado: vi.fn(), errorBeneficio };
   const utils = render(
     <MemoryRouter>
@@ -70,7 +70,7 @@ function renderForm(c: CampaniaListaVieja | null = campania(), errorBeneficio: s
   return { ...utils, props };
 }
 
-const BASE = { tope_diario: '50', dias_recordatorio: '10', beneficio_id: '' };
+const BASE = { tope_diario: '50', dias_recordatorio: '10' };
 
 describe('configListaViejaSchema', () => {
   it('acepta el default y el recordatorio en 0', () => {
@@ -92,12 +92,9 @@ describe('configListaViejaSchema', () => {
 });
 
 describe('armarPatchListaVieja', () => {
-  it('solo manda lo que cambió, con números, y vaciar el beneficio manda null', () => {
-    expect(armarPatchListaVieja({ ...BASE, dias_recordatorio: '0', beneficio_id: 'ben-1' }, BASE)).toEqual({
-      dias_recordatorio: 0,
-      beneficio_id: 'ben-1',
-    });
-    expect(armarPatchListaVieja(BASE, { ...BASE, beneficio_id: 'ben-1' })).toEqual({ beneficio_id: null });
+  it('solo manda lo que cambió, con números, y nunca beneficio_id', () => {
+    expect(armarPatchListaVieja({ ...BASE, dias_recordatorio: '0' }, BASE)).toEqual({ dias_recordatorio: 0 });
+    expect(armarPatchListaVieja({ tope_diario: '80', dias_recordatorio: '5' }, BASE)).toEqual({ tope_diario: 80, dias_recordatorio: 5 });
     expect(armarPatchListaVieja(BASE, BASE)).toEqual({});
   });
 });
@@ -105,41 +102,46 @@ describe('armarPatchListaVieja', () => {
 describe('CampaniaConfigListaVieja', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    cacheService.invalidateByPrefix(buildKey(ENTITIES.BENEFICIOS));
-    listar.mockResolvedValue(BENEFICIOS);
   });
 
-  it('muestra los valores del servidor, solo los beneficios activos para elegir y el aviso de "elegí un beneficio"', async () => {
+  it('sin selector: muestra "Ofrece: …" con el link a Beneficios y no pide la lista de beneficios', () => {
     renderForm();
     expect(campo('Máximo de mails por día').value).toBe('50');
     expect(campo('Días para el recordatorio').value).toBe('10');
-    expect(select().value).toBe('');
-    expect(screen.getByText(AVISO_SIN_BENEFICIO)).toBeTruthy();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByLabelText('Beneficio del mail')).toBeNull();
 
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Bienvenida (20 %)' })).toBeTruthy());
-    expect(screen.queryByRole('option', { name: /Viejo/ })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Beneficios' }).getAttribute('href')).toBe('/beneficios');
+    const ofrece = screen.getByTestId('lista-vieja-ofrece');
+    expect(ofrece.textContent).toBe('Ofrece: Bienvenida (20 %) · Se cambia en Beneficios');
+    expect(screen.getByRole('link', { name: 'Se cambia en Beneficios' }).getAttribute('href')).toBe('/beneficios');
+    expect(screen.queryByText(/No hay beneficio activo/)).toBeNull();
+    expect(listar).not.toHaveBeenCalled();
     expect(guardar().disabled).toBe(true);
   });
 
-  it('un beneficio desactivado que sigue elegido se muestra igual, marcado', async () => {
-    renderForm(campania({ beneficio_id: 'ben-2' }));
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Viejo (10 %) · desactivado' })).toBeTruthy());
-    expect(select().value).toBe('ben-2');
-    expect(screen.queryByText(AVISO_SIN_BENEFICIO)).toBeNull();
+  it('con un beneficio "otro" lo describe por su nombre, sin porcentaje', () => {
+    renderForm(campania(REGALO));
+    expect(screen.getByTestId('lista-vieja-ofrece').textContent).toBe('Ofrece: Ampolla de tratamiento de regalo · Se cambia en Beneficios');
   });
 
-  it('elegir un beneficio saca el aviso y al guardar manda solo beneficio_id', async () => {
-    actualizarCampania.mockResolvedValue(campania({ beneficio_id: 'ben-1' }));
-    const { props } = renderForm();
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Bienvenida (20 %)' })).toBeTruthy());
+  it('sin beneficio activo: aviso "la campaña no puede salir" con link a Beneficios', () => {
+    renderForm(campania(null));
+    const aviso = screen.getByTestId('lista-vieja-sin-beneficio');
+    expect(aviso.textContent).toContain(AVISO_SIN_BENEFICIO);
+    expect(AVISO_SIN_BENEFICIO).toBe('No hay beneficio activo: la campaña no puede salir.');
+    expect(screen.getByRole('link', { name: 'Activá uno en Beneficios' }).getAttribute('href')).toBe('/beneficios');
+    expect(screen.queryByTestId('lista-vieja-ofrece')).toBeNull();
+  });
 
-    fireEvent.change(select(), { target: { value: 'ben-1' } });
-    await waitFor(() => expect(screen.queryByText(AVISO_SIN_BENEFICIO)).toBeNull());
+  it('sin beneficio activo igual se editan tope y recordatorio (D16), y el PATCH no lleva beneficio_id', async () => {
+    actualizarCampania.mockResolvedValue(campania(null, { dias_recordatorio: 5 }));
+    const { props } = renderForm(campania(null));
+
+    fireEvent.change(campo('Días para el recordatorio'), { target: { value: '5' } });
     await waitFor(() => expect(guardar().disabled).toBe(false));
     fireEvent.click(guardar());
 
-    await waitFor(() => expect(actualizarCampania).toHaveBeenCalledWith('lista_vieja', { beneficio_id: 'ben-1' }));
+    await waitFor(() => expect(actualizarCampania).toHaveBeenCalledWith('lista_vieja', { dias_recordatorio: 5 }));
     await waitFor(() => expect(props.onGuardado).toHaveBeenCalled());
   });
 
@@ -151,17 +153,8 @@ describe('CampaniaConfigListaVieja', () => {
     await waitFor(() => expect(actualizarCampania).not.toHaveBeenCalled());
   });
 
-  it('con el error del servidor al prender sin beneficio, lo muestra en el campo del beneficio', () => {
-    renderForm(campania(), 'Elegí un beneficio antes de prender la campaña');
-    expect(screen.getByRole('alert').textContent).toBe('Elegí un beneficio antes de prender la campaña');
-  });
-
-  it('si la lista de beneficios falla, lo dice sin romper el formulario', async () => {
-    listar.mockRejectedValue(new Error('Network Error'));
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    renderForm();
-    expect(await screen.findByText('No pudimos cargar la lista de beneficios para elegir.')).toBeTruthy();
-    expect(campo('Máximo de mails por día').value).toBe('50');
-    errorSpy.mockRestore();
+  it('con el error del servidor al prender sin beneficio activo, lo muestra', () => {
+    renderForm(campania(null), 'No hay un beneficio activo');
+    expect(screen.getByRole('alert').textContent).toBe('No hay un beneficio activo');
   });
 });

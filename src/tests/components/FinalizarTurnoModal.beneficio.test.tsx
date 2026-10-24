@@ -35,8 +35,13 @@ vi.mock('../../services/productos.service', () => ({
 }));
 
 const BENEFICIO = {
-  codigo_id: 'bc-1', codigo: 'DEB-7K3P9', nombre: 'Bienvenida', porcentaje: 15,
+  codigo_id: 'bc-1', codigo: 'DEB-7K3P9', nombre: 'Bienvenida', tipo: 'descuento' as const, porcentaje: 15,
   aplica_servicio: true, aplica_productos: false, estado: 'reservado' as const,
+};
+
+// beneficios-tipos §3.4/§3.7: un regalo, sin porcentaje
+const BENEFICIO_OTRO = {
+  ...BENEFICIO, nombre: 'Ampolla de tratamiento de regalo', tipo: 'otro' as const, porcentaje: null,
 };
 
 const turnoBase: TurnoConDetalle = {
@@ -182,5 +187,64 @@ describe('FinalizarTurnoModal — turno con código de beneficio', () => {
     await cobrarEnEfectivo();
     await waitFor(() => expect(finalizarTurno).toHaveBeenCalledTimes(1));
     expect(finalizarTurno.mock.calls[0][1]).not.toHaveProperty('usar_beneficio');
+  });
+});
+
+describe('FinalizarTurnoModal — beneficio tipo "otro" (sin descuento precargado)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('alert', vi.fn());
+    finalizarTurno.mockResolvedValue({ id: 'turno-1', estado: 'completado' });
+    editarPago.mockResolvedValue({ id: 'turno-1' });
+  });
+
+  it('muestra "Este turno viene con: …" y NO precarga ni bloquea el descuento', () => {
+    renderModal({ turno: { ...turnoBase, beneficio: BENEFICIO_OTRO } });
+
+    expect(screen.getByTestId('beneficio-viene-con').textContent).toBe('Este turno viene con: Ampolla de tratamiento de regalo');
+    expect(campoPorcentaje().value).toBe('');
+    expect(campoPorcentaje().disabled).toBe(false);
+    expect(screen.queryByText('Fijado por el código de descuento.')).toBeNull();
+    expect(screen.queryByText('El descuento del código queda aplicado.')).toBeNull();
+    // "Cobrar sin el código" sigue estando
+    expect(tilde().checked).toBe(false);
+  });
+
+  it('manda usar_beneficio:true y el descuento que haya cargado quien cobra (o ninguno)', async () => {
+    renderModal({ turno: { ...turnoBase, beneficio: BENEFICIO_OTRO } });
+    await cobrarEnEfectivo();
+
+    await waitFor(() => expect(finalizarTurno).toHaveBeenCalledTimes(1));
+    const [, payload] = finalizarTurno.mock.calls[0];
+    expect(payload).toMatchObject({ metodoPago: 'efectivo', usar_beneficio: true });
+    expect(payload.descuentoPorcentaje).toBeUndefined();
+  });
+
+  it('quien cobra puede cargar un descuento a mano y viaja con usar_beneficio:true', async () => {
+    renderModal({ turno: { ...turnoBase, beneficio: BENEFICIO_OTRO } });
+    fireEvent.change(campoPorcentaje(), { target: { value: '10' } });
+    await cobrarEnEfectivo();
+
+    await waitFor(() => expect(finalizarTurno).toHaveBeenCalledTimes(1));
+    expect(finalizarTurno.mock.calls[0][1]).toMatchObject({ descuentoPorcentaje: 10, usar_beneficio: true });
+  });
+
+  it('"Cobrar sin el código" no toca el descuento cargado y manda usar_beneficio:false', async () => {
+    renderModal({ turno: { ...turnoBase, beneficio: BENEFICIO_OTRO } });
+    fireEvent.change(campoPorcentaje(), { target: { value: '10' } });
+    fireEvent.click(tilde());
+
+    expect(campoPorcentaje().value).toBe('10');
+    expect(screen.queryByTestId('beneficio-viene-con')).toBeNull();
+    await cobrarEnEfectivo();
+
+    await waitFor(() => expect(finalizarTurno).toHaveBeenCalledTimes(1));
+    expect(finalizarTurno.mock.calls[0][1]).toMatchObject({ descuentoPorcentaje: 10, usar_beneficio: false });
+  });
+
+  it('en modo editar deja el descuento que ya tenía el turno, sin pisarlo', () => {
+    renderModal({ mode: 'editar', turno: { ...turnoBase, estado: 'completado', metodo_pago: 'efectivo', descuento_porcentaje: 5, beneficio: { ...BENEFICIO_OTRO, estado: 'usado' } } });
+    expect(campoPorcentaje().value).toBe('5');
+    expect(campoPorcentaje().disabled).toBe(false);
   });
 });

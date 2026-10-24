@@ -6,7 +6,10 @@ import { SeccionCard, SeccionError } from './CampaniaSeccion';
 import { useCampaniasGate } from './CampaniasGate';
 import { campaniasService, esFalloTokenCampanias, mensajeDeError } from '../../services/campanias.service';
 import { toastService } from '../../services/toast.service';
+import { describirBeneficioConNombre } from '../../config/beneficio';
 import type { Campania, CampaniaTipo } from '../../types/campanias.types';
+
+export const AVISO_PRENDER_SIN_BENEFICIO = 'Para prenderla, activá un beneficio.';
 
 interface CampaniaEstadoCardProps {
   campania: Campania | null;
@@ -133,6 +136,9 @@ export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintenta
   }
 
   const { activa, tope_diario, hoy, avisos } = campania;
+  // Lista vieja sin beneficio activo (beneficios-tipos D16): apagada no se
+  // puede prender (el backend daría 400 BENEFICIO_REQUERIDO); prendida sí se apaga.
+  const prenderBloqueado = campania.tipo === 'lista_vieja' && !campania.avisos.beneficio && !activa;
 
   return (
     <SeccionCard
@@ -146,7 +152,8 @@ export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintenta
           aria-checked={activa}
           aria-label="Encender o apagar la campaña"
           onClick={handleSwitch}
-          disabled={guardando}
+          disabled={guardando || prenderBloqueado}
+          title={prenderBloqueado ? AVISO_PRENDER_SIN_BENEFICIO : undefined}
           className={[
             'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors',
             'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
@@ -165,6 +172,12 @@ export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintenta
           {activa ? 'Encendida' : 'Apagada'}
         </span>
       </div>
+      {prenderBloqueado && (
+        <p className="text-xs text-yellow-800 mt-2" data-testid="prender-bloqueado">
+          {AVISO_PRENDER_SIN_BENEFICIO}{' '}
+          <Link to="/beneficios" className="font-medium underline hover:text-yellow-900">Ir a Beneficios</Link>
+        </p>
+      )}
 
       <p className="text-sm text-gray-700 mt-3">
         {activa
@@ -177,8 +190,8 @@ export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintenta
       {campania.tipo === 'lista_vieja' && (
         <p className="text-sm text-gray-600 mt-1" data-testid="lista-vieja-resumen">
           {campania.avisos.beneficio
-            ? `Beneficio: ${campania.avisos.beneficio.nombre} (${campania.avisos.beneficio.porcentaje} %). `
-            : 'Sin beneficio elegido. '}
+            ? `Ofrece: ${describirBeneficioConNombre(campania.avisos.beneficio)}. `
+            : 'Sin beneficio activo. '}
           {new Intl.NumberFormat('es-AR').format(campania.avisos.contactos_pendientes ?? 0)} contactos todavía no recibieron el mail.
         </p>
       )}

@@ -45,7 +45,7 @@ vi.mock('../../hooks/useDisponibilidad', () => ({
 }));
 
 const CODIGO = 'DEB-7K3P9';
-const BENEFICIO = { nombre: 'Bienvenida', porcentaje: 15, aplica_servicio: true, aplica_productos: false };
+const BENEFICIO = { nombre: 'Bienvenida', tipo: 'descuento' as const, porcentaje: 15, aplica_servicio: true, aplica_productos: false };
 const CLAVE_STORAGE = 'debsalon:beneficio:codigo';
 
 const PROFESIONALES = [
@@ -164,7 +164,7 @@ describe('DebSalonLandingPage — ?b= código de beneficio del mail', () => {
 
     await elegirCorteYLlegarAlPaso3();
     expect(screen.getByTestId('chip-beneficio')).toBeTruthy();
-    expect((screen.getByLabelText('¿Tenés un código de descuento?') as HTMLInputElement).value).toBe(CODIGO);
+    expect((screen.getByLabelText('¿Tenés un código?') as HTMLInputElement).value).toBe(CODIGO);
 
     completarDatosYConfirmar();
     await waitFor(() => expect(llamadasAReservar()).toHaveLength(1));
@@ -212,7 +212,7 @@ describe('DebSalonLandingPage — ?b= código de beneficio del mail', () => {
     expect(guardado()).toBeNull();
 
     await elegirCorteYLlegarAlPaso3();
-    expect((screen.getByLabelText('¿Tenés un código de descuento?') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('¿Tenés un código?') as HTMLInputElement).value).toBe('');
   });
 
   it.each([['abc'], ['DEB-7K3P'], ['<script>alert(1)</script>']])('?b=%s no tiene forma de código: no consulta y se saca de la barra', async (b) => {

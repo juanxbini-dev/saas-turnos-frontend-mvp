@@ -7,7 +7,8 @@ import { CreateTurnoPublicModal } from '../../components/turnos/CreateTurnoPubli
 // Con la suite entera esta máquina tarda ~4-5 min y un test de ~5 s queda al borde del timeout
 vi.setConfig({ testTimeout: 20000 });
 // Plan mails-beneficios §4.1 / fase 4a: el paso 3 tiene un campo opcional
-// "¿Tenés un código de descuento?" que se valida al salir del campo y muestra
+// "¿Tenés un código?" (neutro: puede ser un descuento u otro beneficio,
+// beneficios-tipos §3.7) que se valida al salir del campo y muestra
 // el chip 🎟 o el motivo. Al confirmar viaja `beneficio_codigo`; si el backend
 // contesta BENEFICIO_INVALIDO / BENEFICIO_NO_CORRESPONDE el turno NO se creó y
 // el error se ve en el paso 3, al lado del campo.
@@ -53,9 +54,10 @@ vi.mock('../../hooks/useDisponibilidad', () => ({
 }));
 
 const SERVICIO = { id: 'srv-1', nombre: 'Corte', descripcion: '', precio: 10000, duracion_minutos: 30 };
-const BENEFICIO = { nombre: 'Bienvenida', porcentaje: 15, aplica_servicio: true, aplica_productos: false };
+const BENEFICIO = { nombre: 'Bienvenida', tipo: 'descuento' as const, porcentaje: 15, aplica_servicio: true, aplica_productos: false };
+const REGALO = { nombre: 'Ampolla de tratamiento de regalo', tipo: 'otro' as const, porcentaje: null, aplica_servicio: true, aplica_productos: false };
 const VALIDO = { valido: true, beneficio: BENEFICIO, vence_el: '2026-11-12' };
-const LABEL_CODIGO = '¿Tenés un código de descuento?';
+const LABEL_CODIGO = '¿Tenés un código?';
 
 const falla400 = (code: string, message: string) =>
   Object.assign(new Error('400'), { response: { status: 400, data: { success: false, code, message } } });
@@ -307,5 +309,24 @@ describe('CreateTurnoPublicModal — código de beneficio', () => {
 
     await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
     expect(createTurno.mock.calls[0][0]).not.toHaveProperty('beneficio_codigo');
+  });
+
+  it('con un beneficio "otro": el chip y la pantalla de éxito lo nombran, sin hablar de descuento', async () => {
+    validarCodigo.mockResolvedValue({ valido: true, beneficio: REGALO, vence_el: '2026-11-12' });
+    createTurno.mockResolvedValue({ data: { success: true, data: { id: 'tur-1', beneficio: { codigo: 'DEB-7K3P9', ...REGALO } } } });
+    renderModal();
+    await irAlPaso3();
+    completarDatos();
+    escribirCodigoYSalir('DEB-7K3P9');
+
+    expect(await screen.findByTestId('chip-beneficio')).toHaveTextContent('Tu beneficio: Ampolla de tratamiento de regalo · vence el 12/11');
+    expect(screen.getByText('Código válido: Ampolla de tratamiento de regalo.')).toBeTruthy();
+    expect(screen.queryByText(/%/)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
+    await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+    expect(createTurno.mock.calls[0][0]).toMatchObject({ beneficio_codigo: 'DEB-7K3P9' });
+    expect(await screen.findByText('🎟 Tu beneficio queda anotado en el turno: Ampolla de tratamiento de regalo.')).toBeTruthy();
+    expect(screen.queryByText(/queda aplicado al pagar/)).toBeNull();
   });
 });

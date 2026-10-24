@@ -5,6 +5,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { clienteService } from '../../services/cliente.service';
 import { beneficiosService, mensajeDeErrorBeneficios } from '../../services/beneficios.service';
 import { toastService } from '../../services/toast.service';
+import { describirBeneficioConNombre } from '../../config/beneficio';
 import { formatFechaAR } from '../campanias/campanias.utils';
 import type { Cliente } from '../../types/cliente.types';
 import type { Beneficio, CodigoEmitido } from '../../types/beneficios.types';
@@ -115,7 +116,7 @@ export function EmitirCodigoModal({ isOpen, beneficio, onClose, onEmitido }: Emi
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
-            Beneficio: <span className="font-medium text-gray-900">{beneficio.nombre}</span> ({beneficio.porcentaje} %).
+            Beneficio: <span className="font-medium text-gray-900">{describirBeneficioConNombre(beneficio)}</span>.
             El código le llega por mail si tiene mail cargado.
           </p>
 
