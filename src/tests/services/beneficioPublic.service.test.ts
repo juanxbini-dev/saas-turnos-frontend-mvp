@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  normalizarCodigoBeneficio, esCodigoBeneficio, describirBeneficio, formatearPorcentaje, formatearVenceEl,
+  normalizarCodigoBeneficio, esCodigoBeneficio, describirBeneficio, esBeneficioOtro, formatearPorcentaje, formatearVenceEl,
   guardarBeneficioDeVisita, leerBeneficioDeVisita, olvidarBeneficioDeVisita, beneficioPublicService,
 } from '../../services/public/beneficioPublic.service';
 
@@ -16,7 +16,8 @@ vi.mock('../../api/axiosInstance', () => ({
   },
 }));
 
-const BENEFICIO = { nombre: 'Bienvenida', porcentaje: 15, aplica_servicio: true, aplica_productos: false };
+const BENEFICIO = { nombre: 'Bienvenida', tipo: 'descuento' as const, porcentaje: 15, aplica_servicio: true, aplica_productos: false };
+const REGALO = { nombre: 'Ampolla de tratamiento de regalo', tipo: 'otro' as const, porcentaje: null, aplica_servicio: true, aplica_productos: false };
 const EMPRESA = 'emp-1';
 
 describe('beneficioPublic.service — forma del código', () => {
@@ -45,6 +46,20 @@ describe('beneficioPublic.service — textos', () => {
     expect(describirBeneficio(BENEFICIO)).toBe('15 % en servicios');
     expect(describirBeneficio({ ...BENEFICIO, aplica_productos: true })).toBe('15 % en servicios y productos');
     expect(describirBeneficio({ ...BENEFICIO, aplica_servicio: false, aplica_productos: true })).toBe('15 % en productos');
+    expect(describirBeneficio(BENEFICIO, { conPalabraDescuento: true })).toBe('15 % de descuento en servicios');
+  });
+
+  it('con tipo "otro" describe el beneficio por su nombre (beneficios-tipos §3.7)', () => {
+    expect(describirBeneficio(REGALO)).toBe('Ampolla de tratamiento de regalo');
+    expect(describirBeneficio(REGALO, { conPalabraDescuento: true })).toBe('Ampolla de tratamiento de regalo');
+    expect(esBeneficioOtro(REGALO)).toBe(true);
+    expect(esBeneficioOtro(BENEFICIO)).toBe(false);
+  });
+
+  it('sin tipo (respuesta o guardado de antes) se trata como descuento si trae porcentaje', () => {
+    const { tipo: _t, ...sinTipo } = BENEFICIO;
+    expect(describirBeneficio(sinTipo)).toBe('15 % en servicios');
+    expect(esBeneficioOtro(sinTipo)).toBe(false);
   });
 
   it('formatea porcentajes enteros y con decimales', () => {
@@ -69,6 +84,19 @@ describe('beneficioPublic.service — código de la visita (sessionStorage)', ()
     expect(Object.keys(crudo).sort()).toEqual(['beneficio', 'codigo', 'guardado_at', 'vence_el']);
 
     expect(leerBeneficioDeVisita()).toEqual({ codigo: 'DEB-7K3P9', beneficio: BENEFICIO, vence_el: '2026-11-12' });
+  });
+
+  it('un beneficio "otro" (sin porcentaje) también se guarda y se levanta', () => {
+    guardarBeneficioDeVisita({ codigo: 'DEB-7K3P9', beneficio: REGALO, vence_el: null });
+    expect(leerBeneficioDeVisita()).toEqual({ codigo: 'DEB-7K3P9', beneficio: REGALO, vence_el: null });
+  });
+
+  it('lo guardado antes del cambio (sin tipo) se levanta como descuento', () => {
+    const { tipo: _t, ...sinTipo } = BENEFICIO;
+    window.sessionStorage.setItem('debsalon:beneficio:codigo', JSON.stringify({
+      codigo: 'DEB-7K3P9', beneficio: sinTipo, vence_el: null, guardado_at: Date.now(),
+    }));
+    expect(leerBeneficioDeVisita()?.beneficio).toEqual(BENEFICIO);
   });
 
   it('un código guardado hace más de 24 h se ignora y se borra', () => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Unplug } from 'lucide-react';
+import { Flag, Unplug } from 'lucide-react';
 import { useFetch } from '../../../hooks/useFetch';
 import { buildKey, ENTITIES } from '../../../cache/key.builder';
 import { TTL } from '../../../cache/ttl';
@@ -18,6 +18,18 @@ import type { Campania, CampaniaListaVieja } from '../../../types/campanias.type
 // comparten el GET), pero con vista previa, historial y resultados propios del
 // canal mail.
 
+// Cartel de campaña terminada (beneficios-tipos D7 y D17): N = convertidos,
+// M = total de contactos cargados (si el backend no lo manda, sin la M).
+export function textoTerminada(convertidos: number, total?: number | null, activa = true): string {
+  const n = fmtNumero.format(convertidos);
+  const cuantos = typeof total === 'number' && total > 0
+    ? `${n} de ${fmtNumero.format(total)} se convirtieron`
+    : `${n} se convirtieron`;
+  return `Terminada: ${cuantos}. Ya no quedan mails por mandar${activa ? '; podés apagarla' : ''}.`;
+}
+
+const fmtNumero = new Intl.NumberFormat('es-AR');
+
 export const AVISO_RESEND = 'Falta configurar Resend en el servidor (RESEND_WEBHOOK_SECRET y EMAILS_HMAC_SECRET).';
 
 const TIPO = 'lista_vieja' as const;
@@ -35,7 +47,7 @@ export function ListaViejaPanel() {
   useEffect(() => { setRecienGuardada(null); }, [data]);
 
   const [refresco, setRefresco] = useState(0);
-  // Intentó prender sin beneficio (400 BENEFICIO_REQUERIDO): se muestra en la configuración
+  // Intentó prender sin beneficio activo (400 BENEFICIO_REQUERIDO): se muestra en la configuración
   const [errorBeneficio, setErrorBeneficio] = useState<string | null>(null);
 
   const handleCambio = useCallback((actualizada: Campania) => {
@@ -47,7 +59,7 @@ export function ListaViejaPanel() {
 
   const handleFalloCambio = useCallback((err: unknown) => {
     if (codigoDeError(err) === 'BENEFICIO_REQUERIDO') {
-      setErrorBeneficio(mensajeDeError(err, 'Elegí un beneficio para poder prender la campaña.'));
+      setErrorBeneficio(mensajeDeError(err, 'No hay beneficio activo: activá uno en Beneficios para poder prender la campaña.'));
     }
   }, []);
 
@@ -65,6 +77,17 @@ export function ListaViejaPanel() {
         >
           <Unplug size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
           <p>{AVISO_RESEND}</p>
+        </div>
+      )}
+
+      {listaVieja?.avisos.terminada && (
+        <div
+          className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-800 rounded-lg px-3 py-2 text-sm"
+          role="status"
+          data-testid="cartel-terminada"
+        >
+          <Flag size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <p>{textoTerminada(listaVieja.avisos.convertidos ?? 0, listaVieja.avisos.contactos_total, listaVieja.activa)}</p>
         </div>
       )}
 

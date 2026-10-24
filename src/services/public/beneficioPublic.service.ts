@@ -1,5 +1,6 @@
 import type { AxiosRequestConfig } from 'axios';
 import axiosInstance from '../../api/axiosInstance';
+import { tipoDeBeneficio } from '../../config/beneficio';
 import type {
   BeneficioDeVisita,
   BeneficioPublico,
@@ -11,8 +12,8 @@ import type {
 
 // Códigos de beneficio, lado público. Contrato: backend/docs/mails-beneficios-plan.md §4.1
 //
-//   - contexto: qué beneficio se ofrece (con `?m=` del mail de la lista vieja, o
-//     el marcado "en la landing" si no hay `m`). Es GET pero cuenta el clic.
+//   - contexto: qué beneficio se ofrece (con `?m=` el del mail de la lista vieja,
+//     si no el activo). Es GET pero cuenta el clic.
 //   - solicitar: pide el código; llega por mail, nunca en la respuesta.
 //   - validar: le pregunta al backend si un código sirve, sin datos personales.
 //
@@ -43,23 +44,9 @@ export function esCodigoBeneficio(texto: string | null | undefined): texto is st
   return normalizarCodigoBeneficio(texto) !== null;
 }
 
-// 'servicios' / 'productos' / 'servicios y productos'
-export function textoAplicaBeneficio(beneficio: BeneficioPublico): string {
-  if (beneficio.aplica_servicio && beneficio.aplica_productos) return 'servicios y productos';
-  if (beneficio.aplica_productos && !beneficio.aplica_servicio) return 'productos';
-  return 'servicios';
-}
-
-// "15 % en servicios" / "10 % en servicios y productos"
-export function describirBeneficio(beneficio: BeneficioPublico): string {
-  return `${formatearPorcentaje(beneficio.porcentaje)} en ${textoAplicaBeneficio(beneficio)}`;
-}
-
-export function formatearPorcentaje(porcentaje: number): string {
-  const n = Number(porcentaje);
-  const texto = Number.isInteger(n) ? String(n) : n.toLocaleString('es-AR', { maximumFractionDigits: 2 });
-  return `${texto} %`;
-}
+// Cómo se describe un beneficio según su tipo: una sola función para todo el
+// sistema (config/beneficio.ts). Se re-exporta acá por compatibilidad.
+export { describirBeneficio, formatearPorcentaje, textoAplicaBeneficio, esBeneficioOtro } from '../../config/beneficio';
 
 // 'YYYY-MM-DD' → '12/11' (día/mes). Se arma a mano desde las partes: no pasa
 // por Date (new Date('2026-11-12') sería UTC y correría un día) y no pasa por
@@ -112,7 +99,12 @@ export function leerBeneficioDeVisita(): BeneficioDeVisita | null {
     const valor = JSON.parse(crudo) as Partial<BeneficioDeVisitaGuardado> | null;
     const edad = typeof valor?.guardado_at === 'number' ? Date.now() - valor.guardado_at : Number.NaN;
     const vigente = Number.isFinite(edad) && edad >= 0 && edad <= VIGENCIA_VISITA_MS;
-    const beneficioOk = !!valor?.beneficio && typeof valor.beneficio.porcentaje === 'number';
+    // Descuento con porcentaje, u 'otro' con nombre (sin `tipo` = guardado de
+    // antes del cambio: se acepta si trae porcentaje)
+    const b = valor?.beneficio;
+    const beneficioOk = !!b && typeof b.nombre === 'string' && (
+      b.tipo === 'otro' || typeof b.porcentaje === 'number'
+    );
 
     if (!valor || !esCodigoBeneficio(valor.codigo) || !vigente || !beneficioOk) {
       olvidarBeneficioDeVisita();
@@ -120,7 +112,7 @@ export function leerBeneficioDeVisita(): BeneficioDeVisita | null {
     }
     return {
       codigo: normalizarCodigoBeneficio(valor.codigo) as string,
-      beneficio: valor.beneficio as BeneficioPublico,
+      beneficio: { ...(b as BeneficioPublico), tipo: tipoDeBeneficio(b as BeneficioPublico) },
       vence_el: typeof valor.vence_el === 'string' ? valor.vence_el : null,
     };
   } catch {

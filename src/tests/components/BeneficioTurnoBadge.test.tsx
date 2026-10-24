@@ -55,9 +55,14 @@ vi.mock('../../services/bloqueoSlot.service', () => ({
 import { DashboardCalendario } from '../../components/dashboard/DashboardCalendario';
 
 const BENEFICIO = {
-  codigo_id: 'bc-1', codigo: 'DEB-7K3P9', nombre: 'Bienvenida', porcentaje: 15,
+  codigo_id: 'bc-1', codigo: 'DEB-7K3P9', nombre: 'Bienvenida', tipo: 'descuento' as const, porcentaje: 15,
   aplica_servicio: true, aplica_productos: false, estado: 'reservado' as const,
 };
+// Tipo 'otro' (beneficios-tipos §3.7): sin porcentaje, el chip dice qué trae el turno
+const BENEFICIO_OTRO = {
+  ...BENEFICIO, nombre: 'Ampolla de tratamiento de regalo', tipo: 'otro' as const, porcentaje: null,
+};
+const TOOLTIP_OTRO = 'Código DEB-7K3P9 · Este turno viene con: Ampolla de tratamiento de regalo';
 const TOOLTIP = 'Código DEB-7K3P9 · 15 % en servicios';
 
 const TURNO: TurnoConDetalle = {
@@ -107,6 +112,13 @@ describe('BeneficioTurnoBadge', () => {
     expect(textoBeneficioTurno({ ...BENEFICIO, aplica_productos: true })).toBe('Código DEB-7K3P9 · 15 % en servicios y productos');
   });
 
+  it('con tipo "otro" el tooltip dice qué trae el turno, sin porcentaje', () => {
+    expect(textoBeneficioTurno(BENEFICIO_OTRO)).toBe(TOOLTIP_OTRO);
+    render(<BeneficioTurnoBadge beneficio={BENEFICIO_OTRO} variante="chip" />);
+    expect(screen.getByText(TOOLTIP_OTRO)).toBeTruthy();
+    expect(screen.queryByText(/%/)).toBeNull();
+  });
+
   it('sin beneficio no pinta nada', () => {
     const { container } = render(<BeneficioTurnoBadge beneficio={null} />);
     expect(container.firstChild).toBeNull();
@@ -126,6 +138,11 @@ describe('🎟 en el popover del turno', () => {
     const icono = screen.getByRole('img', { name: TOOLTIP });
     expect(icono.parentElement?.textContent).toContain('Web');
     expect(icono.parentElement?.textContent).toContain('Confirmado');
+  });
+
+  it('con tipo "otro": el ícono lleva "Este turno viene con: …"', () => {
+    render(<TurnoPopover turno={{ ...TURNO, beneficio: BENEFICIO_OTRO }} isOpen onClose={vi.fn()} onCancelar={vi.fn()} position={{ x: 100, y: 100 }} />);
+    expect(screen.getByRole('img', { name: TOOLTIP_OTRO })).toBeTruthy();
   });
 
   it('sin beneficio: no hay ícono', () => {

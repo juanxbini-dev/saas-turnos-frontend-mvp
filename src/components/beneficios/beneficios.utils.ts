@@ -34,8 +34,10 @@ export function textoOrigen(origen: string | null | undefined): string {
   return ORIGEN_TEXTO[origen] ?? origen;
 }
 
-// "Servicios", "Productos" o "Servicios y productos"
-export function textoAplica(beneficio: Pick<Beneficio, 'aplica_servicio' | 'aplica_productos'>): string {
+// "Servicios", "Productos" o "Servicios y productos". Con tipo 'otro' los
+// "aplica" no significan nada: "—".
+export function textoAplica(beneficio: Pick<Beneficio, 'aplica_servicio' | 'aplica_productos'> & { tipo?: Beneficio['tipo'] }): string {
+  if (beneficio.tipo === 'otro') return '—';
   if (beneficio.aplica_servicio && beneficio.aplica_productos) return 'Servicios y productos';
   if (beneficio.aplica_servicio) return 'Servicios';
   if (beneficio.aplica_productos) return 'Productos';
@@ -46,12 +48,24 @@ export function textoVigencia(dias: number): string {
   return dias === 1 ? '1 día' : `${dias} días`;
 }
 
-// Un beneficio con códigos (de cualquier estado) ya no puede cambiar el
-// porcentaje ni a qué aplica: quien recibió el código lo recibió con esos datos.
-export function tieneCodigos(beneficio: { codigos?: { emitidos: number; reservados: number; usados: number; vencidos: number } }): boolean {
+// Columna "Qué da" de la lista: "20 %" o "Otro beneficio"
+export function textoQueDa(beneficio: Pick<Beneficio, 'tipo' | 'porcentaje'>): string {
+  if (beneficio.tipo === 'otro' || typeof beneficio.porcentaje !== 'number') return 'Otro beneficio';
+  return `${beneficio.porcentaje} %`;
+}
+
+// El activo primero (el backend ya los manda así; se ordena igual por las dudas),
+// el resto en el orden en que llegaron.
+export function activoPrimero<T extends { activo: boolean }>(lista: T[]): T[] {
+  return [...lista].sort((a, b) => Number(b.activo) - Number(a.activo));
+}
+
+// Un beneficio con códigos (de cualquier estado) ya no puede cambiar el tipo,
+// el porcentaje ni a qué aplica: quien recibió el código lo recibió con esos datos.
+export function tieneCodigos(beneficio: { codigos?: { emitidos: number; reservados: number; usados: number; vencidos: number; anulados?: number } }): boolean {
   const c = beneficio.codigos;
   if (!c) return false;
-  return c.emitidos + c.reservados + c.usados + c.vencidos > 0;
+  return c.emitidos + c.reservados + c.usados + c.vencidos + (c.anulados ?? 0) > 0;
 }
 
 export const puedeAnularse = (codigo: BeneficioCodigo): boolean => codigo.estado === 'emitido';

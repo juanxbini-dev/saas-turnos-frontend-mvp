@@ -517,7 +517,7 @@ export function DashboardTurnoModal({
             </div>
             {turno?.beneficio && (
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Descuento</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Beneficio</p>
                 <p className="text-sm font-semibold text-gray-900 mt-0.5">
                   <BeneficioTurnoBadge beneficio={turno.beneficio} variante="chip" />
                 </p>

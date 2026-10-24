@@ -1,13 +1,21 @@
 import React from 'react';
 import type { TurnoBeneficio } from '../../types/turno.types';
-import { describirBeneficio } from '../../services/public/beneficioPublic.service';
+import { describirBeneficio, esBeneficioOtro } from '../../config/beneficio';
 
 // 🎟 del turno que lleva código de beneficio (plan mails-beneficios §4.5 /
-// fase 4a). Mismo ícono y mismo tooltip en el calendario, el popover, el modal
-// del Dashboard y el catálogo de turnos: "Código DEB-7K3P9 · 15 % en servicios".
+// fase 4a; beneficios-tipos §3.7). Mismo ícono y mismo tooltip en el
+// calendario, el popover, el modal del Dashboard y el catálogo de turnos:
+//   - descuento: "Código DEB-7K3P9 · 15 % en servicios"
+//   - otro:      "Código DEB-7K3P9 · Este turno viene con: Ampolla de regalo"
+
+// "Este turno viene con: <nombre>" (beneficio tipo 'otro': quien cobra lo aplica)
+export function textoVieneCon(beneficio: Pick<TurnoBeneficio, 'nombre'>): string {
+  return `Este turno viene con: ${beneficio.nombre}`;
+}
 
 export function textoBeneficioTurno(beneficio: TurnoBeneficio): string {
-  return `Código ${beneficio.codigo} · ${describirBeneficio(beneficio)}`;
+  const que = esBeneficioOtro(beneficio) ? textoVieneCon(beneficio) : describirBeneficio(beneficio);
+  return `Código ${beneficio.codigo} · ${que}`;
 }
 
 interface BeneficioTurnoBadgeProps {

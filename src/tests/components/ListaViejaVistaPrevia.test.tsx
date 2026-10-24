@@ -48,7 +48,7 @@ describe('ListaViejaVistaPrevia', () => {
     const motivos = screen.getByRole('list', { name: 'Por qué hoy no sale nada' });
     expect(within(motivos).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       'La campaña está apagada: hoy no sale ningún mail.',
-      'No hay un beneficio elegido: hoy no sale ningún mail.',
+      'No hay beneficio activo: hoy no sale ningún mail.',
     ]);
 
     const fila1 = screen.getByText('Laura Díaz').closest('tr')!;

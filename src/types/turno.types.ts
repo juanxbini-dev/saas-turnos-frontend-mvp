@@ -1,3 +1,5 @@
+import type { BeneficioTipo } from './beneficios.types';
+
 export type TurnoEstado = 'pendiente' | 'confirmado' | 'completado' | 'cancelado';
 export type MetodoPago = 'efectivo' | 'transferencia' | 'pendiente' | 'canje';
 
@@ -40,11 +42,14 @@ export interface Turno {
 // cobrado con el código. Si se cobró "sin el código", el turno ya no lo trae.
 export type TurnoBeneficioEstado = 'emitido' | 'reservado' | 'usado' | 'vencido' | 'anulado';
 
+// `tipo` (beneficios-tipos-plan §3.4): con 'otro' el cobro NO precarga descuento,
+// solo avisa "Este turno viene con: <nombre>".
 export interface TurnoBeneficio {
   codigo_id: string;
   codigo: string;
   nombre: string;
-  porcentaje: number;
+  tipo: BeneficioTipo;
+  porcentaje: number | null;
   aplica_servicio: boolean;
   aplica_productos: boolean;
   estado: TurnoBeneficioEstado;

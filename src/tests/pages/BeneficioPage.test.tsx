@@ -27,7 +27,7 @@ vi.mock('../../pages/public/DebSalonLandingPage', () => ({ DebSalonLandingPage: 
 vi.mock('../../pages/LoginPage', () => ({ default: () => <div>PAGINA login</div> }));
 
 const M = 'Xk92mPq7Lt';
-const BENEFICIO = { nombre: 'Bienvenida', porcentaje: 15, aplica_servicio: true, aplica_productos: false, vigencia_dias: 30 };
+const BENEFICIO = { nombre: 'Bienvenida', tipo: 'descuento' as const, porcentaje: 15, aplica_servicio: true, aplica_productos: false, vigencia_dias: 30 };
 
 const ok = (data: unknown) => ({ data: { success: true, data } });
 const falla = (status: number, data: Record<string, unknown> = {}) =>
@@ -157,6 +157,22 @@ describe('/beneficio', () => {
     renderPagina();
     expect(await screen.findByText('15 % de descuento en servicios y productos')).toBeTruthy();
     expect(screen.getByText(/vale 1 día · un solo uso/)).toBeTruthy();
+  });
+
+  it('un beneficio "otro" se describe por su nombre, sin porcentaje ni "descuento" (beneficios-tipos §3.7)', async () => {
+    get.mockResolvedValue(ok({
+      valido: true,
+      beneficio: { nombre: 'Ampolla de tratamiento de regalo', tipo: 'otro', porcentaje: null, aplica_servicio: true, aplica_productos: false, vigencia_dias: 30 },
+    }));
+    renderPagina();
+    expect(await screen.findByText('Ampolla de tratamiento de regalo')).toBeTruthy();
+    expect(screen.getByText('vale 30 días · un solo uso')).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/descuento|%/);
+
+    completarYEnviar({ nombre: 'Juan Pérez' });
+    expect(await screen.findByText('Listo')).toBeTruthy();
+    expect(document.body.textContent).toContain('tu beneficio queda anotado en el turno.');
+    expect(document.body.textContent).not.toContain('el descuento queda aplicado');
   });
 
   it.each([

@@ -3,20 +3,19 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Ticket } from 'lucide-react';
 import { Button, Input } from '../../ui';
 import { SeccionCard, SeccionError } from '../CampaniaSeccion';
 import { useCampaniasGate } from '../CampaniasGate';
-import { useFetch } from '../../../hooks/useFetch';
-import { buildKey, ENTITIES } from '../../../cache/key.builder';
-import { TTL } from '../../../cache/ttl';
 import { campaniasService, esFalloTokenCampanias, mensajeDeError } from '../../../services/campanias.service';
-import { beneficiosService } from '../../../services/beneficios.service';
 import { toastService } from '../../../services/toast.service';
+import { describirBeneficioConNombre } from '../../../config/beneficio';
 import type { Campania, CampaniaListaVieja, CampaniaPatchListaVieja } from '../../../types/campanias.types';
 
-// Configuración de "Lista vieja (mail)" (backend/docs/mails-beneficios-plan.md §4.3):
-// tope diario, días para el recordatorio y el beneficio que va en el mail.
+// Configuración de "Lista vieja (mail)" (mails-beneficios-plan §4.3, ajustado por
+// beneficios-tipos-plan §3.5 y §3.7): tope diario y días para el recordatorio.
+// El beneficio NO se elige acá: la campaña ofrece el beneficio activo, que se
+// cambia en la pantalla Beneficios. Tope y recordatorio se editan siempre (D16).
 // Mismo criterio que los otros formularios: números como texto, validados como
 // texto y convertidos recién al armar el PATCH.
 
@@ -26,7 +25,7 @@ interface CampaniaConfigListaViejaProps {
   error: boolean;
   onReintentar: () => void;
   onGuardado: (campania: Campania) => void;
-  // Mensaje del backend al intentar prender sin beneficio (400 BENEFICIO_REQUERIDO)
+  // Mensaje del backend al intentar prender sin beneficio activo (400 BENEFICIO_REQUERIDO)
   errorBeneficio?: string | null;
 }
 
@@ -44,8 +43,6 @@ export const crearConfigListaViejaSchema = (topeServidor?: string) => z.object({
     'Poné un número entre 1 y 100'
   ),
   dias_recordatorio: z.string().trim().refine((v) => esEnteroEntre(v, 0, 60), 'Poné un número entre 0 y 60'),
-  // '' = sin beneficio
-  beneficio_id: z.string(),
 });
 
 export const configListaViejaSchema = crearConfigListaViejaSchema();
@@ -55,10 +52,9 @@ export type ConfigListaViejaValores = z.infer<typeof configListaViejaSchema>;
 const valoresDe = (campania: CampaniaListaVieja): ConfigListaViejaValores => ({
   tope_diario: String(campania.tope_diario),
   dias_recordatorio: String(campania.parametros.dias_recordatorio),
-  beneficio_id: campania.parametros.beneficio_id ?? '',
 });
 
-// Solo viaja lo que cambió. Vaciar el beneficio manda `null` explícito.
+// Solo viaja lo que cambió. `beneficio_id` ya no existe en el PATCH.
 export function armarPatchListaVieja(
   valores: ConfigListaViejaValores,
   original: ConfigListaViejaValores
@@ -68,26 +64,17 @@ export function armarPatchListaVieja(
   if (valores.dias_recordatorio.trim() !== original.dias_recordatorio) {
     patch.dias_recordatorio = Number(valores.dias_recordatorio);
   }
-  if (valores.beneficio_id !== original.beneficio_id) patch.beneficio_id = valores.beneficio_id === '' ? null : valores.beneficio_id;
   return patch;
 }
 
-const VALORES_VACIOS: ConfigListaViejaValores = { tope_diario: '', dias_recordatorio: '', beneficio_id: '' };
+const VALORES_VACIOS: ConfigListaViejaValores = { tope_diario: '', dias_recordatorio: '' };
 
-export const AVISO_SIN_BENEFICIO = 'Elegí un beneficio para poder prender la campaña.';
+export const AVISO_SIN_BENEFICIO = 'No hay beneficio activo: la campaña no puede salir.';
 
 export function CampaniaConfigListaVieja({
   campania, loading, error, onReintentar, onGuardado, errorBeneficio,
 }: CampaniaConfigListaViejaProps) {
   const { bloquear } = useCampaniasGate();
-
-  // Beneficios activos para elegir. Un beneficio desactivado que sigue elegido
-  // se muestra igual (para que el select no quede en blanco).
-  const { data: beneficios, error: errorBeneficios } = useFetch(
-    buildKey(ENTITIES.BENEFICIOS, 'lista'),
-    () => beneficiosService.listar(),
-    { ttl: TTL.MEDIUM }
-  );
 
   const valoresServidor = useMemo(() => (campania ? valoresDe(campania) : null), [campania]);
   const firma = valoresServidor ? JSON.stringify(valoresServidor) : '';
@@ -98,8 +85,6 @@ export function CampaniaConfigListaVieja({
     register,
     handleSubmit,
     reset,
-    watch,
-    setValue,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<ConfigListaViejaValores>({
     resolver: zodResolver(schema),
@@ -111,13 +96,6 @@ export function CampaniaConfigListaVieja({
     if (valoresServidor) reset(valoresServidor, { keepDirtyValues: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firma, reset]);
-
-  // El select va controlado: los beneficios y la campaña llegan por separado, y
-  // un select sin controlar perdería el valor si las opciones aparecen después.
-  const beneficioElegido = watch('beneficio_id');
-  const elegirBeneficio = (valor: string) => {
-    setValue('beneficio_id', valor, { shouldDirty: true, shouldValidate: true });
-  };
 
   const onSubmit = async (valores: ConfigListaViejaValores) => {
     if (!valoresServidor || !campania) return;
@@ -158,17 +136,38 @@ export function CampaniaConfigListaVieja({
     );
   }
 
-  const opciones = (beneficios ?? [])
-    .filter((b) => b.activo || b.id === valoresServidor?.beneficio_id)
-    .map((b) => ({ value: b.id, label: `${b.nombre} (${b.porcentaje} %)${b.activo ? '' : ' · desactivado'}` }));
-  // El elegido en el servidor puede no estar en la lista (p. ej. la lista falló): se agrega con su nombre
-  if (campania.avisos.beneficio && !opciones.some((o) => o.value === campania.avisos.beneficio?.id)) {
-    opciones.unshift({ value: campania.avisos.beneficio.id, label: `${campania.avisos.beneficio.nombre} (${campania.avisos.beneficio.porcentaje} %)` });
-  }
+  const beneficio = campania.avisos.beneficio;
 
   return (
     <SeccionCard titulo="Configuración">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+        {/* El beneficio que ofrece: el activo, se cambia en Beneficios */}
+        {beneficio ? (
+          <p className="flex items-start gap-2 text-sm text-gray-700" data-testid="lista-vieja-ofrece">
+            <Ticket size={16} className="mt-0.5 shrink-0 text-gray-400" aria-hidden="true" />
+            <span>
+              Ofrece: <span className="font-medium text-gray-900">{describirBeneficioConNombre(beneficio)}</span>
+              {' · '}
+              <Link to="/beneficios" className="font-medium underline hover:text-gray-900">Se cambia en Beneficios</Link>
+            </span>
+          </p>
+        ) : (
+          <div
+            className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg px-3 py-2 text-sm"
+            role="status"
+            data-testid="lista-vieja-sin-beneficio"
+          >
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <p>
+              {AVISO_SIN_BENEFICIO}{' '}
+              <Link to="/beneficios" className="font-medium underline hover:text-yellow-900">Activá uno en Beneficios</Link>.
+            </p>
+          </div>
+        )}
+        {errorBeneficio && (
+          <p className="text-sm text-red-600" role="alert">{errorBeneficio}</p>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             type="text"
@@ -192,46 +191,8 @@ export function CampaniaConfigListaVieja({
           />
         </div>
 
-        <div>
-          <label htmlFor="lista-vieja-beneficio" className="block text-sm font-medium text-gray-700 mb-1">Beneficio del mail</label>
-          <select
-            id="lista-vieja-beneficio"
-            disabled={isSubmitting}
-            value={beneficioElegido ?? ''}
-            onChange={(e) => elegirBeneficio(e.target.value)}
-            className={[
-              'w-full px-3 py-2 border rounded-lg shadow-sm transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-              errorBeneficio ? 'border-red-500' : 'border-gray-300',
-            ].join(' ')}
-          >
-            <option value="">Sin beneficio</option>
-            {opciones.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          {errorBeneficio ? (
-            <p className="mt-1 text-sm text-red-600" role="alert">{errorBeneficio}</p>
-          ) : (
-            <p className="mt-1 text-sm text-gray-500">
-              Cada persona recibe un código de este beneficio. Se crean y editan en{' '}
-              <Link to="/beneficios" className="font-medium underline hover:text-gray-700">Beneficios</Link>.
-            </p>
-          )}
-          {errorBeneficios && (
-            <p className="mt-1 text-xs text-gray-500">No pudimos cargar la lista de beneficios para elegir.</p>
-          )}
-        </div>
-
-        {beneficioElegido === '' && (
-          <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg px-3 py-2 text-sm" role="status">
-            <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <p>{AVISO_SIN_BENEFICIO}</p>
-          </div>
-        )}
-
         <p className="text-xs text-gray-500">
-          Solo le llega a quien tiene mail en la lista vieja y no pidió no recibir más. Cada contacto recibe un solo mail (y, si no lo abrió, un recordatorio).
+          Solo le llega a quien tiene mail en la lista vieja y no pidió no recibir más. Cada contacto recibe un solo mail (y, si no lo abrió, un recordatorio con el mismo beneficio).
         </p>
 
         <div className="flex justify-end">

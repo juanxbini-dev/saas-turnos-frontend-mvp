@@ -4,10 +4,15 @@
 // enmascarado (j***@gmail.com) y el código NUNCA viene en la respuesta de
 // "solicitar" (viaja por mail).
 
+import type { BeneficioTipo } from './beneficios.types';
+
 // Lo que el beneficio da: "15 % en servicios", "10 % en servicios y productos"
+// (tipo 'descuento') o lo que dice `nombre` (tipo 'otro', p. ej. "Ampolla de
+// tratamiento de regalo"). Ver describirBeneficio en config/beneficio.ts.
 export interface BeneficioPublico {
   nombre: string;
-  porcentaje: number;
+  tipo: BeneficioTipo;
+  porcentaje: number | null;   // null con 'otro'
   aplica_servicio: boolean;
   aplica_productos: boolean;
 }

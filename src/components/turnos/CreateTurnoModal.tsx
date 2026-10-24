@@ -11,7 +11,8 @@ import { disponibilidadService, turnoService, clienteService } from '../../servi
 import { getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
 import { Cliente as ClienteFull, ClienteBeneficioCodigo } from '../../types/cliente.types';
-import { describirBeneficio, formatearVenceEl } from '../../services/public/beneficioPublic.service';
+import { formatearVenceEl } from '../../services/public/beneficioPublic.service';
+import { describirBeneficio } from '../../config/beneficio';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
 import { format } from 'date-fns';
@@ -245,7 +246,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     let vigente = true;
     clienteService.getBeneficios(selectedCliente.id)
       .then((items) => { if (vigente) setBeneficiosCliente(items); })
-      .catch(() => { if (vigente) setErrorBeneficios('No pudimos cargar los códigos de descuento del cliente.'); });
+      .catch(() => { if (vigente) setErrorBeneficios('No pudimos cargar los códigos de beneficio del cliente.'); });
     return () => { vigente = false; };
   }, [selectedCliente?.id]);
 
@@ -851,14 +852,14 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           )}
 
-          {/* Código de descuento del cliente (solo si tiene alguno vigente) */}
+          {/* Código de beneficio del cliente (solo si tiene alguno vigente) */}
           {selectedCliente && errorBeneficios && (
             <p role="alert" className="text-xs text-red-600">{errorBeneficios}</p>
           )}
           {selectedCliente && beneficiosCliente.length > 0 && (
             <div>
               <label htmlFor="beneficio-codigo-id" className="block text-sm font-medium text-gray-700 mb-1">
-                🎟 Aplicar código de descuento
+                🎟 Aplicar código de beneficio
               </label>
               <select
                 id="beneficio-codigo-id"
@@ -871,7 +872,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                   <option key={c.id} value={c.id}>{etiquetaCodigo(c)}</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">El descuento queda cargado para cuando se cobre el turno.</p>
+              <p className="text-xs text-gray-500 mt-1">Queda anotado en el turno para cuando se cobre.</p>
             </div>
           )}
 
@@ -921,7 +922,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
               </div>
               {beneficioCodigoId && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Descuento:</span>
+                  <span className="text-gray-600">Beneficio:</span>
                   <span className="font-medium">
                     🎟 {beneficiosCliente.find((c) => c.id === beneficioCodigoId)?.codigo}
                   </span>

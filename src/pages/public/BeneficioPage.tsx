@@ -8,16 +8,17 @@ import { Spinner } from '../../components/ui';
 import { RUTA_PRIVACIDAD } from '../../config/privacidad';
 import { EMPRESA_ID } from '../../config/debsalon';
 import { esCodigoDeEnlace } from '../../services/public/campaniaPublic.service';
-import { beneficioPublicService, formatearPorcentaje, textoAplicaBeneficio } from '../../services/public/beneficioPublic.service';
+import { beneficioPublicService } from '../../services/public/beneficioPublic.service';
+import { describirBeneficio, esBeneficioOtro } from '../../config/beneficio';
 import type { ContextoBeneficio } from '../../types/beneficios.public.types';
 
-// Página pública /beneficio: una persona pide su código de descuento y lo
+// Página pública /beneficio: una persona pide su código de beneficio y lo
 // recibe por mail. Plan: backend/docs/mails-beneficios-plan.md §2 y §4.1.
 //   - `?m=` : codigo_link del mail de la lista vieja (cuenta el clic y trae el
 //             nombre de pila y el beneficio de esa campaña).
 //   - `?r=` : llegada desde WhatsApp (win-back). Por ahora solo se lee y se
 //             guarda para cuando exista esa campaña: no se manda al backend.
-//   - sin parámetros: el beneficio marcado "en la landing".
+//   - sin parámetros: el beneficio activo (beneficios-tipos D3).
 // Misma estética que la landing (DebSalonLandingPage): negro, Oswald, pills.
 
 const TITULO_PESTANIA = 'Tu beneficio · DEB Salón';
@@ -214,7 +215,9 @@ export const BeneficioPage: React.FC = () => {
               Revisá también el correo no deseado.
             </p>
             <p className="text-sm text-white/50 leading-relaxed">
-              Cuando reserves tu turno, escribí el código en el paso "Tus datos" y el descuento queda aplicado al pagar.
+              Cuando reserves tu turno, escribí el código en el paso "Tus datos" y {beneficio && esBeneficioOtro(beneficio)
+                ? 'tu beneficio queda anotado en el turno.'
+                : 'el descuento queda aplicado al pagar.'}
             </p>
             <Link to="/" className={`${pill} inline-block`}>Reservar turno</Link>
           </div>
@@ -227,10 +230,11 @@ export const BeneficioPage: React.FC = () => {
                 className="text-2xl sm:text-3xl font-bold uppercase text-white"
                 style={{ fontFamily: 'Oswald, sans-serif', letterSpacing: '0.04em' }}
               >
-                {formatearPorcentaje(beneficio!.porcentaje)} de descuento en {textoAplicaBeneficio(beneficio!)}
+                {describirBeneficio(beneficio!, { conPalabraDescuento: true })}
               </p>
               <p className="text-xs text-white/50 mt-2 tracking-wide">
-                {beneficio!.nombre} · {textoVigencia(beneficio!.vigencia_dias)} · un solo uso
+                {/* Con 'otro' el título ya es el nombre: no se repite */}
+                {esBeneficioOtro(beneficio!) ? '' : `${beneficio!.nombre} · `}{textoVigencia(beneficio!.vigencia_dias)} · un solo uso
               </p>
             </div>
 

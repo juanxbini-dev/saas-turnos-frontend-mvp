@@ -10,8 +10,9 @@ import { turnoPublicService, servicioPublicService } from '../../services/public
 import { DateHelper } from '../../shared/utils/DateHelper';
 import { RUTA_PRIVACIDAD } from '../../config/privacidad';
 import {
-  beneficioPublicService, normalizarCodigoBeneficio, describirBeneficio, formatearPorcentaje, formatearVenceEl,
+  beneficioPublicService, normalizarCodigoBeneficio, formatearVenceEl,
 } from '../../services/public/beneficioPublic.service';
+import { describirBeneficio, esBeneficioOtro, formatearPorcentaje } from '../../config/beneficio';
 import type { BeneficioDeVisita, BeneficioReserva, MotivoCodigoBeneficio } from '../../types/beneficios.public.types';
 
 interface CreateTurnoPublicModalProps {
@@ -467,7 +468,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const darkInput = (hasError: boolean) =>
     `w-full bg-[#1a1a1a] border ${hasError ? 'border-red-500' : 'border-white/20'} text-white text-sm px-3 py-2.5 focus:outline-none focus:border-white/50 placeholder:text-white/20 disabled:opacity-40`;
 
-  // Chip 🎟 "15 % en servicios aplicado · vence el 12/11": arriba del cuerpo, en los tres pasos
+  // Chip 🎟 "15 % en servicios aplicado · vence el 12/11" (o "Tu beneficio: Ampolla
+  // de regalo · vence el 12/11" con tipo 'otro'): arriba del cuerpo, en los tres pasos
   const venceEl = formatearVenceEl(beneficioValidado?.vence_el);
   const chipBeneficio = beneficioValidado && (
     <div
@@ -476,7 +478,9 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     >
       <span aria-hidden="true">🎟</span>
       <span>
-        {describirBeneficio(beneficioValidado.beneficio)} aplicado{venceEl ? ` · vence el ${venceEl}` : ''}
+        {esBeneficioOtro(beneficioValidado.beneficio)
+          ? `Tu beneficio: ${describirBeneficio(beneficioValidado.beneficio)}`
+          : `${describirBeneficio(beneficioValidado.beneficio)} aplicado`}{venceEl ? ` · vence el ${venceEl}` : ''}
       </span>
     </div>
   );
@@ -701,7 +705,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
                 {/* Código de beneficio (opcional). Se valida al salir del campo. */}
                 <div>
-                  <label htmlFor="codigo-beneficio" className={darkLabel}>¿Tenés un código de descuento?</label>
+                  <label htmlFor="codigo-beneficio" className={darkLabel}>¿Tenés un código?</label>
                   <input
                     id="codigo-beneficio"
                     type="text"
@@ -927,7 +931,9 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
             </p>
             {beneficioAplicado && (
               <p className="text-sm text-white mb-6 border border-white/30 bg-white/5 px-3 py-2">
-                🎟 Tu descuento del {formatearPorcentaje(beneficioAplicado.porcentaje)} queda aplicado al pagar.
+                {esBeneficioOtro(beneficioAplicado) || typeof beneficioAplicado.porcentaje !== 'number'
+                  ? `🎟 Tu beneficio queda anotado en el turno: ${beneficioAplicado.nombre}.`
+                  : `🎟 Tu descuento del ${formatearPorcentaje(beneficioAplicado.porcentaje)} queda aplicado al pagar.`}
               </p>
             )}
             <div className="bg-[#1a1a1a] border border-white/10 p-4 mb-6 space-y-1.5 text-sm text-left">

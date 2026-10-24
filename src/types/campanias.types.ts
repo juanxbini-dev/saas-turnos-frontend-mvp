@@ -1,3 +1,5 @@
+import type { BeneficioTipo } from './beneficios.types';
+
 // Tipos de la sección Campañas (super admin).
 // Contrato: backend/docs/campanias-n8n-spec.md §3
 
@@ -80,10 +82,10 @@ export interface ParametrosSeguimiento {
 }
 
 // Lista vieja: un solo recordatorio a los `dias_recordatorio` (0 = ninguno) a
-// quien no abrió ni tocó el primer mail; `beneficio_id` es obligatorio para prender.
+// quien no abrió ni tocó el primer mail. Ofrece el beneficio ACTIVO (no tiene
+// selector propio: beneficios-tipos-plan §3.5); sin activo no se puede prender.
 export interface ParametrosListaVieja {
   dias_recordatorio: number;       // 0 a 60
-  beneficio_id: string | null;
 }
 
 // Compatibilidad: antes había un solo tipo de campaña
@@ -141,14 +143,22 @@ export interface CampaniaSeguimiento extends CampaniaBase {
 export interface BeneficioResumen {
   id: string;
   nombre: string;
-  porcentaje: number;
+  tipo: BeneficioTipo;
+  porcentaje: number | null;   // null con 'otro'
 }
 
-// Avisos propios del canal mail (plan mails-beneficios §4.3)
+// Avisos propios del canal mail (plan mails-beneficios §4.3 y beneficios-tipos §3.5)
 export interface CampaniaAvisosListaVieja extends CampaniaAvisos {
   canal: 'email';
+  // El beneficio activo (el que ofrece la campaña), o null si no hay ninguno
   beneficio: BeneficioResumen | null;
   contactos_pendientes: number;
+  // Ya no queda nada por mandar (ni primeros mails ni recordatorios por venir)
+  terminada?: boolean;
+  // Contactos que pidieron su código desde el mail
+  convertidos?: number;
+  // Total de contactos cargados (D17: la M del cartel "Terminada: N de M")
+  contactos_total?: number;
   // RESEND_WEBHOOK_SECRET y EMAILS_HMAC_SECRET cargados en el servidor
   resend_configurado: boolean;
 }
@@ -206,7 +216,6 @@ export interface CampaniaPatchSeguimiento extends CampaniaPatchComun {
 
 export interface CampaniaPatchListaVieja extends CampaniaPatchComun {
   dias_recordatorio?: number;
-  beneficio_id?: string | null;   // null lo saca (y la campaña no se puede prender)
 }
 
 export type CampaniaPatch =

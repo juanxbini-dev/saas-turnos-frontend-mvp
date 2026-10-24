@@ -1,3 +1,5 @@
+import type { BeneficioTipo } from './beneficios.types'
+
 export interface Cliente {
   id: string
   nombre: string
@@ -50,7 +52,8 @@ export interface ClienteBeneficioCodigo {
   vence_at: string
   beneficio: {
     nombre: string
-    porcentaje: number
+    tipo: BeneficioTipo
+    porcentaje: number | null
     aplica_servicio: boolean
     aplica_productos: boolean
   }
