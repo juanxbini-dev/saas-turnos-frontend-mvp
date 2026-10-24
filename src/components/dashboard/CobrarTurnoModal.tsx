@@ -195,10 +195,10 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
                 <BeneficioTurnoBadge beneficio={turno.beneficio} variante="chip" />
                 <span className="text-xs text-gray-500">Para cobrar sin el código, usá "Editar pago".</span>
               </div>
-              {/* Tipo 'otro' (beneficios-tipos §3.7): no hay descuento fijado, quien cobra lo aplica */}
+              {/* Tipo 'otro' (beneficios-tipos §3.7 y D21): el regalo se entrega a mano y no se acumula */}
               {esBeneficioOtro(turno.beneficio) && (
                 <p className="text-xs text-amber-800" data-testid="beneficio-viene-con">
-                  No es un descuento: entregalo vos. Si además corresponde un descuento, se carga en "Editar pago".
+                  No es un descuento: entregalo vos. No se acumula con otras promociones.
                 </p>
               )}
             </div>

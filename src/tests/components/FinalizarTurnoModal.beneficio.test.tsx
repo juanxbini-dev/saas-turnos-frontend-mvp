@@ -190,7 +190,7 @@ describe('FinalizarTurnoModal — turno con código de beneficio', () => {
   });
 });
 
-describe('FinalizarTurnoModal — beneficio tipo "otro" (sin descuento precargado)', () => {
+describe('FinalizarTurnoModal — beneficio tipo "otro" (regalo: no se acumula, D21)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal('alert', vi.fn());
@@ -198,19 +198,19 @@ describe('FinalizarTurnoModal — beneficio tipo "otro" (sin descuento precargad
     editarPago.mockResolvedValue({ id: 'turno-1' });
   });
 
-  it('muestra "Este turno viene con: …" y NO precarga ni bloquea el descuento', () => {
+  it('muestra "Este turno viene con: …" y el descuento queda vacío y bloqueado', () => {
     renderModal({ turno: { ...turnoBase, beneficio: BENEFICIO_OTRO } });
 
     expect(screen.getByTestId('beneficio-viene-con').textContent).toBe('Este turno viene con: Ampolla de tratamiento de regalo');
     expect(campoPorcentaje().value).toBe('');
-    expect(campoPorcentaje().disabled).toBe(false);
-    expect(screen.queryByText('Fijado por el código de descuento.')).toBeNull();
+    expect(campoPorcentaje().disabled).toBe(true);
+    expect(screen.getByText('El turno viene con un regalo: no se suma un descuento.')).toBeTruthy();
     expect(screen.queryByText('El descuento del código queda aplicado.')).toBeNull();
     // "Cobrar sin el código" sigue estando
     expect(tilde().checked).toBe(false);
   });
 
-  it('manda usar_beneficio:true y el descuento que haya cargado quien cobra (o ninguno)', async () => {
+  it('manda usar_beneficio:true sin descuento', async () => {
     renderModal({ turno: { ...turnoBase, beneficio: BENEFICIO_OTRO } });
     await cobrarEnEfectivo();
 
@@ -220,31 +220,32 @@ describe('FinalizarTurnoModal — beneficio tipo "otro" (sin descuento precargad
     expect(payload.descuentoPorcentaje).toBeUndefined();
   });
 
-  it('quien cobra puede cargar un descuento a mano y viaja con usar_beneficio:true', async () => {
+  it('"Cobrar sin el código" desbloquea el descuento: se carga a mano y viaja con usar_beneficio:false', async () => {
     renderModal({ turno: { ...turnoBase, beneficio: BENEFICIO_OTRO } });
-    fireEvent.change(campoPorcentaje(), { target: { value: '10' } });
-    await cobrarEnEfectivo();
-
-    await waitFor(() => expect(finalizarTurno).toHaveBeenCalledTimes(1));
-    expect(finalizarTurno.mock.calls[0][1]).toMatchObject({ descuentoPorcentaje: 10, usar_beneficio: true });
-  });
-
-  it('"Cobrar sin el código" no toca el descuento cargado y manda usar_beneficio:false', async () => {
-    renderModal({ turno: { ...turnoBase, beneficio: BENEFICIO_OTRO } });
-    fireEvent.change(campoPorcentaje(), { target: { value: '10' } });
     fireEvent.click(tilde());
 
-    expect(campoPorcentaje().value).toBe('10');
+    expect(campoPorcentaje().disabled).toBe(false);
     expect(screen.queryByTestId('beneficio-viene-con')).toBeNull();
+    fireEvent.change(campoPorcentaje(), { target: { value: '10' } });
     await cobrarEnEfectivo();
 
     await waitFor(() => expect(finalizarTurno).toHaveBeenCalledTimes(1));
     expect(finalizarTurno.mock.calls[0][1]).toMatchObject({ descuentoPorcentaje: 10, usar_beneficio: false });
   });
 
-  it('en modo editar deja el descuento que ya tenía el turno, sin pisarlo', () => {
+  it('volver a usar el regalo vacía el descuento que se había cargado', () => {
+    renderModal({ turno: { ...turnoBase, beneficio: BENEFICIO_OTRO } });
+    fireEvent.click(tilde());
+    fireEvent.change(campoPorcentaje(), { target: { value: '10' } });
+    fireEvent.click(tilde());
+
+    expect(campoPorcentaje().value).toBe('');
+    expect(campoPorcentaje().disabled).toBe(true);
+  });
+
+  it('en modo editar el descuento que tenía el turno se vacía: con el regalo no se acumula', () => {
     renderModal({ mode: 'editar', turno: { ...turnoBase, estado: 'completado', metodo_pago: 'efectivo', descuento_porcentaje: 5, beneficio: { ...BENEFICIO_OTRO, estado: 'usado' } } });
-    expect(campoPorcentaje().value).toBe('5');
-    expect(campoPorcentaje().disabled).toBe(false);
+    expect(campoPorcentaje().value).toBe('');
+    expect(campoPorcentaje().disabled).toBe(true);
   });
 });
