@@ -48,24 +48,27 @@ export function FinalizarTurnoModal({
   // Código de beneficio del turno (plan mails-beneficios §4.5, P8): el descuento
   // viene precargado y bloqueado. "Cobrar sin el código" lo desbloquea (queda en
   // 0) y manda usar_beneficio:false → el código vuelve a 'emitido'.
-  // Tipo 'otro' (beneficios-tipos §3.4/§3.7): NO hay descuento precargado ni
-  // bloqueado; aparece el aviso "Este turno viene con: …" y quien cobra carga
-  // un descuento a mano si corresponde. usar_beneficio viaja igual.
+  // Tipo 'otro' (beneficios-tipos §3.4/§3.7 y D21): aparece el aviso "Este turno
+  // viene con: …", el regalo se entrega a mano y NO se acumula con otras
+  // promociones: el descuento queda en 0 y bloqueado. Para cobrar con un
+  // descuento en vez del regalo, "Cobrar sin el código".
   const beneficio = turno.beneficio ?? null;
   const beneficioOtro = !!beneficio && esBeneficioOtro(beneficio);
   const [usarBeneficio, setUsarBeneficio] = useState(true);
-  const descuentoBloqueado = !!beneficio && usarBeneficio && !beneficioOtro;
+  const descuentoBloqueado = !!beneficio && usarBeneficio;
 
   const aplicarDescuentoDelBeneficio = () => {
-    if (!beneficio || beneficioOtro || typeof beneficio.porcentaje !== 'number') return;
+    if (!beneficio) return;
+    if (beneficioOtro || typeof beneficio.porcentaje !== 'number') {
+      setDescuentoPorcentaje('');
+      return;
+    }
     setDescuentoPorcentaje(String(beneficio.porcentaje));
     setDescuentoAplicarA({ servicio: beneficio.aplica_servicio, productos: beneficio.aplica_productos });
   };
 
   const handleCobrarSinCodigo = (sinCodigo: boolean) => {
     setUsarBeneficio(!sinCodigo);
-    // Con 'otro' el descuento es el que haya cargado quien cobra: no se toca
-    if (beneficioOtro) return;
     if (sinCodigo) {
       setDescuentoPorcentaje('');
       setDescuentoAplicarA({ servicio: true, productos: true });
@@ -118,12 +121,14 @@ export function FinalizarTurnoModal({
     }
 
     // Con código de descuento, el descuento es el del código (pisa lo que haya).
-    // Con 'otro' no se precarga nada (en editar queda el descuento que ya tenía).
+    // Con 'otro' el descuento queda en 0: el regalo no se acumula (D21).
     if (turno.beneficio) {
       setUsarBeneficio(true);
       if (!esBeneficioOtro(turno.beneficio) && typeof turno.beneficio.porcentaje === 'number') {
         setDescuentoPorcentaje(String(turno.beneficio.porcentaje));
         setDescuentoAplicarA({ servicio: turno.beneficio.aplica_servicio, productos: turno.beneficio.aplica_productos });
+      } else {
+        setDescuentoPorcentaje('');
       }
     }
     // Depende del turno (id) y de su código, no del objeto: un re-render del
@@ -360,7 +365,7 @@ export function FinalizarTurnoModal({
                 {!usarBeneficio
                   ? 'Se cobra sin el código: queda libre para otro turno.'
                   : beneficioOtro
-                    ? 'No es un descuento: entregalo vos. Si además corresponde un descuento, cargalo abajo a mano.'
+                    ? 'No es un descuento: entregalo vos. No se acumula con otras promociones; para cobrar con un descuento, marcá «Cobrar sin el código».'
                     : 'El descuento del código queda aplicado.'}
               </span>
             </div>
@@ -667,7 +672,11 @@ export function FinalizarTurnoModal({
                 aria-label="Porcentaje de descuento"
               />
               {descuentoBloqueado && (
-                <p className="text-xs text-gray-500 mt-1">Fijado por el código de descuento.</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {beneficioOtro
+                    ? 'El turno viene con un regalo: no se suma un descuento.'
+                    : 'Fijado por el código de descuento.'}
+                </p>
               )}
             </div>
             {descuentoPorcentaje && parseFloat(descuentoPorcentaje) > 0 && (
