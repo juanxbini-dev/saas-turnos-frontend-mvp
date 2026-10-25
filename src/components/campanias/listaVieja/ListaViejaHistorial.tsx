@@ -7,7 +7,7 @@ import { useBloqueoPorToken } from '../CampaniasGate';
 import { buildKey, ENTITIES } from '../../../cache/key.builder';
 import { TTL } from '../../../cache/ttl';
 import { campaniasService } from '../../../services/campanias.service';
-import { formatFechaHoraAR } from '../campanias.utils';
+import { formatFechaHoraAR } from '../../../utils/fechasAR.utils';
 import { ESTADOS_EMAIL } from '../../../types/campanias.types';
 import type { EstadoEmail } from '../../../types/campanias.types';
 
@@ -39,6 +39,8 @@ const OPCIONES_ESTADO = [
 // Qué mail es, en lenguaje llano
 export function textoMail(plantilla: string): string {
   if (plantilla === 'lista_vieja_recordatorio') return 'Recordatorio';
+  if (plantilla === 'lista_vieja_clic_sin_turno') return 'Recordatorio (tocó y no reservó)';
+  if (plantilla === 'lista_vieja_ultimo_dia') return 'Último día';
   if (plantilla === 'lista_vieja') return 'Primer mail';
   return plantilla;
 }

@@ -1,7 +1,8 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { CobrarTurnoModal } from '../../components/dashboard/CobrarTurnoModal';
+import { CobrarTurnoModal, calcularDescuentoCobro } from '../../components/dashboard/CobrarTurnoModal';
+import { formatCurrency } from '../../utils/calculos.utils';
 import type { TurnoConDetalle } from '../../types/turno.types';
 
 // Cobrar un pendiente con código (mails-beneficios §4.5 + beneficios-tipos §3.7):
@@ -52,5 +53,53 @@ describe('CobrarTurnoModal — turno con código', () => {
     expect(screen.getByText('Código DEB-7K3P9 · 15 % en servicios')).toBeTruthy();
     expect(screen.queryByTestId('beneficio-viene-con')).toBeNull();
     expect(screen.getByText('Descuento (15%)')).toBeTruthy();
+  });
+});
+
+// Auditoría front H4 (beneficio-con-turno A3): el descuento del cobro respeta a
+// qué aplica — `descuento_aplicar_a` del turno, o el "aplica" del beneficio —
+// y si no se sabe usa el `descuento_monto` guardado al finalizar.
+describe('CobrarTurnoModal — a qué se aplica el descuento', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const fila = (etiqueta: RegExp) => screen.getByText(etiqueta).parentElement as HTMLElement;
+
+  it('código solo en servicios con productos: descuenta solo el servicio', () => {
+    // Servicio 10.000 + productos 5.000; 15 % solo sobre el servicio = 1.500
+    renderModal(turno(DESCUENTO, { descuento_porcentaje: 15, total_productos: 5000 }));
+    expect(fila(/^Descuento \(15%\)$/).textContent).toContain(`-${formatCurrency(1500)}`);
+    expect(fila(/^Total$/).textContent).toContain(formatCurrency(13500));
+  });
+
+  it('código en servicios y productos: descuenta las dos partes', () => {
+    renderModal(turno({ ...DESCUENTO, aplica_productos: true }, { descuento_porcentaje: 15, total_productos: 5000 }));
+    expect(fila(/^Descuento \(15%\)$/).textContent).toContain(`-${formatCurrency(2250)}`);
+    expect(fila(/^Total$/).textContent).toContain(formatCurrency(12750));
+  });
+
+  it('descuento_aplicar_a del turno manda sobre el beneficio', () => {
+    renderModal(turno(DESCUENTO, { descuento_porcentaje: 10, total_productos: 5000, descuento_aplicar_a: { servicio: false, productos: true } }));
+    expect(fila(/^Descuento \(10%\)$/).textContent).toContain(`-${formatCurrency(500)}`);
+  });
+
+  it('sin beneficio ni "aplica": usa el descuento_monto guardado al finalizar', () => {
+    renderModal(turno(null, { descuento_porcentaje: 10, total_productos: 5000, descuento_monto: 1000 }));
+    expect(fila(/^Descuento \(10%\)$/).textContent).toContain(`-${formatCurrency(1000)}`);
+    expect(fila(/^Total$/).textContent).toContain(formatCurrency(14000));
+  });
+});
+
+describe('calcularDescuentoCobro', () => {
+  it('trabaja en centavos: sin errores de punto flotante', () => {
+    expect(calcularDescuentoCobro({ servicio: 0.1, productos: 0.2, porcentaje: 100, aplicarA: { servicio: true, productos: true } })).toBe(0.3);
+    expect(calcularDescuentoCobro({ servicio: 9999.99, productos: 0, porcentaje: 15, aplicarA: { servicio: true, productos: false } })).toBe(1500);
+  });
+
+  it('sin saber a qué aplica ni monto guardado: % sobre todo (lo de siempre)', () => {
+    expect(calcularDescuentoCobro({ servicio: 10000, productos: 5000, porcentaje: 10, aplicarA: null })).toBe(1500);
+  });
+
+  it('nunca más que el subtotal (p. ej. servicio en canje con monto guardado)', () => {
+    expect(calcularDescuentoCobro({ servicio: 0, productos: 500, porcentaje: 10, aplicarA: null, montoGuardado: 1500 })).toBe(500);
   });
 });

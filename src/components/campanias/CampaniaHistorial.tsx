@@ -8,7 +8,8 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
-import { formatFechaDia, formatFechaHoraAR } from './campanias.utils';
+import { formatFechaDia } from './campanias.utils';
+import { formatFechaHoraAR } from '../../utils/fechasAR.utils';
 import { esTipoProducto } from '../../types/campanias.types';
 import type { CampaniaEnvio, CampaniaTipo, EstadoEnvio } from '../../types/campanias.types';
 

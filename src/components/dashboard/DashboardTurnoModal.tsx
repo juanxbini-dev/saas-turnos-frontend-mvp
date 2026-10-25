@@ -18,6 +18,8 @@ import { Modal, Button, Card, Input, Spinner } from '../ui';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { FinalizarTurnoModal } from '../turnos/FinalizarTurnoModal';
 import { BeneficioTurnoBadge } from '../turnos/BeneficioTurnoBadge';
+import { BeneficioTurnoSelector, resumenBeneficioTurno } from '../turnos/BeneficioTurnoSelector';
+import { useBeneficioTurno, mensajeErrorBeneficioTurno } from '../../hooks/useBeneficioTurno';
 
 interface DashboardTurnoModalProps {
   isOpen: boolean;
@@ -30,9 +32,17 @@ interface DashboardTurnoModalProps {
   // Para slot ocupado
   turno?: TurnoConDetalle;
   onRefresh?: () => void;
+  // Admin / super_admin: puede ofrecer "Aplicar el beneficio activo" (D22/D24).
+  // Lo decide quien abre el modal (lee la sesión) para no atarlo al AuthProvider.
+  puedeVerBeneficioActivo?: boolean;
 }
 
 type ModalType = 'disponible' | 'ocupado';
+
+// El mensaje del ConfirmModal es HTML: lo que viene de datos se escapa
+function escaparHtml(texto: string): string {
+  return texto.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+}
 
 export function DashboardTurnoModal({
   isOpen,
@@ -42,7 +52,8 @@ export function DashboardTurnoModal({
   fecha,
   hora,
   turno,
-  onRefresh
+  onRefresh,
+  puedeVerBeneficioActivo = false
 }: DashboardTurnoModalProps) {
   const [loading, setLoading] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
@@ -63,6 +74,10 @@ export function DashboardTurnoModal({
   const [errorModal, setErrorModal] = useState<string | null>(null);
 
   const toast = useToast();
+  // Beneficio del turno nuevo: mismo selector que el alta de Turnos
+  // (códigos vigentes del cliente o el beneficio activo, solo para admin: D24)
+  const beneficioTurno = useBeneficioTurno(turno ? null : selectedCliente?.id, { puedeVerBeneficioActivo });
+  const resumenBeneficio = resumenBeneficioTurno(beneficioTurno);
 
   // Determinar tipo de modal
   const modalType: ModalType = turno ? 'ocupado' : 'disponible';
@@ -231,7 +246,9 @@ export function DashboardTurnoModal({
         servicio_id: selectedServicio.servicio_id,
         fecha: format(fecha, 'yyyy-MM-dd'),
         hora: format(hora, 'HH:mm'),
-        notas: ''
+        notas: '',
+        // Igual que CreateTurnoModal: `beneficio_codigo_id` o `beneficio_activo`
+        ...beneficioTurno.campos
       });
 
       toast.success('Turno creado correctamente. Está pendiente de confirmación por email.');
@@ -242,7 +259,7 @@ export function DashboardTurnoModal({
       handleClose();
     } catch (error: any) {
       setShowConfirmModal(false);
-      setErrorModal(error.response?.data?.message || error.message || 'Error al crear turno');
+      setErrorModal(mensajeErrorBeneficioTurno(error) || error.response?.data?.message || error.message || 'Error al crear turno');
     } finally {
       setConfirmLoading(false);
     }
@@ -256,6 +273,7 @@ export function DashboardTurnoModal({
     setShowCreateCliente(false);
     setNewCliente({ nombre: '', email: '', telefono: '' });
     setShowFinalizarModal(false);
+    beneficioTurno.reset();
     onClose();
   };
 
@@ -413,6 +431,13 @@ export function DashboardTurnoModal({
                   </Button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Beneficio del cliente: sus códigos vigentes o el beneficio activo */}
+          {selectedCliente && (
+            <div className="border-t border-gray-100 pt-4">
+              <BeneficioTurnoSelector estado={beneficioTurno} id="dashboard-beneficio-codigo-id" />
             </div>
           )}
 
@@ -603,6 +628,7 @@ export function DashboardTurnoModal({
             <div style="margin-bottom: 8px;"><strong>Servicio:</strong> ${selectedServicio?.nombre}</div>
             <div style="margin-bottom: 8px;"><strong>Fecha:</strong> ${fechaStr}</div>
             <div style="margin-bottom: 0;"><strong>Hora:</strong> ${horaStr}</div>
+            ${resumenBeneficio ? `<div style="margin-top: 8px;"><strong>Beneficio:</strong> 🎟 ${escaparHtml(resumenBeneficio)}</div>` : ''}
           </div>
         `}
         confirmText="Confirmar Turno"

@@ -2,7 +2,7 @@
 // Reglas de husos: backend/docs/campanias-n8n-spec.md §2.6
 import type { CampaniaMetricasPeriodo, CampaniaTipo, MotivoExclusion } from '../../types/campanias.types';
 
-export const ZONA_AR = 'America/Argentina/Buenos_Aires';
+export { ZONA_AR } from '../../utils/fechasAR.utils';
 
 // 'YYYY-MM-DD' → 'DD/MM/YYYY' partiendo el string. NUNCA new Date(fechaStr):
 // se interpreta como UTC y en Argentina muestra el día anterior.
@@ -21,44 +21,9 @@ export function formatFechaDiaCorta(fecha: string | null | undefined): string {
   return `${d}/${m}`;
 }
 
-const fmtFechaHoraAR = new Intl.DateTimeFormat('es-AR', {
-  timeZone: ZONA_AR,
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
-
-const fmtFechaAR = new Intl.DateTimeFormat('es-AR', {
-  timeZone: ZONA_AR,
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-});
-
-// Los timestamps viajan como ISO UTC y son instantes: acá sí corresponde Date,
-// pero siempre mostrados en hora de Argentina y no en la del dispositivo.
-function aInstante(iso: string | null | undefined): Date | null {
-  if (!iso) return null;
-  const instante = new Date(iso);
-  return Number.isNaN(instante.getTime()) ? null : instante;
-}
-
-// '21/09/2026 10:00'
-export function formatFechaHoraAR(iso: string | null | undefined): string {
-  const instante = aInstante(iso);
-  if (!instante) return '—';
-  return fmtFechaHoraAR.format(instante).replace(',', '');
-}
-
-// '21/09/2026'
-export function formatFechaAR(iso: string | null | undefined): string {
-  const instante = aInstante(iso);
-  if (!instante) return '—';
-  return fmtFechaAR.format(instante);
-}
+// Fechas en hora de Argentina: viven en utils/fechasAR.utils.ts (las usa
+// todo el panel); se re-exportan acá por compatibilidad.
+export { formatFechaAR, formatFechaHoraAR } from '../../utils/fechasAR.utils';
 
 // --- Motivos de exclusión (§2.3): textos literales para Dani, en su orden ---
 

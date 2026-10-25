@@ -7,7 +7,8 @@ import { useBloqueoPorToken } from './CampaniasGate';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
-import { diasDelPeriodo, etiquetaMes, formatFechaHoraAR, formatPorcentaje, NOMBRE_CAMPANIA, periodoDelMes } from './campanias.utils';
+import { diasDelPeriodo, etiquetaMes, formatPorcentaje, NOMBRE_CAMPANIA, periodoDelMes } from './campanias.utils';
+import { formatFechaHoraAR } from '../../utils/fechasAR.utils';
 import type {
   CampaniaMetricasRespuestas,
   CampaniaMetricasSeguimiento,

@@ -39,7 +39,7 @@ const AppRouter = () => {
       <Route path="/" element={<DebSalonLandingPage />} />
       {/* Pública, sin login: la pide Meta y la enlaza el tilde de novedades de la reserva */}
       <Route path="/privacidad" element={<PrivacidadPage />} />
-      {/* Pública, sin login: pedir el código de beneficio (llega desde el mail con ?m=) */}
+      {/* Pública, sin login: con ?m= redirige a la landing; sin m, explica que el beneficio llega por mail */}
       <Route path={RUTA_BENEFICIO} element={<BeneficioPage />} />
       <Route path="/login" element={<LoginPage />} />
 

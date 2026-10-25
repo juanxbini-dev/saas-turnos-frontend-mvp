@@ -6,7 +6,7 @@ import { clienteService } from '../../services/cliente.service';
 import { beneficiosService, mensajeDeErrorBeneficios } from '../../services/beneficios.service';
 import { toastService } from '../../services/toast.service';
 import { describirBeneficioConNombre } from '../../config/beneficio';
-import { formatFechaAR } from '../campanias/campanias.utils';
+import { formatFechaAR } from '../../utils/fechasAR.utils';
 import type { Cliente } from '../../types/cliente.types';
 import type { Beneficio, CodigoEmitido } from '../../types/beneficios.types';
 

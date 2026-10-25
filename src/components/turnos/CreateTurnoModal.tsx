@@ -10,9 +10,9 @@ import { cacheService } from '../../cache/cache.service';
 import { disponibilidadService, turnoService, clienteService } from '../../services';
 import { getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
-import { Cliente as ClienteFull, ClienteBeneficioCodigo } from '../../types/cliente.types';
-import { formatearVenceEl } from '../../services/public/beneficioPublic.service';
-import { describirBeneficio } from '../../config/beneficio';
+import { Cliente as ClienteFull } from '../../types/cliente.types';
+import { useBeneficioTurno, mensajeErrorBeneficioTurno } from '../../hooks/useBeneficioTurno';
+import { BeneficioTurnoSelector, resumenBeneficioTurno } from './BeneficioTurnoSelector';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
 import { format } from 'date-fns';
@@ -96,6 +96,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   const { state: authUser } = useAuth();
   const toast = useToast();
   const isAdmin = authUser?.roles.includes('admin');
+  const puedeVerBeneficioActivo = !!(isAdmin || authUser?.roles.includes('super_admin'));
   const user = authUser?.authUser;
 
   // Hook de disponibilidad — sin servicioId (dashboard usa flujo inverso: slot primero, servicio después)
@@ -230,31 +231,10 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
   const filteredClientes = clientesResp?.items || [];
 
-  // Códigos de beneficio vigentes del cliente elegido (plan mails-beneficios
-  // §4.5). Se piden al elegirlo, sin cache: la lista cambia con cada reserva.
-  // Si falla, se avisa en una línea y el turno se puede crear igual sin código.
-  const [beneficiosCliente, setBeneficiosCliente] = useState<ClienteBeneficioCodigo[]>([]);
-  const [errorBeneficios, setErrorBeneficios] = useState<string | null>(null);
-  const [beneficioCodigoId, setBeneficioCodigoId] = useState<string>('');
-
-  useEffect(() => {
-    setBeneficiosCliente([]);
-    setBeneficioCodigoId('');
-    setErrorBeneficios(null);
-    if (!selectedCliente) return;
-
-    let vigente = true;
-    clienteService.getBeneficios(selectedCliente.id)
-      .then((items) => { if (vigente) setBeneficiosCliente(items); })
-      .catch(() => { if (vigente) setErrorBeneficios('No pudimos cargar los códigos de beneficio del cliente.'); });
-    return () => { vigente = false; };
-  }, [selectedCliente?.id]);
-
-  // "DEB-7K3P9 · 15 % en servicios · vence el 12/11"
-  const etiquetaCodigo = (c: ClienteBeneficioCodigo) => {
-    const vence = formatearVenceEl(c.vence_at?.slice(0, 10));
-    return `${c.codigo} · ${describirBeneficio(c.beneficio)}${vence ? ` · vence el ${vence}` : ''}`;
-  };
+  // Beneficio del turno: códigos vigentes del cliente o el beneficio activo
+  // (selector compartido con el Dashboard, useBeneficioTurno)
+  const beneficioTurno = useBeneficioTurno(selectedCliente?.id, { puedeVerBeneficioActivo });
+  const resumenBeneficio = resumenBeneficioTurno(beneficioTurno);
 
   // "Buscando" incluye la ventana de debounce (todavía no se consultó al backend)
   const clienteBuscando = debouncedClienteSearch.length >= 2 &&
@@ -315,8 +295,9 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
         fecha: selectedDate,
         hora: selectedSlot,
         notas,
-        // Solo si se eligió un código del cliente; si no, el campo no viaja
-        ...(beneficioCodigoId ? { beneficio_codigo_id: beneficioCodigoId } : {})
+        // `beneficio_codigo_id` o `beneficio_activo` según lo elegido; sin
+        // selección no viaja nada
+        ...beneficioTurno.campos
       });
 
       toast.success('Turno creado correctamente. Está pendiente de confirmación por email.');
@@ -331,7 +312,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       onClose();
       resetModal();
     } catch (error: any) {
-      setErrorModal(error.response?.data?.message || error.message || 'Error al crear turno');
+      setErrorModal(mensajeErrorBeneficioTurno(error) || error.response?.data?.message || error.message || 'Error al crear turno');
     } finally {
       setLoading(false);
     }
@@ -350,9 +331,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     setNewCliente({ nombre: '', email: '', telefono: '' });
     setCreatingCliente(false);
     setErrorModal(null);
-    setBeneficiosCliente([]);
-    setBeneficioCodigoId('');
-    setErrorBeneficios(null);
+    beneficioTurno.reset();
   };
 
   const handleCreateCliente = async () => {
@@ -852,29 +831,8 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           )}
 
-          {/* Código de beneficio del cliente (solo si tiene alguno vigente) */}
-          {selectedCliente && errorBeneficios && (
-            <p role="alert" className="text-xs text-red-600">{errorBeneficios}</p>
-          )}
-          {selectedCliente && beneficiosCliente.length > 0 && (
-            <div>
-              <label htmlFor="beneficio-codigo-id" className="block text-sm font-medium text-gray-700 mb-1">
-                🎟 Aplicar código de beneficio
-              </label>
-              <select
-                id="beneficio-codigo-id"
-                value={beneficioCodigoId}
-                onChange={(e) => setBeneficioCodigoId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">Sin código</option>
-                {beneficiosCliente.map((c) => (
-                  <option key={c.id} value={c.id}>{etiquetaCodigo(c)}</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">Queda anotado en el turno para cuando se cobre.</p>
-            </div>
-          )}
+          {/* Beneficio del cliente: sus códigos vigentes o el beneficio activo */}
+          {selectedCliente && <BeneficioTurnoSelector estado={beneficioTurno} />}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -920,12 +878,10 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                 <span className="text-gray-600">Cliente:</span>
                 <span className="font-medium">{selectedCliente?.nombre}</span>
               </div>
-              {beneficioCodigoId && (
+              {resumenBeneficio && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Beneficio:</span>
-                  <span className="font-medium">
-                    🎟 {beneficiosCliente.find((c) => c.id === beneficioCodigoId)?.codigo}
-                  </span>
+                  <span className="font-medium">🎟 {resumenBeneficio}</span>
                 </div>
               )}
             </div>

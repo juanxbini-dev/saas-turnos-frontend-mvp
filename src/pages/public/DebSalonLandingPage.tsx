@@ -15,12 +15,20 @@ import { servicioPublicService } from '../../services/public/servicioPublic.serv
 import {
   beneficioPublicService, esCodigoBeneficio, normalizarCodigoBeneficio,
   guardarBeneficioDeVisita, leerBeneficioDeVisita, olvidarBeneficioDeVisita,
+  beneficioDeLinkDesdeContexto, guardarBeneficioDeLink, leerBeneficioDeLink, olvidarBeneficioDeLink,
+  recordarLinkBeneficio, leerLinkBeneficioRecordado, olvidarLinkBeneficio,
 } from '../../services/public/beneficioPublic.service';
-import type { BeneficioDeVisita } from '../../types/beneficios.public.types';
+import type {
+  BeneficioDeLink, BeneficioDeVisita, BeneficioPublico, EstadoBeneficioLink, TurnoConBeneficio,
+} from '../../types/beneficios.public.types';
+import { CartelBeneficioLink, PrecioServicio } from '../../components/turnos/BeneficioLinkPublico';
 import { LandingConfig, LandingProfesional } from '../../types/landing.types';
 
 
 import { EMPRESA_ID, EMPRESA_SLUG } from '../../config/debsalon';
+
+// Estados del beneficio del mail con los que vale la pena recordar el link (D25)
+const ESTADOS_RECORDABLES: EstadoBeneficioLink[] = ['disponible', 'reservado'];
 
 // ── Hook de animación al entrar en viewport ──────────────────────────────────
 function useInView(threshold = 0.15) {
@@ -89,9 +97,11 @@ interface ServiciosModalProps {
   isOpen: boolean;
   onClose: () => void;
   onReservar: (p: ProfesionalPublic) => void;
+  // Beneficio del mail disponible: precios tachados en los servicios a los que aplica
+  beneficio?: BeneficioPublico | null;
 }
 
-function ServiciosModal({ profesional, isOpen, onClose, onReservar }: ServiciosModalProps) {
+function ServiciosModal({ profesional, isOpen, onClose, onReservar, beneficio = null }: ServiciosModalProps) {
   const [servicios, setServicios] = useState<ServicioProfesional[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -148,7 +158,7 @@ function ServiciosModal({ profesional, isOpen, onClose, onReservar }: ServiciosM
                   <p className="text-xs text-white/30 mt-1">{s.duracion_minutos} min</p>
                 </div>
                 <p className="text-lg font-bold text-white whitespace-nowrap" style={{ fontFamily: 'Oswald, sans-serif' }}>
-                  ${s.precio}
+                  <PrecioServicio precio={s.precio} beneficio={beneficio} />
                 </p>
               </div>
             ))
@@ -549,8 +559,79 @@ export const DebSalonLandingPage: React.FC = () => {
   ));
   const beneficioConsultadoRef = useRef(false);
 
+  // Beneficio del mail de la lista vieja: la landing llega con `?m=<codigo_link>`
+  // (beneficio-con-turno §3 y §5.1). Se pide el contexto UNA vez (cuenta el
+  // clic) y queda para toda la visita (sessionStorage): recargar o volver de
+  // /privacidad no lo vuelve a pedir. El estado decide el cartel:
+  //   disponible → 🎟 aplicado, precios tachados, la reserva lleva `beneficio_m`
+  //   reservado / usado / vencido → aviso, y se reserva normal
+  //   valido:false (baja, anulado, inexistente…) o error → landing normal
+  const [beneficioLink, setBeneficioLink] = useState<BeneficioDeLink | null>(() => (
+    esCodigoDeEnlace(new URLSearchParams(window.location.search).get('m')) ? null : leerBeneficioDeLink()
+  ));
+  const [cartelCerrado, setCartelCerrado] = useState(false);
+  const linkConsultadoRef = useRef(false);
+
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    // Guard con ref (no con cleanup): StrictMode monta el efecto dos veces en
+    // desarrollo y cada consulta cuenta un clic
+    if (linkConsultadoRef.current) return;
+    linkConsultadoRef.current = true;
+
+    const m = new URLSearchParams(window.location.search).get('m');
+
+    if (m === null) {
+      // D25: volvió sin `?m=` (Instagram, Google, escribiendo la dirección). Si
+      // la pestaña no tiene ya el beneficio y el navegador recuerda el link,
+      // se consulta con vuelta=1 (no cuenta otro clic). Solo se muestra si
+      // sigue disponible o reservado; con cualquier otra cosa se olvida.
+      if (beneficioLink) return;
+      const recordado = leerLinkBeneficioRecordado();
+      if (!recordado) return;
+      beneficioPublicService.getContexto(recordado, EMPRESA_ID, { vuelta: true })
+        .then((contexto) => {
+          const link = beneficioDeLinkDesdeContexto(recordado, contexto);
+          if (!link || !ESTADOS_RECORDABLES.includes(link.estado)) {
+            olvidarLinkBeneficio();
+            return;
+          }
+          recordarLinkBeneficio(recordado, link.vence_el);
+          guardarBeneficioDeLink(link);
+          setBeneficioLink(link);
+        })
+        .catch(() => olvidarLinkBeneficio());
+      return;
+    }
+
+    // Sale de la barra apenas se lee: recargar o compartir la página no vuelve
+    // a contar el clic ni comparte el link personal
+    const url = new URL(window.location.href);
+    url.searchParams.delete('m');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+
+    if (!esCodigoDeEnlace(m)) return;
+
+    // Un `?m=` nuevo reemplaza al que hubiera quedado de antes
+    olvidarBeneficioDeLink();
+
+    beneficioPublicService.getContexto(m, EMPRESA_ID)
+      .then((contexto) => {
+        const link = beneficioDeLinkDesdeContexto(m, contexto);
+        // D25: el navegador recuerda el link solo si todavía sirve para volver
+        if (link && ESTADOS_RECORDABLES.includes(link.estado)) recordarLinkBeneficio(m, link.vence_el);
+        else olvidarLinkBeneficio();
+        if (!link) return;
+        guardarBeneficioDeLink(link);
+        setBeneficioLink(link);
+      })
+      .catch(() => {
+        // Sin contexto no hay beneficio que mostrar: landing y reserva normales
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -574,6 +655,9 @@ export const DebSalonLandingPage: React.FC = () => {
     // validarCodigo nunca rechaza: null = no se pudo consultar
     beneficioPublicService.validarCodigo(codigo, EMPRESA_ID).then((resultado) => {
       if (!resultado?.valido || !resultado.beneficio) return;
+      // Un cupón del mail (D26) que ya no está disponible no se arrastra: el
+      // campo del paso 3 dice por qué si la persona lo escribe
+      if (resultado.origen === 'cupon' && resultado.estado && resultado.estado !== 'disponible') return;
       const valor: BeneficioDeVisita = { codigo, beneficio: resultado.beneficio, vence_el: resultado.vence_el ?? null };
       guardarBeneficioDeVisita(valor);
       setBeneficioVisita(valor);
@@ -709,6 +793,40 @@ export const DebSalonLandingPage: React.FC = () => {
     setBeneficioVisita(null);
   };
 
+  // Cambia el estado del beneficio del mail para el resto de la visita
+  const actualizarBeneficioLink = (estado: EstadoBeneficioLink, turno: TurnoConBeneficio | null) => {
+    setBeneficioLink((actual) => {
+      if (!actual) return actual;
+      const nuevo: BeneficioDeLink = { ...actual, estado, turno };
+      guardarBeneficioDeLink(nuevo);
+      return nuevo;
+    });
+    setCartelCerrado(false);
+  };
+
+  // La reserva salió con el beneficio del mail: ya no se aplica a otra
+  const handleBeneficioLinkReservado = (turno: TurnoConBeneficio) => {
+    actualizarBeneficioLink('reservado', turno);
+  };
+
+  // El backend rechazó el beneficio del mail al reservar (carrera, otra ficha…)
+  const handleBeneficioLinkRechazado = (motivo: string | null) => {
+    // D25: salvo 'reservado' (sigue sirviendo para ver el turno), el link
+    // recordado ya no tiene nada que ofrecer
+    if (motivo !== 'reservado') olvidarLinkBeneficio();
+    if (motivo === 'reservado' || motivo === 'usado' || motivo === 'vencido') {
+      actualizarBeneficioLink(motivo, null);
+      return;
+    }
+    // baja, anulado, inexistente…: sin cartel desde acá
+    olvidarBeneficioDeLink();
+    setBeneficioLink(null);
+  };
+
+  const beneficioLinkDisponible = beneficioLink?.estado === 'disponible' ? beneficioLink : null;
+  // El aviso de un beneficio que ya no aplica se puede cerrar; el disponible queda fijo
+  const mostrarCartel = !!beneficioLink && (beneficioLink.estado === 'disponible' || !cartelCerrado);
+
   const titulo = landingConfig?.titulo || null;
   const descripcion = landingConfig?.descripcion || null;
   const tieneFondo = !!landingConfig?.fondo_url;
@@ -725,7 +843,7 @@ export const DebSalonLandingPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className={`min-h-screen bg-[#0a0a0a] text-white ${mostrarCartel ? 'pb-24' : ''}`}>
 
       {/* ── NAV ──────────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-40 bg-transparent">
@@ -1000,12 +1118,40 @@ export const DebSalonLandingPage: React.FC = () => {
         </Reveal>
       </footer>
 
+      {/* ── BENEFICIO DEL MAIL: cartel fijo abajo (mobile first: queda a mano
+           del pulgar y no tapa el logo) ─────────────────────────────────── */}
+      {mostrarCartel && beneficioLink && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#0a0a0a]/95 border-t border-white/15 backdrop-blur-sm">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+            <CartelBeneficioLink link={beneficioLink} className="flex-1 border-0 bg-transparent px-0 py-0" />
+            {beneficioLink.estado === 'disponible' ? (
+              <GhostButton
+                onClick={() => document.getElementById('equipo')?.scrollIntoView({ behavior: 'smooth' })}
+                className="shrink-0 px-4 py-2"
+              >
+                Reservar
+              </GhostButton>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCartelCerrado(true)}
+                aria-label="Cerrar aviso"
+                className="shrink-0 text-white/40 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── MODALES ──────────────────────────────────────────────────────── */}
       <ServiciosModal
         profesional={selectedProfesional}
         isOpen={showServiciosModal}
         onClose={() => setShowServiciosModal(false)}
         onReservar={handleReservar}
+        beneficio={beneficioLinkDisponible?.beneficio ?? null}
       />
 
       {selectedProfesional && (
@@ -1033,6 +1179,9 @@ export const DebSalonLandingPage: React.FC = () => {
           onCampaniaCodigoUsado={handleCampaniaCodigoUsado}
           beneficioInicial={beneficioVisita}
           onBeneficioUsado={handleBeneficioUsado}
+          beneficioLink={beneficioLink}
+          onBeneficioLinkReservado={handleBeneficioLinkReservado}
+          onBeneficioLinkRechazado={handleBeneficioLinkRechazado}
         />
       )}
     </div>
