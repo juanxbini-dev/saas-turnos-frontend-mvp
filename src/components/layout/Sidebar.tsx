@@ -21,6 +21,7 @@ import {
   BarChart3,
   Wallet,
   Megaphone,
+  MessageCircle,
   Ticket,
   X,
   LogOut,
@@ -35,9 +36,10 @@ interface SidebarProps {
 }
 
 // superAdminOnly: solo visible para super_admin (el rol 'admin' no alcanza)
-// "Para contactar" no es ítem: es una pestaña de Productos; su contador se muestra en ese ítem.
+// paraContactar: visible para staff, admin y super admin (puedeVerParaContactar)
 const menuItems = [
   { path: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard',     adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/para-contactar', icon: MessageCircle,   label: 'Para contactar', adminOnly: false, hideSuperAdmin: false, superAdminOnly: false, paraContactar: true },
   { path: '/finanzas',       icon: TrendingUp,      label: 'Finanzas',      adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
   { path: '/metricas',       icon: BarChart3,       label: 'Métricas',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
   { path: '/gastos',         icon: Wallet,          label: 'Gastos',        adminOnly: true,  hideSuperAdmin: false, superAdminOnly: true  },
@@ -74,8 +76,8 @@ const SidebarContent = ({
   // Puntuaciones Regular/Malo sin revisar: aviso en "Métricas", solo super admin
   const { pendientes: puntuacionesPendientes } = useContadorParaRevisar(isSuperAdminUser);
 
-  // Clientes que esperan que les escriban: aviso en "Productos" (ahí vive la pestaña "Para contactar").
-  // Solo se pide si el rol la ve: a un profesional el backend le responde 403.
+  // Clientes que esperan que les escriban: aviso en "Para contactar".
+  // Solo se pide si el rol la ve: a cualquier otro el backend le responde 403.
   const veParaContactar = puedeVerParaContactar(roles);
   const { pendientes: avisosPendientes } = useContadorParaContactar(veParaContactar);
 
@@ -114,8 +116,9 @@ const SidebarContent = ({
 
       {/* Links */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {menuItems.map(({ path, icon: Icon, label, adminOnly, hideSuperAdmin, superAdminOnly }) => {
+        {menuItems.map(({ path, icon: Icon, label, adminOnly, hideSuperAdmin, superAdminOnly, paraContactar }) => {
           const isSuperAdmin = roles.includes('super_admin');
+          if (paraContactar && !veParaContactar) return null;
           if (superAdminOnly && !isSuperAdmin) return null;
           if (adminOnly && !roles.includes('admin') && !isSuperAdmin) return null;
           if (hideSuperAdmin && isSuperAdmin) return null;
@@ -136,8 +139,8 @@ const SidebarContent = ({
               title={collapsed && !isMobile
                 ? (path === '/metricas' && puntuacionesPendientes > 0
                   ? `${label} (${puntuacionesPendientes} para revisar)`
-                  : path === '/productos' && avisosPendientes > 0
-                    ? `${label} (${avisosPendientes} para contactar)`
+                  : path === '/para-contactar' && avisosPendientes > 0
+                    ? `${label} (${avisosPendientes} esperando)`
                     : label)
                 : undefined}
             >
@@ -146,12 +149,11 @@ const SidebarContent = ({
                 {collapsed && !isMobile && path === '/metricas' && puntuacionesPendientes > 0 && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" aria-hidden="true" />
                 )}
-                {collapsed && !isMobile && path === '/productos' && avisosPendientes > 0 && (
+                {collapsed && !isMobile && path === '/para-contactar' && avisosPendientes > 0 && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" aria-hidden="true" />
                 )}
               </span>
               {(!collapsed || isMobile) && <span className="truncate flex-1">{label}</span>}
-              {/* Dos avisos en Productos: bajo stock (ámbar, solo admin) y "Para contactar" (rojo) */}
               {(!collapsed || isMobile) && path === '/productos' && isAdmin && (productosStats?.bajo_stock_count ?? 0) > 0 && (
                 <span
                   className="bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0"
@@ -169,7 +171,7 @@ const SidebarContent = ({
                   {puntuacionesPendientes > 99 ? '99+' : puntuacionesPendientes}
                 </span>
               )}
-              {(!collapsed || isMobile) && path === '/productos' && avisosPendientes > 0 && (
+              {(!collapsed || isMobile) && path === '/para-contactar' && avisosPendientes > 0 && (
                 <span
                   className="bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center shrink-0"
                   title={`${avisosPendientes} ${avisosPendientes === 1 ? 'cliente espera' : 'clientes esperan'} que le escriban`}

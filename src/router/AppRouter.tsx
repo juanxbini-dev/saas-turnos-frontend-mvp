@@ -17,12 +17,13 @@ import { DebSalonLandingPage } from '../pages/public/DebSalonLandingPage';
 import { PrivacidadPage } from '../pages/public/PrivacidadPage';
 import { BeneficioPage } from '../pages/public/BeneficioPage';
 import ConfiguracionPage from '../pages/ConfiguracionPage';
+import ParaContactarPage from '../pages/ParaContactarPage';
 import { PrivateRoute } from '../components/PrivateRoute';
 import { AdminRoute } from '../components/AdminRoute';
 import { SuperAdminRoute } from '../components/SuperAdminRoute';
+import { ParaContactarRoute } from '../components/ParaContactarRoute';
 import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
-import { RUTA_PARA_CONTACTAR } from '../services/avisos.service';
 import { RUTA_BENEFICIO } from '../config/beneficio';
 
 function PerfilRoute() {
@@ -69,8 +70,11 @@ const AppRouter = () => {
               <BeneficiosPage />
             </AdminRoute>
           } />
-          {/* "Para contactar" pasó a ser una pestaña de Productos: los links viejos siguen andando */}
-          <Route path="/para-contactar" element={<Navigate to={RUTA_PARA_CONTACTAR} replace />} />
+          <Route path="/para-contactar" element={
+            <ParaContactarRoute>
+              <ParaContactarPage />
+            </ParaContactarRoute>
+          } />
           <Route path="/usuarios" element={
             <AdminRoute>
               <UsuariosPage />

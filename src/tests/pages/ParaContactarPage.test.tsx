@@ -2,7 +2,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { render, screen, fireEvent, waitFor, within, configure } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { ParaContactarTab } from '../../components/paraContactar/ParaContactarTab';
+import ParaContactarPage from '../../pages/ParaContactarPage';
 import Sidebar from '../../components/layout/Sidebar';
 import { cacheService } from '../../cache/cache.service';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
@@ -11,10 +11,9 @@ import { reiniciarContadorParaRevisar } from '../../services/puntuaciones.servic
 import { toastService } from '../../services/toast.service';
 import type { AvisoDetalle } from '../../types/avisos.types';
 
-// "Para contactar" (spec de productos §11.1 y §11.3), pestaña de Productos: la lista, la
-// clasificación en dos pasos (resultado y nota obligatorios), los errores del servidor y el
-// contador del menú lateral (que vive en el ítem "Productos"). Quién ve la pestaña se prueba
-// en ParaContactar.roles.
+// "Para contactar" (spec de productos §11.1 y §11.3): la lista, la clasificación en dos pasos
+// (resultado y nota obligatorios), los errores del servidor y el contador del menú lateral.
+// Quién ve la pantalla se prueba en ParaContactar.roles.
 
 configure({ asyncUtilTimeout: 5000 });
 vi.setConfig({ testTimeout: 20000 });
@@ -124,7 +123,7 @@ function responderGet(url: string, config?: { params?: { estado?: string } }) {
 const renderPantalla = () => render(
   <MemoryRouter initialEntries={['/productos?tab=para-contactar']}>
     <Sidebar collapsed={false} onToggleCollapsed={vi.fn()} mobileOpen={false} onCloseMobile={vi.fn()} />
-    <ParaContactarTab />
+    <ParaContactarPage />
   </MemoryRouter>
 );
 
