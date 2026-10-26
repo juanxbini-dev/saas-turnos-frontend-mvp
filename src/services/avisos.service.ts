@@ -22,12 +22,6 @@ export function puedeVerParaContactar(roles: readonly string[] | null | undefine
   return !!roles && roles.some((r) => (ROLES_PARA_CONTACTAR as readonly string[]).includes(r));
 }
 
-/** "Para contactar" vive como pestaña de Productos (la usa recepción; Campañas queda detrás
- *  de la contraseña de super admin). Los links viejos a /para-contactar redirigen acá. */
-export const PARAM_TAB_PRODUCTOS = 'tab';
-export const TAB_PARA_CONTACTAR = 'para-contactar';
-export const RUTA_PARA_CONTACTAR = `/productos?${PARAM_TAB_PRODUCTOS}=${TAB_PARA_CONTACTAR}`;
-
 export const AVISOS_POR_PAGINA = 20;
 export const MAX_NOTA_AVISO = 1000;
 

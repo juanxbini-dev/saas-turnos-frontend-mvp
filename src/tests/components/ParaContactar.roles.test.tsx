@@ -1,12 +1,12 @@
 import React from 'react';
-import { BrowserRouter, MemoryRouter, Outlet } from 'react-router-dom';
-import { render, screen, cleanup, within } from '@testing-library/react';
+import { MemoryRouter, Outlet } from 'react-router-dom';
+import { render, screen, cleanup } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // "Para contactar" lo ven staff (recepción comparte el rol con los profesionales), admin y super
-// admin (los roles que acepta el backend en /api/avisos); cualquier otro rol no: ni la pestaña en
-// Productos, ni el contador en el menú, ni el pedido del contador. Vive como pestaña de Productos (no como sección propia) y los
-// links viejos a /para-contactar siguen andando.
+// admin (los roles que acepta el backend en /api/avisos); cualquier otro rol no: ni el ítem del
+// menú, ni la ruta, ni el pedido del contador. Es una sección propia del menú lateral, no una
+// pestaña de Productos.
 
 let roles: string[] = [];
 vi.mock('../../context/AuthContext', () => ({
@@ -45,10 +45,6 @@ vi.mock('../../services/toast.service', () => ({
   toastService: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
-// El contenido de la pestaña se prueba en ParaContactarTab: acá solo importa que aparezca
-vi.mock('../../components/paraContactar/ParaContactarTab', () => ({
-  ParaContactarTab: () => 'CONTENIDO para contactar',
-}));
 
 // El router REAL con las otras páginas reemplazadas por carteles (ProductosPage es la real)
 const cartel = vi.hoisted(() => (texto: string) => ({ default: () => texto }));
@@ -64,6 +60,7 @@ vi.mock('../../pages/MetricasPage', () => cartel('PAGINA metricas'));
 vi.mock('../../pages/GastosPage', () => cartel('PAGINA gastos'));
 vi.mock('../../pages/CampaniasPage', () => cartel('PAGINA campanias'));
 vi.mock('../../pages/ConfiguracionPage', () => cartel('PAGINA configuracion'));
+vi.mock('../../pages/ParaContactarPage', () => cartel('PAGINA para contactar'));
 vi.mock('../../pages/public/DebSalonLandingPage', () => ({ DebSalonLandingPage: () => 'PAGINA landing' }));
 vi.mock('../../components/layout/Layout', () => ({ default: () => <Outlet /> }));
 vi.mock('../../components/PrivateRoute', () => ({ PrivateRoute: () => <Outlet /> }));
@@ -79,19 +76,13 @@ const renderSidebar = () => render(
   </MemoryRouter>
 );
 
-// ProductosPage lee ?tab= de window.location (no del router): se usa el historial real del
-// navegador, así el redirect de /para-contactar deja la URL que la página va a leer.
-const entrarA = (ruta: string) => {
-  window.history.pushState({}, '', ruta);
-  return render(<BrowserRouter><AppRouter /></BrowserRouter>);
-};
+const entrarA = (ruta: string) => render(<MemoryRouter initialEntries={[ruta]}><AppRouter /></MemoryRouter>);
 
+const linksParaContactar = () => screen.queryAllByRole('link', { name: /Para contactar/ });
 const linksProductos = () => screen.queryAllByRole('link', { name: /Productos/ });
-const tabParaContactar = () => screen.queryByRole('button', { name: /Para contactar/ });
-const tabVentas = () => screen.getByRole('button', { name: 'Ventas' });
 
 beforeEach(() => { vi.clearAllMocks(); roles = []; });
-afterEach(() => { cleanup(); window.history.pushState({}, '', '/'); });
+afterEach(() => cleanup());
 
 describe('Para contactar · quién lo ve', () => {
   it('la regla: staff, admin y super admin sí; otro rol no', () => {
@@ -103,86 +94,49 @@ describe('Para contactar · quién lo ve', () => {
     expect(puedeVerParaContactar(undefined)).toBe(false);
   });
 
-  it.each([[['admin']], [['admin', 'super_admin']], [['staff']]])('roles %j: el contador va en el ítem Productos del menú', (r) => {
+  it.each([[['admin']], [['admin', 'super_admin']], [['staff']]])('roles %j: ven el ítem del menú con el contador', (r) => {
     roles = r;
     renderSidebar();
-    expect(screen.queryAllByRole('link', { name: /Para contactar/ })).toHaveLength(0);
-    expect(linksProductos().length).toBeGreaterThan(0);
-    expect(linksProductos()[0].getAttribute('href')).toBe('/productos');
-    const badge = within(linksProductos()[0]).getByTestId('badge-para-contactar');
-    expect(badge.textContent).toBe('4');
+    expect(linksParaContactar().length).toBeGreaterThan(0);
+    expect(linksParaContactar()[0].getAttribute('href')).toBe('/para-contactar');
+    expect(screen.getAllByTestId('badge-para-contactar')[0].textContent).toBe('4');
     expect(habilitado).toHaveBeenCalledWith(true);
   });
 
-  it('un usuario sin esos roles ve Productos sin el contador y no se pide el contador', () => {
-    roles = ['otro'];
+  it('el contador ya no va en el ítem Productos', () => {
+    roles = ['admin'];
     renderSidebar();
     expect(linksProductos().length).toBeGreaterThan(0);
+    expect(linksProductos()[0].querySelector('[data-testid="badge-para-contactar"]')).toBeNull();
+  });
+
+  it('un usuario sin esos roles no ve el ítem y no se pide el contador', () => {
+    roles = ['otro'];
+    renderSidebar();
+    expect(linksParaContactar()).toHaveLength(0);
     expect(screen.queryByTestId('badge-para-contactar')).toBeNull();
     expect(habilitado).not.toHaveBeenCalledWith(true);
   });
-});
 
-describe('Para contactar · pestaña de Productos', () => {
-  it('un admin la ve justo después de Ventas, con el contador, y arranca en Catálogo', () => {
-    roles = ['admin'];
-    render(<ProductosPage />);
-
-    const nombres = screen.getAllByRole('button').map((b) => b.textContent ?? '');
-    const iVentas = nombres.findIndex((n) => n === 'Ventas');
-    expect(iVentas).toBeGreaterThan(-1);
-    expect(nombres[iVentas + 1]).toMatch(/^Para contactar/);
-    expect(screen.getByTestId('badge-para-contactar-tab').textContent).toBe('4');
-    expect(screen.queryByText('CONTENIDO para contactar')).toBeNull();
-  });
-
-  it('recepción (staff) ve solo Ventas y Para contactar', () => {
-    roles = ['staff'];
-    render(<ProductosPage />);
-    expect(tabVentas()).toBeTruthy();
-    expect(tabParaContactar()).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Catálogo' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Configuración' })).toBeNull();
-  });
-
-  it('un usuario sin esos roles sigue viendo solo Ventas', () => {
+  it('un usuario sin permiso que escribe la URL a mano va al inicio', () => {
     roles = ['otro'];
-    render(<ProductosPage />);
-    expect(tabVentas()).toBeTruthy();
-    expect(tabParaContactar()).toBeNull();
-    expect(screen.queryByText('CONTENIDO para contactar')).toBeNull();
+    entrarA('/para-contactar');
+    expect(screen.queryByText('PAGINA para contactar')).toBeNull();
+    expect(screen.getByText('PAGINA dashboard')).toBeTruthy();
   });
 
-  it('?tab=para-contactar abre la pestaña; sin permiso cae en Ventas', () => {
-    roles = ['staff'];
-    window.history.pushState({}, '', '/productos?tab=para-contactar');
-    render(<ProductosPage />);
-    expect(screen.getByText('CONTENIDO para contactar')).toBeTruthy();
-    cleanup();
-
-    roles = ['otro'];
-    render(<ProductosPage />);
-    expect(screen.queryByText('CONTENIDO para contactar')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Registro de ventas' })).toBeTruthy();
-  });
-});
-
-describe('Para contactar · el link viejo /para-contactar', () => {
-  it.each([[['admin']], [['super_admin']], [['staff']]])('roles %j: terminan en Productos con la pestaña abierta', async (r) => {
+  it.each([[['admin']], [['super_admin']], [['staff']]])('roles %j: entran a la pantalla', (r) => {
     roles = r;
     entrarA('/para-contactar');
-    expect(await screen.findByText('CONTENIDO para contactar')).toBeTruthy();
-    expect(window.location.pathname).toBe('/productos');
-    expect(window.location.search).toBe('?tab=para-contactar');
-    expect(tabParaContactar()).toBeTruthy();
+    expect(screen.getByText('PAGINA para contactar')).toBeTruthy();
   });
+});
 
-  it('un usuario sin permiso que escribe la URL a mano termina en Productos, sin esa pestaña', async () => {
-    roles = ['otro'];
-    entrarA('/para-contactar');
-    expect(await screen.findByRole('button', { name: 'Ventas' })).toBeTruthy();
-    expect(window.location.pathname).toBe('/productos');
-    expect(tabParaContactar()).toBeNull();
-    expect(screen.queryByText('CONTENIDO para contactar')).toBeNull();
+describe('Para contactar · ya no es pestaña de Productos', () => {
+  it.each([[['admin']], [['staff']]])('roles %j: Productos no tiene la pestaña', (r) => {
+    roles = r;
+    render(<ProductosPage />);
+    expect(screen.getByRole('button', { name: 'Ventas' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Para contactar/ })).toBeNull();
   });
 });
