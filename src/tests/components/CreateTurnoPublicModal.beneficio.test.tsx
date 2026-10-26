@@ -231,7 +231,7 @@ describe('CreateTurnoPublicModal — código de beneficio', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Ese código no es tuyo: el teléfono o el mail no coinciden con los del pedido');
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos aplicar el código con estos datos. Usá el mismo mail o teléfono que diste cuando te lo dieron.');
     // Sigue en el paso 3, sin modal de error genérico ni de éxito, y sin chip
     expect(screen.getByText('Resumen del turno')).toBeTruthy();
     expect(screen.queryByText('Turno confirmado')).toBeNull();

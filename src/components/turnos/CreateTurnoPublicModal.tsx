@@ -522,12 +522,12 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
           // Cupón (D26): mismo recuadro que el link, con "Reservar sin beneficio".
           // D29: el cupón exige el mail o el teléfono del contacto (el link no).
           setErrorBeneficioLink(codigoError === 'BENEFICIO_NO_CORRESPONDE'
-            ? 'Este código es de otra persona: usá el mail o el teléfono con el que recibiste el mail.'
+            ? 'No pudimos aplicar el código con estos datos. Usá el mismo mail o teléfono con el que recibiste el mail de DEB Salón.'
             : mensajeBeneficioLinkRechazado(motivo, venceCupon));
           return;
         }
         setBeneficioError(codigoError === 'BENEFICIO_NO_CORRESPONDE'
-          ? 'Ese código no es tuyo: el teléfono o el mail no coinciden con los del pedido'
+          ? 'No pudimos aplicar el código con estos datos. Usá el mismo mail o teléfono que diste cuando te lo dieron.'
           : (error.response?.data?.message || 'Ese código no es válido'));
         return;
       }

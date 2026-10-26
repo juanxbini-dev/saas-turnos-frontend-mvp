@@ -407,7 +407,7 @@ describe('CreateTurnoPublicModal — cupón del mail (D26)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
 
     const alerta = await screen.findByRole('alert');
-    expect(alerta).toHaveTextContent('Este código es de otra persona: usá el mail o el teléfono con el que recibiste el mail.');
+    expect(alerta).toHaveTextContent('No pudimos aplicar el código con estos datos. Usá el mismo mail o teléfono con el que recibiste el mail de DEB Salón.');
     expect(alerta).toHaveTextContent('Podés reservar igual, sin el beneficio.');
     expect(screen.queryByText('Turno confirmado')).toBeNull();
 
