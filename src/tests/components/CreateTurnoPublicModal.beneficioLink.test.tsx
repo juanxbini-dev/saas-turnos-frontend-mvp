@@ -214,7 +214,8 @@ describe('CreateTurnoPublicModal — beneficio del mail (?m=)', () => {
 
     const alerta = await screen.findByRole('alert');
     expect(alerta).toHaveTextContent(mensaje);
-    expect(alerta).toHaveTextContent('Podés reservar igual, sin el beneficio.');
+    expect(alerta).toHaveTextContent('Tu turno todavía no está reservado. Podés reservar igual, sin el beneficio.');
+    expect(screen.queryByRole('button', { name: 'Corregir mis datos' })).toBeNull();
     expect(screen.queryByText('Turno confirmado')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Entendido' })).toBeNull();
     expect(onBeneficioLinkRechazado).toHaveBeenCalledWith(motivo);
@@ -407,9 +408,15 @@ describe('CreateTurnoPublicModal — cupón del mail (D26)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
 
     const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveTextContent('No se aplicó tu beneficio');
     expect(alerta).toHaveTextContent('No pudimos aplicar el código con estos datos. Usá el mismo mail o teléfono con el que recibiste el mail de DEB Salón.');
-    expect(alerta).toHaveTextContent('Podés reservar igual, sin el beneficio.');
+    expect(alerta).toHaveTextContent('Tu turno todavía no está reservado. Corregí tus datos o reservá igual, sin el beneficio.');
     expect(screen.queryByText('Turno confirmado')).toBeNull();
+    // El recuadro queda enfocado (se ve aunque el botón de confirmar esté fijo abajo)
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('error-beneficio')));
+    // "Corregir mis datos" lleva al mail
+    fireEvent.click(screen.getByRole('button', { name: 'Corregir mis datos' }));
+    expect(document.activeElement).toBe(screen.getByPlaceholderText('tucorreo@ejemplo.com'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Reservar sin beneficio' }));
     await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(2));
