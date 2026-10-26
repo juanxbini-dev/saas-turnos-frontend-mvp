@@ -1,3 +1,5 @@
+import type { BeneficioTipo } from './beneficios.types'
+
 export interface Cliente {
   id: string
   nombre: string
@@ -39,6 +41,22 @@ export interface UpdateClienteData {
   nombre?: string
   email?: string | null
   telefono?: string | null
+}
+
+// GET /api/clientes/:id/beneficios — códigos de beneficio emitidos y vigentes
+// del cliente, para elegir uno al crear un turno a mano (plan mails-beneficios §4.5)
+export interface ClienteBeneficioCodigo {
+  id: string
+  codigo: string
+  estado: 'emitido'
+  vence_at: string
+  beneficio: {
+    nombre: string
+    tipo: BeneficioTipo
+    porcentaje: number | null
+    aplica_servicio: boolean
+    aplica_productos: boolean
+  }
 }
 
 export type TurnoEstadoPerfil = 'pendiente' | 'confirmado' | 'completado' | 'cancelado';

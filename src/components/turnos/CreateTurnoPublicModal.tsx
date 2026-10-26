@@ -9,6 +9,16 @@ import { cacheService } from '../../cache/cache.service';
 import { turnoPublicService, servicioPublicService } from '../../services/public';
 import { DateHelper } from '../../shared/utils/DateHelper';
 import { RUTA_PRIVACIDAD } from '../../config/privacidad';
+import {
+  beneficioPublicService, normalizarCodigoBeneficio, formatearVenceEl,
+} from '../../services/public/beneficioPublic.service';
+import {
+  describirBeneficio, esBeneficioOtro, formatearDiaMes, textoCartelBeneficioLink, textoConfirmacionBeneficio,
+} from '../../config/beneficio';
+import type {
+  BeneficioDeLink, BeneficioDeVisita, BeneficioReserva, MotivoCodigoBeneficio, PrecargaBeneficio, TurnoConBeneficio,
+} from '../../types/beneficios.public.types';
+import { CartelBeneficioLink, PrecioServicio } from './BeneficioLinkPublico';
 
 interface CreateTurnoPublicModalProps {
   isOpen: boolean;
@@ -29,7 +39,60 @@ interface CreateTurnoPublicModalProps {
   servicioInicialId?: string | null;
   campaniaCodigo?: string | null;
   onCampaniaCodigoUsado?: () => void;
+  // Código de beneficio ya validado para esta visita (llegó por `?b=`, plan
+  // mails-beneficios §4.1). Prellena el campo del paso 3 y muestra el chip 🎟.
+  //   - onBeneficioUsado: la reserva se creó con el código → la landing lo olvida.
+  beneficioInicial?: BeneficioDeVisita | null;
+  onBeneficioUsado?: () => void;
+  // Beneficio del mail de la lista vieja (`?m=`, beneficio-con-turno §3). La
+  // landing ya pidió el contexto; acá:
+  //   - 'disponible': cartel 🎟 en los tres pasos, precios tachados, "¿Tenés un
+  //     código?" oculto y la reserva lleva `beneficio_m` (no `beneficio_codigo`).
+  //   - otro estado: el cartel avisa ("Ya usaste este beneficio"…) y se reserva normal.
+  //   - en cualquier estado, `precarga` prellena "Tus datos" (todo editable).
+  //   - onBeneficioLinkReservado: la reserva salió con el beneficio → la landing
+  //     lo pasa a 'reservado' con ese turno.
+  //   - onBeneficioLinkRechazado: el backend dijo 400 BENEFICIO_INVALIDO (carrera:
+  //     otro turno, ya usado, vencido, baja…) → la landing actualiza el cartel.
+  beneficioLink?: BeneficioDeLink | null;
+  onBeneficioLinkReservado?: (turno: TurnoConBeneficio) => void;
+  onBeneficioLinkRechazado?: (motivo: string | null) => void;
 }
+
+const MENSAJE_MOTIVO_CODIGO: Record<MotivoCodigoBeneficio, string> = {
+  formato: 'El código tiene la forma DEB-XXXXX',
+  inexistente: 'Ese código no existe',
+  vencido: 'Ese código ya venció',
+  usado: 'Ese código ya se usó',
+  reservado: 'Ese código ya está reservado en otro turno',
+  anulado: 'Ese código fue anulado',
+};
+// Cupón con mail/teléfono que no coinciden (D29): el único rechazo que se arregla corrigiendo los datos
+const MENSAJE_CUPON_NO_CORRESPONDE = 'No pudimos aplicar el código con estos datos. Usá el mismo mail o teléfono con el que recibiste el mail de DEB Salón.';
+
+const MENSAJE_SIN_VALIDAR = 'No pudimos validar el código. Probá de nuevo en un momento.';
+
+// 400 BENEFICIO_INVALIDO de una reserva con `beneficio_m`: el turno no se creó.
+// Puede llegar aunque el contexto haya dicho 'disponible' (D19: lo usó con otra ficha).
+function mensajeBeneficioLinkRechazado(motivo: string | null, venceEl: string | null): string {
+  switch (motivo) {
+    case 'reservado': return 'Ya hay un turno reservado con este beneficio.';
+    case 'usado': return 'Este beneficio ya se usó.';
+    case 'vencido': {
+      const vence = formatearDiaMes(venceEl);
+      return vence ? `Esta oferta venció el ${vence}.` : 'Esta oferta ya venció.';
+    }
+    // baja, anulado (D17), inexistente…: neutro, el link puede estar reenviado (D21)
+    default: return 'Este beneficio ya no está disponible.';
+  }
+}
+
+const datosDePrecarga = (precarga: PrecargaBeneficio | null | undefined) => ({
+  nombre: precarga?.nombre ?? '',
+  apellido: precarga?.apellido ?? '',
+  email: precarga?.email ?? '',
+  telefono: precarga?.telefono ?? '',
+});
 
 interface ClienteFormData {
   nombre: string;
@@ -69,16 +132,17 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   empresaId,
   servicioInicialId = null,
   campaniaCodigo = null,
-  onCampaniaCodigoUsado
+  onCampaniaCodigoUsado,
+  beneficioInicial = null,
+  onBeneficioUsado,
+  beneficioLink = null,
+  onBeneficioLinkReservado,
+  onBeneficioLinkRechazado
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedServicio, setSelectedServicio] = useState<ServicioProfesional | null>(null);
-  const [clienteData, setClienteData] = useState<ClienteFormData>({
-    nombre: '',
-    apellido: '',
-    email: '',
-    telefono: ''
-  });
+  // Con el link del mail, "Tus datos" arranca con lo que tiene el contacto (D7)
+  const [clienteData, setClienteData] = useState<ClienteFormData>(() => datosDePrecarga(beneficioLink?.precarga));
   const [notas, setNotas] = useState('');
   // Novedades por WhatsApp: tildado por defecto, opcional, y viaja siempre
   const [quiereNovedades, setQuiereNovedades] = useState(true);
@@ -92,8 +156,77 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // Código de beneficio (paso 3, opcional).
+  //   - codigoBeneficio: lo que hay escrito en el campo.
+  //   - beneficioValidado: el último código que el backend dio por bueno; es lo
+  //     que pinta el chip 🎟. Se borra apenas el texto del campo cambia.
+  //   - beneficioError: motivo de validación o el 400 de la reserva.
+  //   - beneficioAplicado: lo que devolvió la reserva (pantalla de éxito).
+  const [codigoBeneficio, setCodigoBeneficio] = useState(beneficioInicial?.codigo ?? '');
+  const [beneficioValidado, setBeneficioValidado] = useState<BeneficioDeVisita | null>(beneficioInicial);
+  const [beneficioError, setBeneficioError] = useState<string | null>(null);
+  const [validandoBeneficio, setValidandoBeneficio] = useState(false);
+  const [beneficioAplicado, setBeneficioAplicado] = useState<BeneficioReserva | null>(null);
+
+  // Beneficio del mail (`?m=`). `sinBeneficioLink`: la persona eligió reservar
+  // sin él después de un rechazo del backend. `errorBeneficioLink`: el motivo
+  // del rechazo (el turno no se creó), con la opción de reservar sin beneficio.
+  const [sinBeneficioLink, setSinBeneficioLink] = useState(false);
+  const [errorBeneficioLink, setErrorBeneficioLink] = useState<string | null>(null);
+  const beneficioLinkActivo = beneficioLink?.estado === 'disponible' && !sinBeneficioLink;
+
+  // Cupón del mail (D26): un `DEB-XXXXX` escrito en "¿Tenés un código?" que el
+  // backend reconoce como alias del link (`origen: 'cupon'`). Disponible →
+  // mismo cartel y precios tachados que el link, para el resto de la reserva,
+  // sin precargar datos. Viaja como `beneficio_codigo`, igual que un código.
+  const [cupon, setCupon] = useState<BeneficioDeLink | null>(null);
+  const cuponActivo = !beneficioLinkActivo && cupon?.estado === 'disponible' ? cupon : null;
+
+  // El beneficio que pinta los precios: el del mail o el del cupón, si están activos
+  const beneficioDePrecios = beneficioLinkActivo ? beneficioLink!.beneficio : cuponActivo?.beneficio ?? null;
+  // El cartel de arriba: el link activo, si no el cupón, si no el aviso del link
+  const linkDelCartel = beneficioLinkActivo
+    ? beneficioLink
+    : cuponActivo ?? (beneficioLink && !sinBeneficioLink ? beneficioLink : null);
+
+  // La reserva se creó pero el backend no pudo aplicar el beneficio
+  const [beneficioNoAplicado, setBeneficioNoAplicado] = useState(false);
+
+  // Si el contexto llegó con el asistente ya abierto y la persona todavía no
+  // escribió nada, se prellena igual.
+  useEffect(() => {
+    if (!beneficioLink?.precarga) return;
+    setClienteData((prev) => (
+      prev.nombre || prev.apellido || prev.email || prev.telefono ? prev : datosDePrecarga(beneficioLink.precarga)
+    ));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beneficioLink?.m]);
+
+  // Si el `?b=` se validó después de que el asistente ya estaba montado (y la
+  // persona todavía no escribió nada), se adopta igual.
+  useEffect(() => {
+    if (!beneficioInicial || codigoBeneficio || beneficioValidado) return;
+    setCodigoBeneficio(beneficioInicial.codigo);
+    setBeneficioValidado(beneficioInicial);
+    setBeneficioError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beneficioInicial]);
+
   const slotsRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  // El rechazo del beneficio aparece en la zona que se desplaza y el botón de confirmar está fijo
+  // abajo: se lleva a la vista y se enfoca para que nadie se lo pierda
+  const errorBeneficioRef = useRef<HTMLDivElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!errorBeneficioLink) return;
+    errorBeneficioRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    errorBeneficioRef.current?.focus({ preventScroll: true });
+  }, [errorBeneficioLink]);
+  const corregirDatos = () => {
+    emailRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    emailRef.current?.focus({ preventScroll: true });
+  };
 
   // servicioId=null hasta que el usuario elija un servicio (paso previo obligatorio)
   const {
@@ -176,6 +309,80 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setSubmitError(null);
   };
 
+  const handleCodigoBeneficioChange = (valor: string) => {
+    setCodigoBeneficio(valor);
+    setBeneficioError(null);
+    // El chip solo vale para el código que se validó: si cambia el texto, afuera
+    if (beneficioValidado && normalizarCodigoBeneficio(valor) !== beneficioValidado.codigo) {
+      setBeneficioValidado(null);
+    }
+    if (cupon && normalizarCodigoBeneficio(valor) !== cupon.m) setCupon(null);
+    // El rechazo de un cupón (D26/D29) se resuelve tocando el campo (con el
+    // link activo el campo ni se ve, así que no pisa el rechazo del link)
+    if (!beneficioLinkActivo) setErrorBeneficioLink(null);
+  };
+
+  // Al salir del campo: el backend dice si el código sirve (sin datos personales)
+  const validarCodigoBeneficio = async () => {
+    const texto = codigoBeneficio.trim();
+    if (!texto) {
+      setBeneficioValidado(null);
+      setCupon(null);
+      setBeneficioError(null);
+      return;
+    }
+    const normalizado = normalizarCodigoBeneficio(texto);
+    if (!normalizado) {
+      setBeneficioValidado(null);
+      setCupon(null);
+      setBeneficioError(MENSAJE_MOTIVO_CODIGO.formato);
+      return;
+    }
+    if (beneficioValidado?.codigo === normalizado) return;   // ya validado, nada que consultar
+
+    setValidandoBeneficio(true);
+    try {
+      const resultado = await beneficioPublicService.validarCodigo(normalizado, empresaId);
+      if (!resultado) {
+        setBeneficioValidado(null);
+        setCupon(null);
+        setBeneficioError(MENSAJE_SIN_VALIDAR);
+      } else if (resultado.valido && resultado.beneficio && resultado.origen === 'cupon') {
+        const comoLink: BeneficioDeLink = {
+          m: normalizado,
+          estado: resultado.estado ?? 'disponible',
+          nombre: null,
+          beneficio: resultado.beneficio,
+          vence_el: resultado.vence_el ?? null,
+          precarga: null,
+          turno: resultado.turno ?? null,
+        };
+        setCodigoBeneficio(normalizado);
+        if (comoLink.estado === 'disponible') {
+          setCupon(comoLink);
+          setBeneficioValidado({ codigo: normalizado, beneficio: resultado.beneficio, vence_el: comoLink.vence_el });
+          setBeneficioError(null);
+        } else {
+          // reservado / usado / vencido: el mismo aviso neutro que el link (D21)
+          setCupon(null);
+          setBeneficioValidado(null);
+          setBeneficioError(textoCartelBeneficioLink(comoLink));
+        }
+      } else if (resultado.valido && resultado.beneficio) {
+        setCupon(null);
+        setCodigoBeneficio(normalizado);
+        setBeneficioValidado({ codigo: normalizado, beneficio: resultado.beneficio, vence_el: resultado.vence_el ?? null });
+        setBeneficioError(null);
+      } else {
+        setBeneficioValidado(null);
+        setCupon(null);
+        setBeneficioError(MENSAJE_MOTIVO_CODIGO[resultado.motivo ?? 'inexistente'] ?? MENSAJE_MOTIVO_CODIGO.inexistente);
+      }
+    } finally {
+      setValidandoBeneficio(false);
+    }
+  };
+
   const validateForm = (): boolean => {
     const errors: FieldErrors = {};
     if (!clienteData.nombre.trim()) errors.nombre = 'El nombre es requerido';
@@ -187,6 +394,12 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     }
     if (!clienteData.telefono.trim()) errors.telefono = 'El teléfono es requerido';
     setFieldErrors(errors);
+    // Un código escrito sin forma de código no se manda: se avisa y se puede borrar.
+    // Con el beneficio del mail el campo no se ve ni viaja.
+    if (!beneficioLinkActivo && codigoBeneficio.trim() && !normalizarCodigoBeneficio(codigoBeneficio)) {
+      setBeneficioError(MENSAJE_MOTIVO_CODIGO.formato);
+      return false;
+    }
     return Object.keys(errors).length === 0;
   };
 
@@ -199,9 +412,19 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     telefono: clienteData.telefono.trim()
   });
 
-  const handleValidateAndCreateTurno = async () => {
+  // `sinBeneficio`: el botón "Reservar sin beneficio" después de un rechazo
+  const handleValidateAndCreateTurno = async (opciones: { sinBeneficio?: boolean } = {}) => {
     if (!validateForm()) return;
     setSubmitError(null);
+    if (opciones.sinBeneficio) {
+      // Sin link y sin código: lo que hubiera en "¿Tenés un código?" tampoco viaja
+      setSinBeneficioLink(true);
+      setErrorBeneficioLink(null);
+      setCodigoBeneficio('');
+      setBeneficioValidado(null);
+      setBeneficioError(null);
+      setCupon(null);
+    }
     setLoading(true);
 
     try {
@@ -217,7 +440,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         setExistingCliente((response.data as any).data.cliente);
         setShowMatchModal(true);
       } else {
-        await createNewClienteAndTurno();
+        await createNewClienteAndTurno(null, !!opciones.sinBeneficio);
       }
     } catch (error: any) {
       setSubmitError(error.response?.data?.message || 'Error al validar los datos. Intentá nuevamente.');
@@ -233,7 +456,9 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   //   null          → no hubo modal: no viaja ni `cliente_id` ni `modal_accion`
   // La acción se pasa por parámetro y no se guarda en estado: si el modal se
   // cierra con la X o el fondo, no queda ninguna acción "pegada" para la próxima.
-  const createNewClienteAndTurno = async (accion: 'confirmar' | 'otros_datos' | null = null) => {
+  // `forzarSinBeneficio`: el clic en "Reservar sin beneficio" llega acá antes de
+  // que el estado `sinBeneficioLink` se vea en este render.
+  const createNewClienteAndTurno = async (accion: 'confirmar' | 'otros_datos' | null = null, forzarSinBeneficio = false) => {
     setSubmitError(null);
     if (!selectedServicio || !selectedDate || !selectedSlot) {
       setSubmitError('Elegí servicio, día y horario antes de confirmar.');
@@ -242,6 +467,12 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     }
     try {
       setLoading(true);
+
+      // Excluyentes (§5.2): con el beneficio del mail viaja `beneficio_m` y nunca
+      // `beneficio_codigo`
+      const conLink = beneficioLinkActivo && !forzarSinBeneficio;
+      const beneficioM = conLink ? beneficioLink!.m : null;
+      const codigoBeneficioNormalizado = conLink || forzarSinBeneficio ? null : normalizarCodigoBeneficio(codigoBeneficio);
 
       const turnoData = {
         profesional_id: profesionalId,
@@ -254,12 +485,26 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         notas,
         marketing_consentimiento: quiereNovedades,
         // Solo si la persona llegó desde un mensaje; si no, el campo no viaja
-        ...(campaniaCodigo ? { campania_codigo: campaniaCodigo } : {})
+        ...(campaniaCodigo ? { campania_codigo: campaniaCodigo } : {}),
+        // Solo si escribió (o trajo) un código de beneficio; si no, no viaja
+        ...(codigoBeneficioNormalizado ? { beneficio_codigo: codigoBeneficioNormalizado } : {}),
+        // Solo con el beneficio del mail disponible
+        ...(beneficioM ? { beneficio_m: beneficioM } : {})
       };
 
-      await turnoPublicService.createTurno(turnoData);
+      const respuesta = await turnoPublicService.createTurno(turnoData);
 
       if (campaniaCodigo) onCampaniaCodigoUsado?.();
+
+      // El beneficio que quedó en el turno (solo si viajó código o link). Si
+      // viajó y vuelve null, el turno se creó pero el beneficio no se aplicó:
+      // se avisa y NO se da por reservado (el link sigue 'disponible').
+      const pidioBeneficio = !!(codigoBeneficioNormalizado || beneficioM);
+      const beneficioRespuesta = respuesta.data?.data?.beneficio ?? null;
+      setBeneficioAplicado(pidioBeneficio ? beneficioRespuesta : null);
+      setBeneficioNoAplicado(pidioBeneficio && !beneficioRespuesta);
+      if (codigoBeneficioNormalizado && beneficioRespuesta) onBeneficioUsado?.();
+      if (beneficioM && beneficioRespuesta) onBeneficioLinkReservado?.({ fecha: selectedDate, hora: selectedSlot });
 
       if (profesionalId && selectedDate) {
         cacheService.invalidate(buildKey(ENTITIES.SLOTS, profesionalId, selectedDate));
@@ -267,6 +512,41 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
       setShowSuccessModal(true);
     } catch (error: any) {
+      const codigoError: string | undefined = error.response?.data?.code;
+      const esErrorDeBeneficio = error.response?.status === 400
+        && (codigoError === 'BENEFICIO_INVALIDO' || codigoError === 'BENEFICIO_NO_CORRESPONDE');
+      if (esErrorDeBeneficio && beneficioLinkActivo && !forzarSinBeneficio) {
+        // El beneficio del mail ya no corre (otro turno, usado, vencido, baja…).
+        // El turno NO se creó: se dice por qué y se ofrece reservar sin él.
+        const motivo: string | null = error.response?.data?.motivo ?? null;
+        setErrorBeneficioLink(mensajeBeneficioLinkRechazado(motivo, beneficioLink?.vence_el ?? null));
+        setStep(3);
+        onBeneficioLinkRechazado?.(motivo);
+        return;
+      }
+      if (esErrorDeBeneficio) {
+        // El turno NO se creó. El problema está en el código: se muestra en el
+        // paso 3, al lado del campo, y la persona puede borrarlo y seguir.
+        // Con un cupón (D26) el motivo se dice con los textos neutros del link.
+        const motivo: string | null = error.response?.data?.motivo ?? null;
+        const venceCupon = cuponActivo ? cuponActivo.vence_el : null;
+        const eraCupon = !!cuponActivo;
+        setBeneficioValidado(null);
+        setCupon(null);
+        setStep(3);
+        if (eraCupon) {
+          // Cupón (D26): mismo recuadro que el link, con "Reservar sin beneficio".
+          // D29: el cupón exige el mail o el teléfono del contacto (el link no).
+          setErrorBeneficioLink(codigoError === 'BENEFICIO_NO_CORRESPONDE'
+            ? MENSAJE_CUPON_NO_CORRESPONDE
+            : mensajeBeneficioLinkRechazado(motivo, venceCupon));
+          return;
+        }
+        setBeneficioError(codigoError === 'BENEFICIO_NO_CORRESPONDE'
+          ? 'No pudimos aplicar el código con estos datos. Usá el mismo mail o teléfono que diste cuando te lo dieron.'
+          : (error.response?.data?.message || 'Ese código no es válido'));
+        return;
+      }
       const msg = error.response?.data?.message || 'Error al crear el turno. Intentá nuevamente.';
       setSubmitError(msg);
       setShowErrorModal(true);
@@ -298,7 +578,6 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   const resetModal = () => {
     setStep(1);
     setSelectedServicio(null);
-    setClienteData({ nombre: '', apellido: '', email: '', telefono: '' });
     setNotas('');
     setQuiereNovedades(true);
     setExistingCliente(null);
@@ -307,6 +586,17 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setFieldErrors({});
     setSubmitError(null);
     setShowErrorModal(false);
+    setCodigoBeneficio('');
+    setBeneficioValidado(null);
+    setBeneficioError(null);
+    setValidandoBeneficio(false);
+    setBeneficioAplicado(null);
+    setSinBeneficioLink(false);
+    setErrorBeneficioLink(null);
+    setCupon(null);
+    setBeneficioNoAplicado(false);
+    // La próxima reserva de la visita arranca otra vez con los datos del mail
+    setClienteData(datosDePrecarga(beneficioLink?.precarga));
     resetDisponibilidad();
   };
 
@@ -341,6 +631,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
   if (!isOpen) return null;
 
+  const precargaTelefono = beneficioLink?.precarga?.telefono ?? null;
+
   // ── helpers de estilo ──────────────────────────────────────────────────────
   const darkCard = 'bg-[#1a1a1a] border border-white/10 p-4';
   const darkLabel = 'block text-xs tracking-[0.15em] uppercase text-white/50 mb-1.5';
@@ -349,6 +641,23 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
   const darkInput = (hasError: boolean) =>
     `w-full bg-[#1a1a1a] border ${hasError ? 'border-red-500' : 'border-white/20'} text-white text-sm px-3 py-2.5 focus:outline-none focus:border-white/50 placeholder:text-white/20 disabled:opacity-40`;
+
+  // Chip 🎟 "15 % en servicios aplicado · vence el 12/11" (o "Tu beneficio: Ampolla
+  // de regalo · vence el 12/11" con tipo 'otro'): arriba del cuerpo, en los tres pasos
+  const venceEl = formatearVenceEl(beneficioValidado?.vence_el);
+  const chipBeneficio = beneficioValidado && !beneficioLinkActivo && !cuponActivo && (
+    <div
+      data-testid="chip-beneficio"
+      className="flex items-center gap-2 border border-white/30 bg-white/5 px-3 py-2 text-xs tracking-wide text-white"
+    >
+      <span aria-hidden="true">🎟</span>
+      <span>
+        {esBeneficioOtro(beneficioValidado.beneficio)
+          ? `Tu beneficio: ${describirBeneficio(beneficioValidado.beneficio)}`
+          : `${describirBeneficio(beneficioValidado.beneficio)} aplicado`}{venceEl ? ` · vence el ${venceEl}` : ''}
+      </span>
+    </div>
+  );
 
   return (
     <>
@@ -405,6 +714,13 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
           {/* Body */}
           <div ref={bodyRef} className="overflow-y-auto flex-1 px-6 py-5">
 
+            {/* Beneficio del mail: cartel fijo arriba de los tres pasos (si la
+                persona eligió reservar sin él, ya no se muestra) */}
+            {linkDelCartel && (
+              <CartelBeneficioLink link={linkDelCartel} className="mb-4" />
+            )}
+            {chipBeneficio && <div className="mb-4">{chipBeneficio}</div>}
+
               {/* Step 1 - Servicio */}
             {step === 1 && (
               <div className="space-y-3">
@@ -434,7 +750,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                           <p className="text-xs text-white/30 mt-1">{servicio.duracion_minutos} min</p>
                         </div>
                         <p className="text-lg font-bold text-white" style={{ fontFamily: 'Oswald, sans-serif' }}>
-                          ${servicio.precio}
+                          <PrecioServicio precio={servicio.precio} beneficio={beneficioDePrecios} />
                         </p>
                       </div>
                     </div>
@@ -452,7 +768,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                     {selectedServicio?.nombre} con {profesionalNombre}
                   </p>
                   <p className="text-xs text-white/50 mt-1">
-                    {selectedServicio?.duracion_minutos || 0} min · ${selectedServicio?.precio || 0}
+                    {selectedServicio?.duracion_minutos || 0} min · <PrecioServicio precio={selectedServicio?.precio || 0} beneficio={beneficioDePrecios} />
                   </p>
                 </div>
 
@@ -538,6 +854,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                 <div>
                   <label className={darkLabel}>Email *</label>
                   <input
+                    ref={emailRef}
                     type="email"
                     value={clienteData.email}
                     onChange={(e) => { setClienteData(prev => ({ ...prev, email: e.target.value })); clearFieldError('email'); }}
@@ -564,7 +881,83 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   {fieldErrors.telefono && (
                     <p className="text-red-400 text-xs mt-1">{fieldErrors.telefono}</p>
                   )}
+                  {precargaTelefono && clienteData.telefono === precargaTelefono && (
+                    <p className="text-white/60 text-xs mt-1">¿Sigue siendo tu número?</p>
+                  )}
+                  <p className="text-white/40 text-xs mt-1">
+                    Te mandamos la confirmación y el recordatorio de tu turno por WhatsApp
+                  </p>
                 </div>
+
+                {/* Código de beneficio (opcional). Se valida al salir del campo.
+                    Con el beneficio del mail no hace falta: se oculta. */}
+                {!beneficioLinkActivo && (
+                <div>
+                  <label htmlFor="codigo-beneficio" className={darkLabel}>¿Tenés un código?</label>
+                  <input
+                    id="codigo-beneficio"
+                    type="text"
+                    value={codigoBeneficio}
+                    onChange={(e) => handleCodigoBeneficioChange(e.target.value)}
+                    onBlur={validarCodigoBeneficio}
+                    placeholder="DEB-XXXXX"
+                    maxLength={12}
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    disabled={loading || validandoBeneficio}
+                    className={`${darkInput(!!beneficioError)} uppercase tracking-[0.2em]`}
+                  />
+                  {validandoBeneficio && (
+                    <p className="text-white/40 text-xs mt-1">Validando...</p>
+                  )}
+                  {beneficioError && (
+                    <p role="alert" className="text-red-300 text-sm font-medium mt-1.5">{beneficioError}</p>
+                  )}
+                  {!beneficioError && !validandoBeneficio && beneficioValidado && (
+                    <p className="text-white/50 text-xs mt-1">
+                      Código válido: {describirBeneficio(beneficioValidado.beneficio)}.
+                    </p>
+                  )}
+                </div>
+                )}
+
+                {/* El backend rechazó el beneficio del mail: el turno no se creó */}
+                {errorBeneficioLink && (
+                  <div
+                    ref={errorBeneficioRef}
+                    role="alert"
+                    tabIndex={-1}
+                    data-testid="error-beneficio"
+                    className="border-2 border-amber-400 bg-amber-400/15 p-4 space-y-3 outline-none"
+                  >
+                    <p className="flex items-center gap-2 text-base font-semibold text-amber-200">
+                      <span aria-hidden="true">⚠</span> No se aplicó tu beneficio
+                    </p>
+                    <p className="text-sm text-white leading-snug">{errorBeneficioLink}</p>
+                    <p className="text-sm text-white/80 leading-snug">
+                      Tu turno todavía <strong className="text-white">no está reservado</strong>.{' '}
+                      {errorBeneficioLink === MENSAJE_CUPON_NO_CORRESPONDE
+                        ? 'Corregí tus datos o reservá igual, sin el beneficio.'
+                        : 'Podés reservar igual, sin el beneficio.'}
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {errorBeneficioLink === MENSAJE_CUPON_NO_CORRESPONDE && (
+                        <button type="button" onClick={corregirDatos} disabled={loading} className={ghostBtn}>
+                          Corregir mis datos
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleValidateAndCreateTurno({ sinBeneficio: true })}
+                        disabled={loading}
+                        className={ghostBtn}
+                      >
+                        Reservar sin beneficio
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Resumen */}
                 <div className={darkCard}>
@@ -572,14 +965,14 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                     Resumen del turno
                   </p>
                   <div className="space-y-2 text-sm">
-                    {[
+                    {([
                       ['Profesional', profesionalNombre],
                       ['Servicio', selectedServicio?.nombre],
                       ['Duración', `${selectedServicio?.duracion_minutos || 0} min`],
-                      ['Precio', `$${selectedServicio?.precio || 0}`],
+                      ['Precio', <PrecioServicio precio={selectedServicio?.precio || 0} beneficio={beneficioDePrecios} />],
                       ['Fecha', selectedDate ? formatFecha(selectedDate) : ''],
                       ['Hora', selectedSlot],
-                    ].map(([label, value]) => (
+                    ] as Array<[string, React.ReactNode]>).map(([label, value]) => (
                       <div key={label} className="flex justify-between">
                         <span className="text-white/40">{label}</span>
                         <span className="text-white font-medium">{value}</span>
@@ -620,6 +1013,11 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
               >
                 Ver política de privacidad
               </a>
+              {(beneficioLinkActivo || cuponActivo) && (
+                <p data-testid="beneficio-cancelacion" className="mt-3 text-xs text-white/60 leading-snug">
+                  Si no podés venir, cancelás hasta 24 h antes y tu beneficio te sigue esperando.
+                </p>
+              )}
             </div>
           )}
 
@@ -646,7 +1044,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
               </button>
             ) : (
               <button
-                onClick={handleValidateAndCreateTurno}
+                onClick={() => handleValidateAndCreateTurno()}
                 disabled={loading}
                 className={ghostBtn}
               >
@@ -762,6 +1160,16 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
             <p className="text-sm text-white/50 mb-6">
               Tu turno fue reservado exitosamente. Vas a recibir la confirmación por WhatsApp.
             </p>
+            {beneficioNoAplicado && (
+              <p data-testid="beneficio-no-aplicado" className="text-sm text-amber-200 mb-6 border border-amber-300/40 bg-amber-300/10 px-3 py-2">
+                Tu turno quedó confirmado, pero no pudimos aplicar el beneficio: avisá en el salón y te lo aplicamos.
+              </p>
+            )}
+            {beneficioAplicado && (
+              <p data-testid="confirmacion-beneficio" className="text-sm text-white mb-6 border border-white/30 bg-white/5 px-3 py-2">
+                🎟 {textoConfirmacionBeneficio(beneficioAplicado, selectedDate)}
+              </p>
+            )}
             <div className="bg-[#1a1a1a] border border-white/10 p-4 mb-6 space-y-1.5 text-sm text-left">
               {[
                 ['Profesional', profesionalNombre],

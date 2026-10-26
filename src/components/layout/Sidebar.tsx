@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import { productosService } from '../../services/productos.service';
 import { useContadorParaRevisar } from '../../hooks/useContadorParaRevisar';
+import { useContadorParaContactar } from '../../hooks/useContadorParaContactar';
+import { puedeVerParaContactar } from '../../services/avisos.service';
 import {
   LayoutDashboard,
   Calendar,
@@ -19,6 +21,8 @@ import {
   BarChart3,
   Wallet,
   Megaphone,
+  MessageCircle,
+  Ticket,
   X,
   LogOut,
 } from 'lucide-react';
@@ -32,12 +36,15 @@ interface SidebarProps {
 }
 
 // superAdminOnly: solo visible para super_admin (el rol 'admin' no alcanza)
+// paraContactar: visible para staff, admin y super admin (puedeVerParaContactar)
 const menuItems = [
   { path: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard',     adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
+  { path: '/para-contactar', icon: MessageCircle,   label: 'Para contactar', adminOnly: false, hideSuperAdmin: false, superAdminOnly: false, paraContactar: true },
   { path: '/finanzas',       icon: TrendingUp,      label: 'Finanzas',      adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
   { path: '/metricas',       icon: BarChart3,       label: 'Métricas',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
   { path: '/gastos',         icon: Wallet,          label: 'Gastos',        adminOnly: true,  hideSuperAdmin: false, superAdminOnly: true  },
   { path: '/campanias',      icon: Megaphone,       label: 'Campañas',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: true  },
+  { path: '/beneficios',     icon: Ticket,          label: 'Beneficios',    adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
   { path: '/perfil',         icon: UserCircle,      label: 'Perfil',        adminOnly: false, hideSuperAdmin: true,  superAdminOnly: false },
   { path: '/usuarios',       icon: Users,           label: 'Usuarios',      adminOnly: true,  hideSuperAdmin: false, superAdminOnly: false },
   { path: '/turnos',         icon: Calendar,        label: 'Turnos',        adminOnly: false, hideSuperAdmin: false, superAdminOnly: false },
@@ -68,6 +75,11 @@ const SidebarContent = ({
 
   // Puntuaciones Regular/Malo sin revisar: aviso en "Métricas", solo super admin
   const { pendientes: puntuacionesPendientes } = useContadorParaRevisar(isSuperAdminUser);
+
+  // Clientes que esperan que les escriban: aviso en "Para contactar".
+  // Solo se pide si el rol la ve: a cualquier otro el backend le responde 403.
+  const veParaContactar = puedeVerParaContactar(roles);
+  const { pendientes: avisosPendientes } = useContadorParaContactar(veParaContactar);
 
   const { data: productosStats } = useFetch(
     isAdmin ? 'productos:stats:sidebar' : null,
@@ -104,8 +116,9 @@ const SidebarContent = ({
 
       {/* Links */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {menuItems.map(({ path, icon: Icon, label, adminOnly, hideSuperAdmin, superAdminOnly }) => {
+        {menuItems.map(({ path, icon: Icon, label, adminOnly, hideSuperAdmin, superAdminOnly, paraContactar }) => {
           const isSuperAdmin = roles.includes('super_admin');
+          if (paraContactar && !veParaContactar) return null;
           if (superAdminOnly && !isSuperAdmin) return null;
           if (adminOnly && !roles.includes('admin') && !isSuperAdmin) return null;
           if (hideSuperAdmin && isSuperAdmin) return null;
@@ -124,7 +137,11 @@ const SidebarContent = ({
                 ].join(' ')
               }
               title={collapsed && !isMobile
-                ? (path === '/metricas' && puntuacionesPendientes > 0 ? `${label} (${puntuacionesPendientes} para revisar)` : label)
+                ? (path === '/metricas' && puntuacionesPendientes > 0
+                  ? `${label} (${puntuacionesPendientes} para revisar)`
+                  : path === '/para-contactar' && avisosPendientes > 0
+                    ? `${label} (${avisosPendientes} esperando)`
+                    : label)
                 : undefined}
             >
               <span className="relative flex-shrink-0">
@@ -132,10 +149,16 @@ const SidebarContent = ({
                 {collapsed && !isMobile && path === '/metricas' && puntuacionesPendientes > 0 && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" aria-hidden="true" />
                 )}
+                {collapsed && !isMobile && path === '/para-contactar' && avisosPendientes > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" aria-hidden="true" />
+                )}
               </span>
               {(!collapsed || isMobile) && <span className="truncate flex-1">{label}</span>}
               {(!collapsed || isMobile) && path === '/productos' && isAdmin && (productosStats?.bajo_stock_count ?? 0) > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0">
+                <span
+                  className="bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0"
+                  title={`${productosStats!.bajo_stock_count} con bajo stock`}
+                >
                   {productosStats!.bajo_stock_count}
                 </span>
               )}
@@ -146,6 +169,15 @@ const SidebarContent = ({
                   data-testid="badge-puntuaciones"
                 >
                   {puntuacionesPendientes > 99 ? '99+' : puntuacionesPendientes}
+                </span>
+              )}
+              {(!collapsed || isMobile) && path === '/para-contactar' && avisosPendientes > 0 && (
+                <span
+                  className="bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center shrink-0"
+                  title={`${avisosPendientes} ${avisosPendientes === 1 ? 'cliente espera' : 'clientes esperan'} que le escriban`}
+                  data-testid="badge-para-contactar"
+                >
+                  {avisosPendientes > 99 ? '99+' : avisosPendientes}
                 </span>
               )}
             </NavLink>

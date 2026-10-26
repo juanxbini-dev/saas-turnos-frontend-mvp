@@ -11,6 +11,8 @@ import { disponibilidadService, turnoService, clienteService } from '../../servi
 import { getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
 import { Cliente as ClienteFull } from '../../types/cliente.types';
+import { useBeneficioTurno, mensajeErrorBeneficioTurno } from '../../hooks/useBeneficioTurno';
+import { BeneficioTurnoSelector, resumenBeneficioTurno } from './BeneficioTurnoSelector';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
 import { format } from 'date-fns';
@@ -94,6 +96,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   const { state: authUser } = useAuth();
   const toast = useToast();
   const isAdmin = authUser?.roles.includes('admin');
+  const puedeVerBeneficioActivo = !!(isAdmin || authUser?.roles.includes('super_admin'));
   const user = authUser?.authUser;
 
   // Hook de disponibilidad — sin servicioId (dashboard usa flujo inverso: slot primero, servicio después)
@@ -228,6 +231,11 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
   const filteredClientes = clientesResp?.items || [];
 
+  // Beneficio del turno: códigos vigentes del cliente o el beneficio activo
+  // (selector compartido con el Dashboard, useBeneficioTurno)
+  const beneficioTurno = useBeneficioTurno(selectedCliente?.id, { puedeVerBeneficioActivo });
+  const resumenBeneficio = resumenBeneficioTurno(beneficioTurno);
+
   // "Buscando" incluye la ventana de debounce (todavía no se consultó al backend)
   const clienteBuscando = debouncedClienteSearch.length >= 2 &&
     (loadingClientes || debouncedClienteSearch !== clienteSearch.trim());
@@ -286,7 +294,10 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
         servicio_id: (selectedServicio as any).servicio_id || selectedServicio.id,
         fecha: selectedDate,
         hora: selectedSlot,
-        notas
+        notas,
+        // `beneficio_codigo_id` o `beneficio_activo` según lo elegido; sin
+        // selección no viaja nada
+        ...beneficioTurno.campos
       });
 
       toast.success('Turno creado correctamente. Está pendiente de confirmación por email.');
@@ -301,7 +312,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       onClose();
       resetModal();
     } catch (error: any) {
-      setErrorModal(error.response?.data?.message || error.message || 'Error al crear turno');
+      setErrorModal(mensajeErrorBeneficioTurno(error) || error.response?.data?.message || error.message || 'Error al crear turno');
     } finally {
       setLoading(false);
     }
@@ -320,6 +331,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     setNewCliente({ nombre: '', email: '', telefono: '' });
     setCreatingCliente(false);
     setErrorModal(null);
+    beneficioTurno.reset();
   };
 
   const handleCreateCliente = async () => {
@@ -819,6 +831,9 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           )}
 
+          {/* Beneficio del cliente: sus códigos vigentes o el beneficio activo */}
+          {selectedCliente && <BeneficioTurnoSelector estado={beneficioTurno} />}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Notas (opcional)
@@ -863,6 +878,12 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                 <span className="text-gray-600">Cliente:</span>
                 <span className="font-medium">{selectedCliente?.nombre}</span>
               </div>
+              {resumenBeneficio && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Beneficio:</span>
+                  <span className="font-medium">🎟 {resumenBeneficio}</span>
+                </div>
+              )}
             </div>
           </Card>
         </div>

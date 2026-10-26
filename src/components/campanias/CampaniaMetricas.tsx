@@ -7,8 +7,15 @@ import { useBloqueoPorToken } from './CampaniasGate';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
-import { diasDelPeriodo, etiquetaMes, formatFechaHoraAR, formatPorcentaje, NOMBRE_CAMPANIA, periodoDelMes } from './campanias.utils';
-import type { CampaniaMetricasTotales, CampaniaTipo } from '../../types/campanias.types';
+import { diasDelPeriodo, etiquetaMes, formatPorcentaje, NOMBRE_CAMPANIA, periodoDelMes } from './campanias.utils';
+import { formatFechaHoraAR } from '../../utils/fechasAR.utils';
+import type {
+  CampaniaMetricasRespuestas,
+  CampaniaMetricasSeguimiento,
+  CampaniaMetricasTotales,
+  CampaniaTipo,
+  OpinionProducto,
+} from '../../types/campanias.types';
 
 interface CampaniaMetricasProps {
   tipo: CampaniaTipo;
@@ -54,6 +61,124 @@ function Tarjeta({ titulo, valor, detalle, isLoading }: TarjetaProps) {
   );
 }
 
+const fmtNumero = new Intl.NumberFormat('es-AR');
+
+// Porcentaje entero de una parte sobre un total (sin total → null, nunca NaN)
+export function porcentaje(parte: number, total: number): number | null {
+  if (!total || total <= 0 || !Number.isFinite(parte)) return null;
+  return Math.round((parte / total) * 100);
+}
+
+interface MetricasRespuestasProps {
+  tipo: CampaniaTipo;
+  respuestas: CampaniaMetricasRespuestas;
+  enviados: number;
+}
+
+// Qué hizo la gente con el mensaje (spec de productos §11.3): contestaron, pidieron, compraron
+// en N días (solo las campañas que lo miden: null no se muestra) y ventas por avisos.
+export function MetricasRespuestas({ tipo, respuestas, enviados }: MetricasRespuestasProps) {
+  const dias = respuestas.ventana_compra_dias;
+  const pctContestaron = porcentaje(respuestas.contestaron, enviados);
+  const tituloCompraron = tipo === 'seguimiento_producto'
+    ? `Compraron o reservaron en ${dias} días`
+    : `Compraron el producto en ${dias} días`;
+  const detalleCompraron = tipo === 'seguimiento_producto'
+    ? 'de los que dijeron «No me funcionó»'
+    : 'después de recibir el mensaje';
+
+  return (
+    <div className="mt-4" aria-label="Qué respondieron">
+      <h4 className="text-sm font-semibold text-gray-900 mb-2">Qué respondieron</h4>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Tarjeta
+          titulo="Contestaron"
+          valor={respuestas.contestaron}
+          detalle={pctContestaron !== null ? `${pctContestaron} %` : undefined}
+          isLoading={false}
+        />
+        {tipo === 'reposicion_producto' && (
+          <Tarjeta titulo="Pidieron el producto («Quiero uno»)" valor={respuestas.pidieron} isLoading={false} />
+        )}
+        {respuestas.compraron !== null && respuestas.compraron !== undefined && (
+          <div data-testid="metrica-compraron">
+            <Tarjeta titulo={tituloCompraron} valor={respuestas.compraron} detalle={detalleCompraron} isLoading={false} />
+          </div>
+        )}
+        <Tarjeta
+          titulo="Ventas por avisos"
+          valor={respuestas.ventas_por_avisos}
+          detalle="compras o reservas desde Para contactar"
+          isLoading={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+const OPINIONES: { id: OpinionProducto; label: string }[] = [
+  { id: 'encanta', label: 'Me encanta' },
+  { id: 'mas_o_menos', label: 'Más o menos' },
+  { id: 'no_funciono', label: 'No me funcionó' },
+];
+
+// Satisfacción por producto (spec de productos §11.2): opiniones del período y % de cada
+// respuesta, más los rescatados ("No me funcionó" que terminaron comprando o reservando).
+export function SatisfaccionPorProducto({ seguimiento }: { seguimiento: CampaniaMetricasSeguimiento }) {
+  const filas = [...seguimiento.satisfaccion].sort((a, b) =>
+    b.total - a.total || a.producto_nombre.localeCompare(b.producto_nombre, 'es-AR'));
+
+  return (
+    <div className="mt-4 rounded-lg border border-gray-100 p-4" aria-label="Satisfacción por producto">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-semibold text-gray-900">Satisfacción por producto</h4>
+          <p className="text-xs text-gray-500 mt-0.5">Qué contestaron cuando les preguntamos cómo les está resultando.</p>
+        </div>
+        <div className="rounded-lg bg-green-50 border border-green-100 px-3 py-2 text-sm text-green-800" data-testid="rescatados">
+          <span className="font-semibold tabular-nums">{fmtNumero.format(seguimiento.rescatados)}</span>{' '}
+          {seguimiento.rescatados === 1 ? 'rescatado' : 'rescatados'}
+          <span className="block text-xs text-green-700">Les dijo «No me funcionó» y terminaron comprando otro producto o reservando turno.</span>
+        </div>
+      </div>
+
+      {filas.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-6">Todavía nadie opinó sobre un producto en este mes.</p>
+      ) : (
+        <div className="overflow-x-auto mt-3">
+          <table className="w-full text-left min-w-[560px]">
+            <thead>
+              <tr className="bg-gray-50">
+                {['Producto', 'Opiniones', ...OPINIONES.map((o) => o.label)].map((h) => (
+                  <th key={h} className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filas.map((f) => (
+                <tr key={f.producto_id}>
+                  <td className="py-2.5 px-4 text-sm font-medium text-gray-900">{f.producto_nombre || '—'}</td>
+                  <td className="py-2.5 px-4 text-sm text-gray-700 tabular-nums">{fmtNumero.format(f.total)}</td>
+                  {OPINIONES.map((o) => {
+                    const cantidad = f.por_opinion?.[o.id] ?? 0;
+                    const pct = porcentaje(cantidad, f.total);
+                    return (
+                      <td key={o.id} className="py-2.5 px-4 text-sm text-gray-700 tabular-nums whitespace-nowrap">
+                        {pct !== null ? `${pct} %` : '—'}{' '}
+                        <span className="text-gray-400">({fmtNumero.format(cantidad)})</span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // E. Resultados del mes. Textos: spec §4.3 E.
 export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
   const [base, setBase] = useState(() => new Date());
@@ -91,7 +216,8 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
   // Reservas y toques en el botón del mensaje son la medida de las campañas que
   // invitan a reservar ("Ya te toca volver" y "Turno cancelado"); en la encuesta
   // de después de la visita no aplican.
-  const mideReservas = tipo !== 'post_servicio';
+  // Seguimiento de producto tampoco: pide una opinión, sin botón para reservar.
+  const mideReservas = tipo !== 'post_servicio' && tipo !== 'seguimiento_producto';
 
   // La barra de clics solo se dibuja si el backend manda el dato
   const serieTraeClics = mideReservas && (data?.serie ?? []).some((p) => typeof p.clics === 'number');
@@ -139,6 +265,14 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
             )}
             <Tarjeta titulo="Pidieron no recibir más" valor={totales.bajas} isLoading={cargando} />
           </div>
+
+          {!cargando && data?.respuestas && (
+            <MetricasRespuestas tipo={tipo} respuestas={data.respuestas} enviados={totales.enviados} />
+          )}
+
+          {!cargando && tipo === 'seguimiento_producto' && data?.seguimiento && (
+            <SatisfaccionPorProducto seguimiento={data.seguimiento} />
+          )}
 
           {!cargando && bajas.length > 0 && (
             <div className="mt-4 rounded-lg border border-gray-100 p-4">
@@ -220,6 +354,10 @@ export function CampaniaMetricas({ tipo }: CampaniaMetricasProps) {
         Tocaron el botón puede ser mayor que Los leyeron: hay personas que tienen desactivado el aviso de lectura.
       </p>
         </>
+      ) : tipo === 'seguimiento_producto' ? (
+        <p className="text-xs text-gray-500 mt-4">
+          Lo que escribió cada cliente y los que dijeron «No me funcionó» le llegan a recepción en Para contactar.
+        </p>
       ) : (
         <p className="text-xs text-gray-500 mt-4">
           Las puntuaciones y los comentarios de cada visita están en Métricas → Puntuaciones.

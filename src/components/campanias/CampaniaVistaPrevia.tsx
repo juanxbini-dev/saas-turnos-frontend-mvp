@@ -8,7 +8,8 @@ import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { campaniasService } from '../../services/campanias.service';
 import { formatFechaDia, motivosDe, textoEnEspera, textoMotivo, textoMotivoBase } from './campanias.utils';
-import type { CampaniaTipo, MotivoExclusion, VistaPreviaGrupo, VistaPreviaResumen } from '../../types/campanias.types';
+import { esTipoProducto } from '../../types/campanias.types';
+import type { CampaniaTipo, MotivoExclusion, VistaPreviaGrupo, VistaPreviaItem, VistaPreviaResumen } from '../../types/campanias.types';
 
 interface CampaniaVistaPreviaProps {
   tipo: CampaniaTipo;
@@ -24,6 +25,10 @@ const PIE_POR_TIPO: Record<CampaniaTipo, string> = {
   recencia: 'Esta lista se calcula en el momento. Si alguien saca turno o pide no recibir más, deja de aparecer.',
   post_servicio: 'Esta lista se calcula en el momento: salen las visitas cobradas en las últimas horas. Si alguien pide no recibir más, deja de aparecer.',
   turno_abandonado: 'Esta lista se calcula en el momento: salen los turnos cancelados desde la web hace unos días. Si alguien saca otro turno o pide no recibir más, deja de aparecer.',
+  reposicion_producto: 'Esta lista se calcula en el momento: salen las compras de productos que se están por terminar. Si alguien lo vuelve a comprar o pide no recibir más, deja de aparecer.',
+  seguimiento_producto: 'Esta lista se calcula en el momento: salen las compras de hace unos días, para preguntar cómo le está resultando el producto. Si alguien pide no recibir más, deja de aparecer.',
+  // La lista vieja sale por mail y tiene su propia vista previa (ListaViejaVistaPrevia)
+  lista_vieja: 'Esta lista se calcula en el momento. Si alguien pide no recibir más mails, deja de aparecer.',
 };
 
 const GRUPOS: { id: VistaPreviaGrupo; label: string; vacio: string }[] = [
@@ -31,6 +36,59 @@ const GRUPOS: { id: VistaPreviaGrupo; label: string; vacio: string }[] = [
   { id: 'en_espera', label: 'En espera', vacio: 'No hay nadie en espera.' },
   { id: 'no_recibe', label: 'No reciben', vacio: 'Nadie queda afuera.' },
 ];
+
+interface Columna {
+  id: string;
+  titulo: string;
+  nowrap?: boolean;
+  valor: (item: VistaPreviaItem) => string;
+}
+
+// Columnas según la campaña y el grupo. Las de producto muestran la compra que origina el
+// mensaje (producto, cuándo lo compró y quién se lo vendió) en lugar del servicio.
+export function columnasDe(tipo: CampaniaTipo, grupo: VistaPreviaGrupo): Columna[] {
+  const cliente: Columna = { id: 'cliente', titulo: 'Cliente', valor: (i) => i.cliente_nombre || '—' };
+  const telefono: Columna = {
+    id: 'telefono', titulo: 'Teléfono', nowrap: true, valor: (i) => i.telefono_original || i.telefono || '—',
+  };
+  const motivo: Columna = { id: 'motivo', titulo: 'Motivo', valor: (i) => textoMotivo(i.motivo, i.vence_el, tipo) };
+
+  if (esTipoProducto(tipo)) {
+    const columnas: Columna[] = [
+      cliente,
+      telefono,
+      { id: 'producto', titulo: 'Producto', valor: (i) => i.producto || '—' },
+      { id: 'fecha_compra', titulo: 'Lo compró el', nowrap: true, valor: (i) => formatFechaDia(i.fecha_compra) },
+      { id: 'vendedor', titulo: 'Lo vendió', valor: (i) => i.vendedor || '—' },
+    ];
+    if (grupo === 'no_recibe') columnas.push(motivo);
+    else if (tipo === 'reposicion_producto') {
+      columnas.push({ id: 'vence_el', titulo: 'Se le termina el', nowrap: true, valor: (i) => formatFechaDia(i.vence_el) });
+    }
+    return columnas;
+  }
+
+  const esPostServicio = tipo === 'post_servicio';
+  const esTurnoAbandonado = tipo === 'turno_abandonado';
+  const columnas: Columna[] = [
+    cliente,
+    telefono,
+    { id: 'servicio', titulo: 'Servicio', valor: (i) => i.servicio || '—' },
+    {
+      id: 'visita',
+      titulo: esPostServicio ? 'Fecha del turno' : esTurnoAbandonado ? 'Canceló el' : 'Última visita',
+      nowrap: true,
+      valor: (i) => formatFechaDia(esTurnoAbandonado ? i.cancelado_el : i.ultima_visita),
+    },
+  ];
+  // "Gracias por venir" pregunta por un turno puntual y "Turno cancelado" por una cancelación:
+  // no hay "le tocaba el"
+  if (grupo === 'no_recibe') columnas.push(motivo);
+  else if (!esPostServicio && !esTurnoAbandonado) {
+    columnas.push({ id: 'vence_el', titulo: 'Le tocaba el', valor: (i) => formatFechaDia(i.vence_el) });
+  }
+  return columnas;
+}
 
 // C. Vista previa: "A quién le llegaría hoy". Textos: spec §4.3 C y §2.3.
 export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps) {
@@ -86,10 +144,7 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
   const hayFiltro = busquedaFinal !== '' || motivoFinal !== '';
   // "Gracias por venir" pregunta por un turno puntual: no hay "le tocaba el"
   // "Turno cancelado" muestra el día en que canceló en lugar de la última visita
-  const esPostServicio = tipo === 'post_servicio';
-  const esTurnoAbandonado = tipo === 'turno_abandonado';
-  const ultimaColumna = grupo === 'no_recibe' ? 'Motivo' : esPostServicio || esTurnoAbandonado ? null : 'Le tocaba el';
-  const columnaVisita = esPostServicio ? 'Fecha del turno' : esTurnoAbandonado ? 'Canceló el' : 'Última visita';
+  const columnas = columnasDe(tipo, grupo);
 
   const opcionesMotivo = [
     { value: '', label: 'Todos los motivos' },
@@ -176,33 +231,27 @@ export function CampaniaVistaPrevia({ tipo, refresco }: CampaniaVistaPreviaProps
             <table className="w-full text-left min-w-[640px]">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</th>
-                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Teléfono</th>
-                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Servicio</th>
-                  <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{columnaVisita}</th>
-                  {ultimaColumna && (
-                    <th className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{ultimaColumna}</th>
-                  )}
+                  {columnas.map((c) => (
+                    <th key={c.id} className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{c.titulo}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {/* Un mismo cliente puede aparecer más de una vez (p. ej. dos visitas cobradas
-                    en "Gracias por venir"): la clave combina cliente, visita y posición */}
+                    en "Gracias por venir" o dos compras): la clave combina cliente, origen y posición */}
                 {items.map((item, i) => (
-                  <tr key={`${item.cliente_id}-${item.cancelado_el ?? item.ultima_visita ?? ''}-${i}`} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-2.5 px-4 text-sm font-medium text-gray-900">{item.cliente_nombre || '—'}</td>
-                    <td className="py-2.5 px-4 text-sm text-gray-600 whitespace-nowrap">
-                      {item.telefono_original || item.telefono || '—'}
-                    </td>
-                    <td className="py-2.5 px-4 text-sm text-gray-600">{item.servicio || '—'}</td>
-                    <td className="py-2.5 px-4 text-sm text-gray-600 whitespace-nowrap">
-                      {formatFechaDia(esTurnoAbandonado ? item.cancelado_el : item.ultima_visita)}
-                    </td>
-                    {ultimaColumna && (
-                      <td className="py-2.5 px-4 text-sm text-gray-600">
-                        {grupo === 'no_recibe' ? textoMotivo(item.motivo, item.vence_el, tipo) : formatFechaDia(item.vence_el)}
+                  <tr
+                    key={`${item.cliente_id}-${item.producto_origen_id ?? ''}-${item.fecha_compra ?? item.cancelado_el ?? item.ultima_visita ?? ''}-${i}`}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    {columnas.map((c) => (
+                      <td
+                        key={c.id}
+                        className={`py-2.5 px-4 text-sm ${c.id === 'cliente' ? 'font-medium text-gray-900' : 'text-gray-600'} ${c.nowrap ? 'whitespace-nowrap' : ''}`}
+                      >
+                        {c.valor(item)}
                       </td>
-                    )}
+                    ))}
                   </tr>
                 ))}
               </tbody>

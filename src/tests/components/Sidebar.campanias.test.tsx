@@ -21,6 +21,11 @@ vi.mock('../../hooks/useContadorParaRevisar', () => ({
   useContadorParaRevisar: () => ({ pendientes: 0, loading: false, error: null, revalidate: vi.fn() }),
 }));
 
+// "Para contactar" tiene su propio store: acá tampoco interesa (sus tests están en ParaContactar.roles)
+vi.mock('../../hooks/useContadorParaContactar', () => ({
+  useContadorParaContactar: () => ({ pendientes: 0, alta: 0, media: 0, loading: false, error: null, revalidate: vi.fn() }),
+}));
+
 const renderSidebar = () => render(
   <MemoryRouter>
     <Sidebar collapsed={false} onToggleCollapsed={vi.fn()} mobileOpen={false} onCloseMobile={vi.fn()} />

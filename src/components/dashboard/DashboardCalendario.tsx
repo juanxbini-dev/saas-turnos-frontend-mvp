@@ -22,6 +22,7 @@ import { ConfirmModal } from '../ui/ConfirmModal';
 import { TurnoEstadoBadge } from '../ui/TurnoEstadoBadge';
 import { SeguimientoTurnoBoton } from '../turnos/SeguimientoTurnoBoton';
 import { SeguimientoTurnoModal } from '../turnos/SeguimientoTurnoModal';
+import { BeneficioTurnoBadge } from '../turnos/BeneficioTurnoBadge';
 import { useToast } from '../../hooks/useToast';
 import { cacheService } from '../../cache/cache.service';
 import { DateHelper } from '../../shared/utils/DateHelper';
@@ -102,8 +103,8 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
             {turno.servicio}
           </div>
         </div>
-        {/* Sección inferior: teléfono + estado + origen */}
-        {(turno.cliente_telefono || completado || turno.origen === 'web') && (
+        {/* Sección inferior: teléfono + estado + origen + código de beneficio */}
+        {(turno.cliente_telefono || completado || turno.origen === 'web' || turno.beneficio) && (
           <div>
             {turno.cliente_telefono && (
               <div style={{ fontSize: '8px', fontFamily: 'monospace', lineHeight: '1.3', opacity: 0.85, marginBottom: '2px' }}>
@@ -115,9 +116,10 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
                 {esCanje ? '🔁 Canje' : cobrado ? '💰 Cobrado' : '⏱ Pend.'}
               </div>
             )}
-            {turno.origen === 'web' && (
-              <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3', opacity: 0.9 }}>
-                🌐 Web
+            {(turno.origen === 'web' || turno.beneficio) && (
+              <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3', opacity: 0.9, display: 'flex', gap: '4px' }}>
+                {turno.origen === 'web' && <span>🌐 Web</span>}
+                <BeneficioTurnoBadge beneficio={turno.beneficio} />
               </div>
             )}
           </div>
@@ -153,9 +155,10 @@ const makeEventComponent = (color: string, isMobile = false): React.FC<any> => (
           ☎ {turno.cliente_telefono}
         </div>
       )}
-      {turno.origen === 'web' && (
-        <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3', opacity: 0.9 }}>
-          🌐 Web
+      {(turno.origen === 'web' || turno.beneficio) && (
+        <div style={{ fontSize: '8px', fontWeight: '600', lineHeight: '1.3', opacity: 0.9, display: 'flex', gap: '4px' }}>
+          {turno.origen === 'web' && <span>🌐 Web</span>}
+          <BeneficioTurnoBadge beneficio={turno.beneficio} />
         </div>
       )}
     </div>
@@ -944,6 +947,9 @@ export function DashboardCalendario({
                   </div>
                 </div>
                 <p className="text-sm text-gray-600">{turnoMenu.turno.servicio}</p>
+                {turnoMenu.turno.beneficio && (
+                  <BeneficioTurnoBadge beneficio={turnoMenu.turno.beneficio} variante="chip" />
+                )}
                 <div className="flex items-center gap-3 text-sm text-gray-500">
                   <span>{turnoMenu.turno.hora}</span>
                   {turnoMenu.turno.duracion_minutos && (
@@ -1064,6 +1070,11 @@ export function DashboardCalendario({
                   </div>
                 </div>
                 <p className="text-xs text-gray-400">{turnoMenu.turno.hora} — {turnoMenu.turno.servicio}</p>
+                {turnoMenu.turno.beneficio && (
+                  <div className="mt-1">
+                    <BeneficioTurnoBadge beneficio={turnoMenu.turno.beneficio} variante="chip" />
+                  </div>
+                )}
                 {turnoMenu.turno.cliente_telefono && (
                   <p className="text-xs text-gray-400 font-mono mt-0.5">☎ {turnoMenu.turno.cliente_telefono}</p>
                 )}

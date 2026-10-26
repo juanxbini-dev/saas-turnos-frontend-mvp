@@ -4,6 +4,7 @@ import { TurnoConDetalle, TurnoEstado } from '../../types/turno.types';
 import { TurnoEstadoBadge } from '../ui/TurnoEstadoBadge';
 import { SeguimientoTurnoBoton } from './SeguimientoTurnoBoton';
 import { SeguimientoTurnoModal } from './SeguimientoTurnoModal';
+import { BeneficioTurnoBadge } from './BeneficioTurnoBadge';
 
 interface TurnosCatalogoProps {
   turnos: TurnoConDetalle[];
@@ -153,6 +154,8 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
               Web
             </span>
           )}
+          <BeneficioTurnoBadge beneficio={turno.beneficio} />
+
           {turno.confirmacion_whatsapp_enviada && (
             <span
               title="Confirmación enviada por WhatsApp"
@@ -291,6 +294,7 @@ export const TurnosCatalogo: React.FC<TurnosCatalogoProps> = ({
                         </div>
                         <div className="flex items-center gap-2 ml-2 shrink-0">
                           <SeguimientoTurnoBoton onClick={() => setSeguimientoTurno(turno)} />
+                          <BeneficioTurnoBadge beneficio={turno.beneficio} />
                           <TurnoEstadoBadge estado={turno.estado} />
                           <span className="text-gray-400 text-sm">
                             {expandedRows.has(turno.id) ? '−' : '+'}

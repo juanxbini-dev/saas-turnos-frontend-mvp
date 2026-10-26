@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios';
 import axiosInstance from '../api/axiosInstance';
 import { cacheService } from '../cache/cache.service';
 import { buildKey, ENTITIES } from '../cache/key.builder';
@@ -10,6 +11,10 @@ import type {
   CampaniaTipo,
   EnviosFiltros,
   EnviosRespuesta,
+  ListaViejaEnviosFiltros,
+  ListaViejaEnviosRespuesta,
+  ListaViejaMetricas,
+  ListaViejaVistaPrevia,
   PaginacionMeta,
   VistaPreviaFiltros,
   VistaPreviaRespuesta,
@@ -132,6 +137,24 @@ export const campaniasService = {
     return response.data.data;
   },
 
+  // ¿La campaña Lista vieja está prendida? Para avisar en Beneficios antes de
+  // desactivar o reemplazar el activo (beneficios-tipos D13). Usa la config ya
+  // cacheada por la pestaña si está; si no, el mismo GET de siempre, y solo si
+  // hay token de la sección (sin token no se puede saber). Nunca rechaza:
+  // null = no se sabe. Un fallo acá no abre el modal de reporte.
+  async estaPrendidaListaVieja(): Promise<boolean | null> {
+    const cacheada = cacheService.get<Campania>(buildKey(ENTITIES.CAMPANIAS, 'lista_vieja', 'config'));
+    if (cacheada && typeof cacheada.activa === 'boolean') return cacheada.activa;
+    if (!getCampaniasToken()) return null;
+    try {
+      const response = await axiosInstance.get(`${BASE}/lista_vieja`, { ...conToken(), _sinReporteGlobal: true } as AxiosRequestConfig);
+      const activa = response.data?.data?.activa;
+      return typeof activa === 'boolean' ? activa : null;
+    } catch {
+      return null;
+    }
+  },
+
   async actualizarCampania(tipo: CampaniaTipo, cambios: CampaniaPatch): Promise<Campania> {
     const response = await axiosInstance.patch(`${BASE}/${tipo}`, cambios, conToken());
     invalidarCacheCampanias();
@@ -185,6 +208,48 @@ export const campaniasService = {
       ...conToken(),
       params: { fecha_desde: periodo.fecha_desde, fecha_hasta: periodo.fecha_hasta },
     });
+    return response.data.data;
+  },
+
+  // ------------------------------------------- Lista vieja (canal mail, §4.3)
+  // Mismas rutas que las de WhatsApp pero con otras formas de respuesta: la
+  // vista previa no pagina, y el historial y las métricas tienen sus campos.
+
+  async getVistaPreviaListaVieja(): Promise<ListaViejaVistaPrevia> {
+    const response = await axiosInstance.get(`${BASE}/lista_vieja/vista-previa`, conToken());
+    const data = response.data.data ?? {};
+    return {
+      pendientes: data.pendientes ?? 0,
+      recordatorios_pendientes: data.recordatorios_pendientes ?? 0,
+      saldrian_hoy: data.saldrian_hoy ?? 0,
+      cupo_restante: data.cupo_restante ?? 0,
+      mails_dudosos: data.mails_dudosos ?? 0,
+      motivos: data.motivos ?? {},
+      muestra: data.muestra ?? [],
+    };
+  },
+
+  async getEnviosListaVieja(filtros: ListaViejaEnviosFiltros): Promise<ListaViejaEnviosRespuesta> {
+    const params = limpiarParams({
+      estado: filtros.estado,
+      pagina: filtros.pagina,
+      por_pagina: filtros.por_pagina ?? 20,
+    });
+    const response = await axiosInstance.get(`${BASE}/lista_vieja/envios`, { ...conToken(), params });
+    const data = response.data.data;
+    const items = Array.isArray(data) ? data : data?.items ?? [];
+    return {
+      items,
+      total: data?.total ?? response.data.meta?.total ?? items.length,
+      pagina: data?.pagina ?? filtros.pagina,
+      por_pagina: data?.por_pagina ?? filtros.por_pagina ?? 20,
+    };
+  },
+
+  // Sin período: el backend arranca desde el primer envío
+  async getMetricasListaVieja(periodo?: Partial<CampaniaMetricasPeriodo>): Promise<ListaViejaMetricas> {
+    const params = limpiarParams({ fecha_desde: periodo?.fecha_desde, fecha_hasta: periodo?.fecha_hasta });
+    const response = await axiosInstance.get(`${BASE}/lista_vieja/metricas`, { ...conToken(), params });
     return response.data.data;
   },
 };

@@ -13,37 +13,42 @@ import { MarcaModal } from '../components/productos/MarcaModal';
 import { ConfiguracionProductosTab } from '../components/productos/ConfiguracionProductosTab';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../context/AuthContext';
+import { FILTRO_SIN_DURACION, PARAM_FILTRO_PRODUCTOS, filtrarSinDuracion, textoDuracion } from '../utils/productoCampanias.utils';
 
 const PAGE_SIZE = 10;
+
+// Todas las pestañas, en el orden en que se muestran
+const TODAS_LAS_TABS = ['catalogo', 'marcas', 'estadisticas', 'ventas', 'por-profesional', 'configuracion'] as const;
+type Tab = typeof TODAS_LAS_TABS[number];
+
+const tabLabels: Record<Tab, string> = {
+  catalogo: 'Catálogo',
+  marcas: 'Marcas',
+  estadisticas: 'Estadísticas',
+  ventas: 'Ventas',
+  'por-profesional': 'Por profesional',
+  configuracion: 'Configuración',
+};
+
+// Pestañas según rol: admin ve todas; el resto solo Ventas
+function tabsDisponibles(isAdmin: boolean): readonly Tab[] {
+  return TODAS_LAS_TABS.filter(t => t === 'ventas' || isAdmin);
+}
 
 function ProductosPage() {
   const toast = useToast();
   const { state } = useAuth();
-  const isAdmin = state.roles?.includes('admin');
+  const isAdmin = !!state.roles?.includes('admin');
 
-  // Tabs disponibles según rol
-  const availableTabs = isAdmin
-    ? (['catalogo', 'marcas', 'estadisticas', 'ventas', 'por-profesional', 'configuracion'] as const)
-    : (['ventas'] as const);
-  type Tab = typeof availableTabs[number];
-
+  const availableTabs = useMemo(() => tabsDisponibles(isAdmin), [isAdmin]);
   const [activeTab, setActiveTab] = useState<Tab>(isAdmin ? 'catalogo' : 'ventas');
 
   // Si el tab activo no está disponible (ej: staff), forzar a 'ventas'
   useEffect(() => {
-    if (!(availableTabs as readonly string[]).includes(activeTab)) {
+    if (!availableTabs.includes(activeTab)) {
       setActiveTab('ventas');
     }
-  }, [isAdmin]);
-
-  const tabLabels: Record<string, string> = {
-    catalogo: 'Catálogo',
-    marcas: 'Marcas',
-    estadisticas: 'Estadísticas',
-    ventas: 'Ventas',
-    'por-profesional': 'Por profesional',
-    configuracion: 'Configuración',
-  };
+  }, [availableTabs]);
 
   // Catálogo state
   const [productoModal, setProductoModal] = useState<{ open: boolean; producto?: Producto | null }>({ open: false });
@@ -53,6 +58,12 @@ function ProductosPage() {
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState('');
   const [filtroMarca, setFiltroMarca] = useState('');
+  // Campañas de WhatsApp: ver solo los productos a los que les falta la duración
+  // Desde Campañas → Reposición se llega con ?filtro=sin-duracion para completar las duraciones.
+  // Se lee de la URL sin depender del router (la página también se usa suelta en los tests).
+  const [soloSinDuracion, setSoloSinDuracion] = useState(
+    () => new URLSearchParams(window.location.search).get(PARAM_FILTRO_PRODUCTOS) === FILTRO_SIN_DURACION
+  );
   const [pagina, setPagina] = useState(1);
 
   // Marcas state — accordion de apertura única
@@ -233,8 +244,13 @@ function ProductosPage() {
     if (filtroMarca) {
       lista = lista.filter(p => p.marca_id === filtroMarca);
     }
+    if (soloSinDuracion) {
+      lista = filtrarSinDuracion(lista);
+    }
     return lista;
-  }, [productos, busqueda, filtroMarca]);
+  }, [productos, busqueda, filtroMarca, soloSinDuracion]);
+
+  const cantidadSinDuracion = useMemo(() => filtrarSinDuracion(productos || []).length, [productos]);
 
   const totalPaginas = Math.max(1, Math.ceil(productosFiltrados.length / PAGE_SIZE));
   const paginaActual = Math.min(pagina, totalPaginas);
@@ -457,6 +473,15 @@ function ProductosPage() {
                   <option key={m.id} value={m.id}>{m.nombre}</option>
                 ))}
               </select>
+              <label className="inline-flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={soloSinDuracion}
+                  onChange={e => { setSoloSinDuracion(e.target.checked); setPagina(1); }}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Sin duración cargada ({cantidadSinDuracion})
+              </label>
             </div>
 
             {loadingProductos ? (
@@ -478,6 +503,7 @@ function ProductosPage() {
                         <th className="text-left px-4 py-3 font-medium text-gray-700">Marca</th>
                         <th className="text-right px-4 py-3 font-medium text-gray-700">Ef. / Transf. / Tarj.</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Stock</th>
+                        <th className="text-center px-4 py-3 font-medium text-gray-700">Duración</th>
                         <th className="text-center px-4 py-3 font-medium text-gray-700">Estado</th>
                         {isAdmin && <th className="text-right px-4 py-3 font-medium text-gray-700">Acciones</th>}
                       </tr>
@@ -523,6 +549,11 @@ function ProductosPage() {
                             }`}>
                               {p.stock}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-center text-xs text-gray-600 whitespace-nowrap">
+                            {p.duracion_estimada_dias != null
+                              ? textoDuracion(p.duracion_estimada_dias)
+                              : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <Badge variant={p.activo ? 'green' : 'gray'}>
@@ -609,6 +640,11 @@ function ProductosPage() {
                           }`}>
                             Stock: {p.stock}
                           </span>
+                          {p.duracion_estimada_dias != null && (
+                            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                              {textoDuracion(p.duracion_estimada_dias)}
+                            </span>
+                          )}
                           <Badge variant={p.activo ? 'green' : 'gray'}>
                             {p.activo ? 'Activo' : 'Inactivo'}
                           </Badge>

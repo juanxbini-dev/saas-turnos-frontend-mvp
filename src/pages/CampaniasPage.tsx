@@ -11,6 +11,9 @@ import { CampaniaConfigForm } from '../components/campanias/CampaniaConfigForm';
 import { CampaniaVistaPrevia } from '../components/campanias/CampaniaVistaPrevia';
 import { CampaniaHistorial } from '../components/campanias/CampaniaHistorial';
 import { CampaniaMetricas } from '../components/campanias/CampaniaMetricas';
+import { CampaniaProductosAviso } from '../components/campanias/CampaniaProductosAviso';
+import { ListaViejaPanel } from '../components/campanias/listaVieja/ListaViejaPanel';
+import { esTipoEmail, esTipoProducto } from '../types/campanias.types';
 import type { Campania, CampaniaTipo } from '../types/campanias.types';
 
 // Diseño: backend/docs/campanias-n8n-spec.md §4
@@ -27,6 +30,12 @@ interface CampaniaPanelProps {
 }
 
 function CampaniaPanel({ tipo }: CampaniaPanelProps) {
+  // Las campañas por mail tienen su propio panel (otra vista previa, historial y resultados)
+  if (esTipoEmail(tipo)) return <ListaViejaPanel />;
+  return <CampaniaPanelWhatsapp tipo={tipo} />;
+}
+
+function CampaniaPanelWhatsapp({ tipo }: CampaniaPanelProps) {
   const { data, loading, error, revalidate } = useFetch(
     buildKey(ENTITIES.CAMPANIAS, tipo, 'config'),
     () => campaniasService.getCampania(tipo),
@@ -54,6 +63,8 @@ function CampaniaPanel({ tipo }: CampaniaPanelProps) {
 
   return (
     <>
+      {esTipoProducto(tipo) && <CampaniaProductosAviso tipo={tipo} />}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <CampaniaEstadoCard
           campania={campania}
@@ -87,6 +98,9 @@ const PESTANIAS: { tipo: CampaniaTipo; label: string }[] = [
   { tipo: 'recencia', label: 'Ya te toca volver' },
   { tipo: 'post_servicio', label: 'Gracias por venir' },
   { tipo: 'turno_abandonado', label: 'Turno cancelado' },
+  { tipo: 'reposicion_producto', label: 'Reposición' },
+  { tipo: 'seguimiento_producto', label: 'Seguimiento' },
+  { tipo: 'lista_vieja', label: 'Lista vieja (mail)' },
 ];
 
 const TIPOS_PESTANIAS = PESTANIAS.map((p) => p.tipo);

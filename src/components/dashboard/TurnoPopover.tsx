@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TurnoConDetalle } from '../../types/turno.types';
 import { TurnoEstadoBadge } from '../ui/TurnoEstadoBadge';
+import { BeneficioTurnoBadge } from '../turnos/BeneficioTurnoBadge';
 import { Button } from '../ui';
 import { X } from 'lucide-react';
 
@@ -86,6 +87,7 @@ export function TurnoPopover({
               Web
             </span>
           )}
+          <BeneficioTurnoBadge beneficio={turno.beneficio} />
         </div>
       </div>
       {turno.notas && (

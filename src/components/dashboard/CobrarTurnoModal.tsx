@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TurnoConDetalle } from '../../types/turno.types';
+import { TurnoConDetalle, DescuentoAplicarA } from '../../types/turno.types';
 import { finanzasService } from '../../services/finanzas.service';
 import axiosInstance from '../../api/axiosInstance';
 import { Modal, Button, Card } from '../ui';
 import { formatCurrency } from '../../utils/calculos.utils';
 import { useToast } from '../../hooks/useToast';
+import { BeneficioTurnoBadge } from '../turnos/BeneficioTurnoBadge';
+import { esBeneficioOtro } from '../../config/beneficio';
 
 interface ProductoConPrecios {
   id: string;
@@ -73,6 +75,44 @@ function MetodoSelector({
   );
 }
 
+// A qué se aplica el descuento del turno (auditoría front H4): lo que el
+// backend guardó (`descuento_aplicar_a`, si lo manda) o, con un código de
+// descuento, lo que dice su beneficio. null = no se sabe.
+export function aplicarADelTurno(turno: TurnoConDetalle): DescuentoAplicarA | null {
+  if (turno.descuento_aplicar_a) return turno.descuento_aplicar_a;
+  const b = turno.beneficio;
+  if (b && !esBeneficioOtro(b)) return { servicio: !!b.aplica_servicio, productos: !!b.aplica_productos };
+  return null;
+}
+
+// Descuento del cobro, en centavos enteros (dominio financiero: nada de
+// arrastrar decimales de float):
+//   - se sabe a qué aplica → % sobre esas partes (reacciona al método de pago
+//     de los productos, como el backend con calcularComisiones)
+//   - no se sabe pero el turno trae el monto guardado al finalizar → ese monto
+//   - ninguno de los dos → % sobre todo (lo de siempre)
+// Nunca más que el subtotal.
+export function calcularDescuentoCobro(p: {
+  servicio: number;
+  productos: number;
+  porcentaje: number;
+  aplicarA: DescuentoAplicarA | null;
+  montoGuardado?: number | null;
+}): number {
+  const cent = (n: number) => Math.round(Number(n || 0) * 100);
+  const subtotal = cent(p.servicio) + cent(p.productos);
+  let descuento: number;
+  if (p.aplicarA) {
+    const base = (p.aplicarA.servicio ? cent(p.servicio) : 0) + (p.aplicarA.productos ? cent(p.productos) : 0);
+    descuento = Math.round((base * p.porcentaje) / 100);
+  } else if (p.montoGuardado !== undefined && p.montoGuardado !== null && Number.isFinite(Number(p.montoGuardado))) {
+    descuento = cent(Number(p.montoGuardado));
+  } else {
+    descuento = Math.round((subtotal * p.porcentaje) / 100);
+  }
+  return Math.max(0, Math.min(descuento, subtotal)) / 100;
+}
+
 export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTurnoModalProps) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -122,12 +162,18 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
     }
 
     const sub = svc + prod;
-    const descMonto = sub * (descuento / 100);
+    const descMonto = calcularDescuentoCobro({
+      servicio: svc,
+      productos: prod,
+      porcentaje: descuento,
+      aplicarA: aplicarADelTurno(turno),
+      montoGuardado: turno.descuento_monto,
+    });
     return {
       totalServicio: svc,
       totalProductos: prod,
       descuentoMonto: descMonto,
-      totalFinal: sub - descMonto,
+      totalFinal: Math.round((sub - descMonto) * 100) / 100,
     };
   }, [turno, tieneProductos, productosDetalle, metodoPagoServicio, metodoPagoProductos]);
 
@@ -185,6 +231,22 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
               <p className="text-sm text-gray-500">{turno.servicio} · {fechaStr} {turno.hora}</p>
             </div>
           </div>
+          {/* El descuento del código ya quedó fijado al finalizar el turno (plan
+              mails-beneficios §4.5). Para sacarlo: "Editar pago" → "Cobrar sin el código". */}
+          {turno.beneficio && (
+            <div className="mb-3 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <BeneficioTurnoBadge beneficio={turno.beneficio} variante="chip" />
+                <span className="text-xs text-gray-500">Para cobrar sin el código, usá "Editar pago".</span>
+              </div>
+              {/* Tipo 'otro' (beneficios-tipos §3.7 y D21): el regalo se entrega a mano y no se acumula */}
+              {esBeneficioOtro(turno.beneficio) && (
+                <p className="text-xs text-amber-800" data-testid="beneficio-viene-con">
+                  No es un descuento: entregalo vos. No se acumula con otras promociones.
+                </p>
+              )}
+            </div>
+          )}
           <div className="space-y-1.5 text-sm border-t border-gray-200 pt-3">
             <div className="flex justify-between">
               <span className="text-gray-600">Servicio</span>

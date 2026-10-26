@@ -238,6 +238,7 @@ export function DashboardPage() {
         hora={modalData?.hora}
         turno={modalData?.turno}
         onRefresh={handleRefresh}
+        puedeVerBeneficioActivo={roles.includes('admin') || roles.includes('super_admin')}
       />
 
       {/* Modal finalizar turno (pendiente / confirmado) */}

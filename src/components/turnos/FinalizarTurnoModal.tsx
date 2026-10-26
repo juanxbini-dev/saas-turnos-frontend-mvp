@@ -9,6 +9,8 @@ import { productosService } from '../../services/productos.service';
 import { Producto } from '../../types/producto.types';
 import { useFetch } from '../../hooks/useFetch';
 import axiosInstance from '../../api/axiosInstance';
+import { BeneficioTurnoBadge, textoVieneCon } from './BeneficioTurnoBadge';
+import { esBeneficioOtro } from '../../config/beneficio';
 
 interface FinalizarTurnoModalProps {
   isOpen: boolean;
@@ -42,6 +44,38 @@ export function FinalizarTurnoModal({
   // Un solo detalle de canje por turno (aplica a servicio y/o productos en canje)
   const [canjeDetalle, setCanjeDetalle] = useState('');
   const [canjeDetalleError, setCanjeDetalleError] = useState<string | null>(null);
+
+  // Código de beneficio del turno (plan mails-beneficios §4.5, P8): el descuento
+  // viene precargado y bloqueado. "Cobrar sin el código" lo desbloquea (queda en
+  // 0) y manda usar_beneficio:false → el código vuelve a 'emitido'.
+  // Tipo 'otro' (beneficios-tipos §3.4/§3.7 y D21): aparece el aviso "Este turno
+  // viene con: …", el regalo se entrega a mano y NO se acumula con otras
+  // promociones: el descuento queda en 0 y bloqueado. Para cobrar con un
+  // descuento en vez del regalo, "Cobrar sin el código".
+  const beneficio = turno.beneficio ?? null;
+  const beneficioOtro = !!beneficio && esBeneficioOtro(beneficio);
+  const [usarBeneficio, setUsarBeneficio] = useState(true);
+  const descuentoBloqueado = !!beneficio && usarBeneficio;
+
+  const aplicarDescuentoDelBeneficio = () => {
+    if (!beneficio) return;
+    if (beneficioOtro || typeof beneficio.porcentaje !== 'number') {
+      setDescuentoPorcentaje('');
+      return;
+    }
+    setDescuentoPorcentaje(String(beneficio.porcentaje));
+    setDescuentoAplicarA({ servicio: beneficio.aplica_servicio, productos: beneficio.aplica_productos });
+  };
+
+  const handleCobrarSinCodigo = (sinCodigo: boolean) => {
+    setUsarBeneficio(!sinCodigo);
+    if (sinCodigo) {
+      setDescuentoPorcentaje('');
+      setDescuentoAplicarA({ servicio: true, productos: true });
+    } else {
+      aplicarDescuentoDelBeneficio();
+    }
+  };
 
   const { data: catalogoProductos, loading: loadingCatalogo } = useFetch(
     'productos:lista',
@@ -85,7 +119,22 @@ export function FinalizarTurnoModal({
         .catch(() => {})
         .finally(() => setLoadingProductosExistentes(false));
     }
-  }, [isOpen, mode, turno]);
+
+    // Con código de descuento, el descuento es el del código (pisa lo que haya).
+    // Con 'otro' el descuento queda en 0: el regalo no se acumula (D21).
+    if (turno.beneficio) {
+      setUsarBeneficio(true);
+      if (!esBeneficioOtro(turno.beneficio) && typeof turno.beneficio.porcentaje === 'number') {
+        setDescuentoPorcentaje(String(turno.beneficio.porcentaje));
+        setDescuentoAplicarA({ servicio: turno.beneficio.aplica_servicio, productos: turno.beneficio.aplica_productos });
+      } else {
+        setDescuentoPorcentaje('');
+      }
+    }
+    // Depende del turno (id) y de su código, no del objeto: un re-render del
+    // padre con un objeto nuevo no debe pisar el tilde "Cobrar sin el código".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mode, turno.id, turno.beneficio?.codigo_id]);
 
   // Cambiar método de pago de un producto y recalcular su precio ('canje' = gratis, $0)
   const handleProductoMetodoPago = (id: string, metodo: 'efectivo' | 'transferencia' | 'tarjeta' | 'canje') => {
@@ -226,6 +275,8 @@ export function FinalizarTurnoModal({
         descuentoAplicarA,
         productos: productos.length > 0 ? productos : undefined,
         canjeDetalle: hayCanje ? canjeDetalle.trim() : undefined,
+        // Solo si el turno tiene código; sin código el campo no viaja
+        ...(beneficio ? { usar_beneficio: usarBeneficio } : {}),
       };
 
       if (mode === 'editar') {
@@ -258,6 +309,7 @@ export function FinalizarTurnoModal({
     setNuevaEsVentaCosto(false);
     setCanjeDetalle('');
     setCanjeDetalleError(null);
+    setUsarBeneficio(true);
     onClose();
   };
 
@@ -303,6 +355,36 @@ export function FinalizarTurnoModal({
             <p className="text-sm font-semibold text-gray-900 mt-0.5">{turno.hora}</p>
           </div>
         </div>
+
+        {/* Código de beneficio del turno */}
+        {beneficio && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <BeneficioTurnoBadge beneficio={beneficio} variante="chip" />
+              <span className="text-xs text-amber-800">
+                {!usarBeneficio
+                  ? 'Se cobra sin el código: queda libre para otro turno.'
+                  : beneficioOtro
+                    ? 'No es un descuento: entregalo vos. No se acumula con otras promociones; para cobrar con un descuento, marcá «Cobrar sin el código».'
+                    : 'El descuento del código queda aplicado.'}
+              </span>
+            </div>
+            {beneficioOtro && usarBeneficio && (
+              <p className="text-sm font-medium text-amber-900" data-testid="beneficio-viene-con">
+                {textoVieneCon(beneficio)}
+              </p>
+            )}
+            <label className="flex items-center gap-2 cursor-pointer w-fit">
+              <input
+                type="checkbox"
+                checked={!usarBeneficio}
+                onChange={(e) => handleCobrarSinCodigo(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-amber-600 cursor-pointer"
+              />
+              <span className="text-sm text-gray-700">Cobrar sin el código (no corresponde)</span>
+            </label>
+          </div>
+        )}
 
         {/* Método de Pago — pills modernos */}
         <div className="border-t border-gray-100 pt-4">
@@ -586,7 +668,16 @@ export function FinalizarTurnoModal({
                 min="0"
                 max="100"
                 step="0.1"
+                disabled={descuentoBloqueado}
+                aria-label="Porcentaje de descuento"
               />
+              {descuentoBloqueado && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {beneficioOtro
+                    ? 'El turno viene con un regalo: no se suma un descuento.'
+                    : 'Fijado por el código de descuento.'}
+                </p>
+              )}
             </div>
             {descuentoPorcentaje && parseFloat(descuentoPorcentaje) > 0 && (
               <div>
@@ -596,6 +687,7 @@ export function FinalizarTurnoModal({
                     <input
                       type="checkbox"
                       checked={descuentoAplicarA.servicio}
+                      disabled={descuentoBloqueado}
                       onChange={e => setDescuentoAplicarA(prev => ({ ...prev, servicio: e.target.checked }))}
                       className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
                     />
@@ -611,6 +703,7 @@ export function FinalizarTurnoModal({
                       <input
                         type="checkbox"
                         checked={descuentoAplicarA.productos}
+                        disabled={descuentoBloqueado}
                         onChange={e => setDescuentoAplicarA(prev => ({ ...prev, productos: e.target.checked }))}
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
                       />
