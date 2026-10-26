@@ -1,6 +1,7 @@
 import { CheckCircle2, MessageCircle, Pencil, ListChecks } from 'lucide-react';
 import { Badge, Button } from '../ui';
-import { formatFechaDia, formatFechaHoraAR } from '../campanias/campanias.utils';
+import { formatFechaDia } from '../campanias/campanias.utils';
+import { formatFechaHoraAR } from '../../utils/fechasAR.utils';
 import type { AvisoDetalle } from '../../types/avisos.types';
 import {
   ESTADO_TEXTO,

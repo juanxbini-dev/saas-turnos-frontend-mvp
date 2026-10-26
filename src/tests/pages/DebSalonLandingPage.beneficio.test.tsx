@@ -171,7 +171,7 @@ describe('DebSalonLandingPage — ?b= código de beneficio del mail', () => {
     expect(llamadasAReservar()[0][1]).toMatchObject({ profesional_id: 'prof-1', servicio_id: 'srv-1', beneficio_codigo: CODIGO });
     expect(llamadasAReservar()[0][1]).not.toHaveProperty('campania_codigo');
 
-    expect(await screen.findByText(/Tu descuento del 15 % queda aplicado al pagar/)).toBeTruthy();
+    expect(await screen.findByTestId('confirmacion-beneficio')).toHaveTextContent('Tu turno del 05/11 tiene 15 % de descuento');
     // Un código, una reserva: se olvida
     await waitFor(() => expect(guardado()).toBeNull());
     expect(llamadasAValidar()).toHaveLength(1);

@@ -125,7 +125,7 @@ describe('CreateTurnoPublicModal — código de beneficio', () => {
     expect(createTurno.mock.calls[0][0]).not.toHaveProperty('beneficio_codigo');
     expect(validarCodigo).not.toHaveBeenCalled();
     expect(await screen.findByText('Turno confirmado')).toBeTruthy();
-    expect(screen.queryByText(/queda aplicado al pagar/)).toBeNull();
+    expect(screen.queryByTestId('confirmacion-beneficio')).toBeNull();
   });
 
   it('código bueno: al salir del campo lo valida, lo normaliza y muestra el chip con el vencimiento', async () => {
@@ -159,7 +159,7 @@ describe('CreateTurnoPublicModal — código de beneficio', () => {
     await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
     expect(createTurno.mock.calls[0][0]).toMatchObject({ beneficio_codigo: 'DEB-7K3P9', marketing_consentimiento: true });
     expect(await screen.findByText('Turno confirmado')).toBeTruthy();
-    expect(screen.getByText(/Tu descuento del 15 % queda aplicado al pagar/)).toBeTruthy();
+    expect(screen.getByTestId('confirmacion-beneficio')).toHaveTextContent('🎟 Tu turno del 05/11 tiene 15 % de descuento');
     expect(onBeneficioUsado).toHaveBeenCalledTimes(1);
   });
 
@@ -231,7 +231,7 @@ describe('CreateTurnoPublicModal — código de beneficio', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Ese código no es tuyo: el teléfono o el mail no coinciden con los del pedido');
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos aplicar el código con estos datos. Usá el mismo mail o teléfono que diste cuando te lo dieron.');
     // Sigue en el paso 3, sin modal de error genérico ni de éxito, y sin chip
     expect(screen.getByText('Resumen del turno')).toBeTruthy();
     expect(screen.queryByText('Turno confirmado')).toBeNull();
@@ -246,7 +246,7 @@ describe('CreateTurnoPublicModal — código de beneficio', () => {
     await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(2));
     expect(createTurno.mock.calls[1][0]).not.toHaveProperty('beneficio_codigo');
     expect(await screen.findByText('Turno confirmado')).toBeTruthy();
-    expect(screen.queryByText(/queda aplicado al pagar/)).toBeNull();
+    expect(screen.queryByTestId('confirmacion-beneficio')).toBeNull();
   });
 
   it('BENEFICIO_INVALIDO: muestra el mensaje del backend en el paso 3', async () => {
@@ -326,7 +326,7 @@ describe('CreateTurnoPublicModal — código de beneficio', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
     await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
     expect(createTurno.mock.calls[0][0]).toMatchObject({ beneficio_codigo: 'DEB-7K3P9' });
-    expect(await screen.findByText('🎟 Tu beneficio queda anotado en el turno: Ampolla de tratamiento de regalo.')).toBeTruthy();
-    expect(screen.queryByText(/queda aplicado al pagar/)).toBeNull();
+    expect(await screen.findByTestId('confirmacion-beneficio')).toHaveTextContent('🎟 Tu turno del 05/11 viene con tu beneficio: Ampolla de tratamiento de regalo');
+    expect(screen.getByTestId('confirmacion-beneficio').textContent).not.toMatch(/descuento/);
   });
 });

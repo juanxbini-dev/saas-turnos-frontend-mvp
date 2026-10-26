@@ -9,7 +9,7 @@ import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { TTL } from '../../cache/ttl';
 import { beneficiosService, mensajeDeErrorBeneficios } from '../../services/beneficios.service';
 import { toastService } from '../../services/toast.service';
-import { formatFechaAR } from '../campanias/campanias.utils';
+import { formatFechaAR } from '../../utils/fechasAR.utils';
 import {
   CODIGO_ESTADO_TEXTO,
   CODIGO_ESTADO_VARIANTE,

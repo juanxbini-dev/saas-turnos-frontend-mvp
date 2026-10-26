@@ -87,5 +87,7 @@ describe('motivosListaVieja', () => {
   it('traduce solo los motivos presentes, en orden', () => {
     expect(motivosListaVieja(undefined)).toEqual([]);
     expect(motivosListaVieja({ fuera_de_horario: true })).toEqual(['Fuera del horario de envío: los mails salen a las 11:00.']);
+    // A2: sin link de baja no sale ningún mail de campaña
+    expect(motivosListaVieja({ sin_baja: true })).toEqual(['Falta configurar el link de baja de los mails: hoy no sale ningún mail']);
   });
 });

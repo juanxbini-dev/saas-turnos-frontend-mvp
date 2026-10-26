@@ -206,6 +206,22 @@ describe('CampaniasPage — pestaña "Lista vieja (mail)"', () => {
     await waitFor(() => expect(actualizarCampania).toHaveBeenCalledWith('lista_vieja', { activa: false }));
   });
 
+  it('A2: si al prender el backend dice SIN_BAJA, la configuración avisa que falta el link de baja', async () => {
+    getCampania.mockImplementation(() => Promise.resolve(listaVieja({
+      avisos: { ...AVISOS, canal: 'email', beneficio: ACTIVO, contactos_pendientes: 2610, resend_configurado: true },
+    })));
+    actualizarCampania.mockRejectedValue({
+      response: { status: 400, data: { code: 'SIN_BAJA', message: 'sin_baja' } },
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'Lista vieja (mail)' });
+    fireEvent.click(await screen.findByRole('switch'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Encender' }));
+
+    await waitFor(() => expect(actualizarCampania).toHaveBeenCalledWith('lista_vieja', { activa: true }));
+    expect((await screen.findByRole('alert')).textContent).toBe('Falta configurar el link de baja de los mails: hoy no sale ningún mail');
+  });
+
   it('con beneficio activo: "Ofrece: …" y, si igual el backend dice BENEFICIO_REQUERIDO al prender, se ve en la configuración', async () => {
     getCampania.mockImplementation(() => Promise.resolve(listaVieja({
       avisos: { ...AVISOS, canal: 'email', beneficio: ACTIVO, contactos_pendientes: 2610, resend_configurado: true },

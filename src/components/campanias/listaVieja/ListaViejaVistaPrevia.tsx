@@ -14,10 +14,15 @@ interface ListaViejaVistaPreviaProps {
 
 const fmtNumero = new Intl.NumberFormat('es-AR');
 
+// Sin link de baja no sale ningún mail de campaña (A2). Mismo texto para la
+// vista previa y para el 400 SIN_BAJA al prender la campaña.
+export const TEXTO_SIN_BAJA = 'Falta configurar el link de baja de los mails: hoy no sale ningún mail';
+
 export const MOTIVO_TEXTO_LISTA_VIEJA: Record<keyof ListaViejaMotivos, string> = {
   apagada: 'La campaña está apagada: hoy no sale ningún mail.',
   sin_beneficio: 'No hay beneficio activo: hoy no sale ningún mail.',
   fuera_de_horario: 'Fuera del horario de envío: los mails salen a las 11:00.',
+  sin_baja: TEXTO_SIN_BAJA,
 };
 
 export function motivosListaVieja(motivos: ListaViejaMotivos | undefined): string[] {

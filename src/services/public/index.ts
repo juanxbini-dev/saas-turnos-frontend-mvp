@@ -20,6 +20,10 @@ export {
   guardarBeneficioDeVisita,
   leerBeneficioDeVisita,
   olvidarBeneficioDeVisita,
+  beneficioDeLinkDesdeContexto,
+  guardarBeneficioDeLink,
+  leerBeneficioDeLink,
+  olvidarBeneficioDeLink,
 } from './beneficioPublic.service';
 export type {
   EmpresaPublica, 

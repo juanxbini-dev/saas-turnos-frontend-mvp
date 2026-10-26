@@ -443,6 +443,8 @@ export interface ListaViejaMotivos {
   apagada?: true;
   sin_beneficio?: true;
   fuera_de_horario?: true;
+  // Sin link de baja (falta PUBLIC_API_URL o el secreto): no sale marketing (A2)
+  sin_baja?: true;
 }
 
 export interface ListaViejaMuestraItem {
@@ -466,7 +468,9 @@ export interface ListaViejaEnvio {
   id: string;
   nombre: string;
   email_enmascarado: string;
-  // 'lista_vieja' (primer mail) o 'lista_vieja_recordatorio'
+  // 'lista_vieja' (primer mail), 'lista_vieja_recordatorio' (no abrió),
+  // 'lista_vieja_clic_sin_turno' (tocó el botón y no reservó, D9 b) o
+  // 'lista_vieja_ultimo_dia' (último día de la oferta, D9 c)
   plantilla: string;
   estado: EstadoEmail;
   created_at: string;

@@ -8,7 +8,7 @@ import { codigoDeError } from '../../../services/beneficios.service';
 import { useBloqueoPorToken } from '../CampaniasGate';
 import { CampaniaEstadoCard } from '../CampaniaEstadoCard';
 import { CampaniaConfigListaVieja } from './CampaniaConfigListaVieja';
-import { ListaViejaVistaPrevia } from './ListaViejaVistaPrevia';
+import { ListaViejaVistaPrevia, TEXTO_SIN_BAJA } from './ListaViejaVistaPrevia';
 import { ListaViejaHistorial } from './ListaViejaHistorial';
 import { ListaViejaMetricas } from './ListaViejaMetricas';
 import type { Campania, CampaniaListaVieja } from '../../../types/campanias.types';
@@ -47,7 +47,8 @@ export function ListaViejaPanel() {
   useEffect(() => { setRecienGuardada(null); }, [data]);
 
   const [refresco, setRefresco] = useState(0);
-  // Intentó prender sin beneficio activo (400 BENEFICIO_REQUERIDO): se muestra en la configuración
+  // Intentó prender sin beneficio activo (400 BENEFICIO_REQUERIDO) o sin link de
+  // baja (400 SIN_BAJA): se muestra en la configuración
   const [errorBeneficio, setErrorBeneficio] = useState<string | null>(null);
 
   const handleCambio = useCallback((actualizada: Campania) => {
@@ -61,6 +62,8 @@ export function ListaViejaPanel() {
     if (codigoDeError(err) === 'BENEFICIO_REQUERIDO') {
       setErrorBeneficio(mensajeDeError(err, 'No hay beneficio activo: activá uno en Beneficios para poder prender la campaña.'));
     }
+    // Sin link de baja no sale marketing (A2): se dice lo mismo que en la vista previa
+    if (codigoDeError(err) === 'SIN_BAJA') setErrorBeneficio(TEXTO_SIN_BAJA);
   }, []);
 
   const campania = recienGuardada ?? data ?? null;

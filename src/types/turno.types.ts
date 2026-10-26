@@ -25,6 +25,8 @@ export interface Turno {
   precio_original?: number;
   descuento_porcentaje?: number;
   descuento_monto?: number;
+  // A qué se aplicó el descuento al finalizar, si el backend lo devuelve
+  descuento_aplicar_a?: DescuentoAplicarA | null;
   total_final?: number;
   finalizado_at?: string;
   finalizado_por_id?: string;
@@ -77,6 +79,10 @@ export interface CreateTurnoData {
   // Código de beneficio del cliente elegido en el panel (GET /api/clientes/:id/beneficios).
   // Sin código el campo no se manda.
   beneficio_codigo_id?: string;
+  // Aplicar el beneficio ACTIVO a un cliente sin códigos (beneficio-con-turno
+  // D22): el backend crea o reutiliza el código y lo reserva para el turno.
+  // Excluyente con `beneficio_codigo_id`. Sin elegirlo, no se manda.
+  beneficio_activo?: true;
 }
 
 export interface DisponibilidadSemanal {

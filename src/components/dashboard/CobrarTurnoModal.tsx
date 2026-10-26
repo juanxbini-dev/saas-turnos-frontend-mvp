@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TurnoConDetalle } from '../../types/turno.types';
+import { TurnoConDetalle, DescuentoAplicarA } from '../../types/turno.types';
 import { finanzasService } from '../../services/finanzas.service';
 import axiosInstance from '../../api/axiosInstance';
 import { Modal, Button, Card } from '../ui';
@@ -75,6 +75,44 @@ function MetodoSelector({
   );
 }
 
+// A qué se aplica el descuento del turno (auditoría front H4): lo que el
+// backend guardó (`descuento_aplicar_a`, si lo manda) o, con un código de
+// descuento, lo que dice su beneficio. null = no se sabe.
+export function aplicarADelTurno(turno: TurnoConDetalle): DescuentoAplicarA | null {
+  if (turno.descuento_aplicar_a) return turno.descuento_aplicar_a;
+  const b = turno.beneficio;
+  if (b && !esBeneficioOtro(b)) return { servicio: !!b.aplica_servicio, productos: !!b.aplica_productos };
+  return null;
+}
+
+// Descuento del cobro, en centavos enteros (dominio financiero: nada de
+// arrastrar decimales de float):
+//   - se sabe a qué aplica → % sobre esas partes (reacciona al método de pago
+//     de los productos, como el backend con calcularComisiones)
+//   - no se sabe pero el turno trae el monto guardado al finalizar → ese monto
+//   - ninguno de los dos → % sobre todo (lo de siempre)
+// Nunca más que el subtotal.
+export function calcularDescuentoCobro(p: {
+  servicio: number;
+  productos: number;
+  porcentaje: number;
+  aplicarA: DescuentoAplicarA | null;
+  montoGuardado?: number | null;
+}): number {
+  const cent = (n: number) => Math.round(Number(n || 0) * 100);
+  const subtotal = cent(p.servicio) + cent(p.productos);
+  let descuento: number;
+  if (p.aplicarA) {
+    const base = (p.aplicarA.servicio ? cent(p.servicio) : 0) + (p.aplicarA.productos ? cent(p.productos) : 0);
+    descuento = Math.round((base * p.porcentaje) / 100);
+  } else if (p.montoGuardado !== undefined && p.montoGuardado !== null && Number.isFinite(Number(p.montoGuardado))) {
+    descuento = cent(Number(p.montoGuardado));
+  } else {
+    descuento = Math.round((subtotal * p.porcentaje) / 100);
+  }
+  return Math.max(0, Math.min(descuento, subtotal)) / 100;
+}
+
 export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTurnoModalProps) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -124,12 +162,18 @@ export function CobrarTurnoModal({ isOpen, onClose, turno, onSuccess }: CobrarTu
     }
 
     const sub = svc + prod;
-    const descMonto = sub * (descuento / 100);
+    const descMonto = calcularDescuentoCobro({
+      servicio: svc,
+      productos: prod,
+      porcentaje: descuento,
+      aplicarA: aplicarADelTurno(turno),
+      montoGuardado: turno.descuento_monto,
+    });
     return {
       totalServicio: svc,
       totalProductos: prod,
       descuentoMonto: descMonto,
-      totalFinal: sub - descMonto,
+      totalFinal: Math.round((sub - descMonto) * 100) / 100,
     };
   }, [turno, tieneProductos, productosDetalle, metodoPagoServicio, metodoPagoProductos]);
 
