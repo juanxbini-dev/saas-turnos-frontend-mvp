@@ -101,6 +101,10 @@ export function fraseEleccionFicha(e: SeguimientoEleccionFicha): string {
     ? ` (había ${e.fichas_mismo_telefono} fichas con ese teléfono)`
     : '';
 
+  if (e.modal_accion === 'otros_datos' && e.match_por === 'telefono') {
+    return 'La web le mostró una ficha que ya existía y tocó «Otros datos», pero el teléfono y el nombre coincidían, así que se usó la misma ficha.';
+  }
+
   if (e.modal_accion === 'otros_datos') {
     return 'La web le mostró una ficha que ya existía, tocó «Otros datos» y se le creó una ficha nueva con lo que escribió.';
   }

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { Spinner } from '../ui';
+import { AvisoTelefono } from '../clientes/AvisoTelefono';
 import { Calendar, TimeSlots } from '../ui';
 import { useDisponibilidad } from '../../hooks/useDisponibilidad';
 import { useFetch } from '../../hooks/useFetch';
@@ -452,7 +453,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
   // Acción del modal "Te reconocemos" que originó la reserva:
   //   'confirmar'   → se manda `cliente_id` de la ficha mostrada + modal_accion
-  //   'otros_datos' → se manda modal_accion SIN `cliente_id` (ficha nueva)
+  //   'otros_datos' → se manda modal_accion SIN `cliente_id` (ficha nueva, salvo mismo número y nombre)
   //   null          → no hubo modal: no viaja ni `cliente_id` ni `modal_accion`
   // La acción se pasa por parámetro y no se guarda en estado: si el modal se
   // cierra con la X o el fondo, no queda ninguna acción "pegada" para la próxima.
@@ -881,6 +882,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   {fieldErrors.telefono && (
                     <p className="text-red-400 text-xs mt-1">{fieldErrors.telefono}</p>
                   )}
+                  <AvisoTelefono telefono={clienteData.telefono} className="text-amber-300" />
                   {precargaTelefono && clienteData.telefono === precargaTelefono && (
                     <p className="text-white/60 text-xs mt-1">¿Sigue siendo tu número?</p>
                   )}

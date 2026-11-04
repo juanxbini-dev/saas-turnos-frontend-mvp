@@ -3,8 +3,9 @@ import { Search, Plus, Minus, Trash2, ShoppingCart, User } from 'lucide-react';
 import { Button, Input, Spinner } from '../ui';
 import { Cliente, CreateClienteData } from '../../types/cliente.types';
 import { Producto } from '../../types/producto.types';
-import { clienteService, getClienteDuplicado } from '../../services/cliente.service';
+import { ClienteDuplicado, clienteService, getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
+import { AvisoTelefono } from '../clientes/AvisoTelefono';
 import { ventasService } from '../../services/ventas.service';
 import { productosService } from '../../services/productos.service';
 import { useToast } from '../../hooks/useToast';
@@ -42,11 +43,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   const [showCreateCliente, setShowCreateCliente] = useState(false);
   const [newCliente, setNewCliente] = useState({ nombre: '', email: '', telefono: '' });
   const [creatingCliente, setCreatingCliente] = useState(false);
-  const [clienteDuplicado, setClienteDuplicado] = useState<{ isOpen: boolean; cliente: Cliente | null; mensaje: string }>({
-    isOpen: false,
-    cliente: null,
-    mensaje: ''
-  });
+  const [clienteDuplicado, setClienteDuplicado] = useState<ClienteDuplicado | null>(null);
 
   // Productos
   const [productoSearch, setProductoSearch] = useState('');
@@ -97,20 +94,24 @@ export const VenderModal: React.FC<VenderModalProps> = ({
 
   const handleCrearCliente = async (e: React.FormEvent) => {
     e.preventDefault();
+    await crearCliente();
+  };
+
+  const crearCliente = async (esOtraPersona = false) => {
     if (!newCliente.nombre.trim()) {
       toast.error('El nombre es requerido');
       return;
     }
     setCreatingCliente(true);
     try {
-      const created = await clienteService.createCliente(newCliente as CreateClienteData);
+      const created = await clienteService.createCliente({ ...newCliente, es_otra_persona: esOtraPersona || undefined } as CreateClienteData);
       setSelectedCliente(created);
       setShowCreateCliente(false);
       setNewCliente({ nombre: '', email: '', telefono: '' });
     } catch (error: any) {
       const dup = getClienteDuplicado(error);
       if (dup) {
-        setClienteDuplicado({ isOpen: true, cliente: dup.cliente, mensaje: dup.mensaje });
+        setClienteDuplicado(dup);
       } else {
         toast.error(error?.response?.data?.message || 'Error al crear el cliente');
       }
@@ -124,7 +125,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
     setShowCreateCliente(false);
     setNewCliente({ nombre: '', email: '', telefono: '' });
     setClienteSearch('');
-    setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' });
+    setClienteDuplicado(null);
     toast.success('Cliente existente seleccionado');
   };
 
@@ -296,6 +297,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
                 <Input placeholder="Nombre *" value={newCliente.nombre} onChange={e => setNewCliente(f => ({ ...f, nombre: e.target.value }))} required />
                 <Input placeholder="Email (opcional)" type="email" value={newCliente.email} onChange={e => setNewCliente(f => ({ ...f, email: e.target.value }))} />
                 <Input placeholder="Teléfono" value={newCliente.telefono} onChange={e => setNewCliente(f => ({ ...f, telefono: e.target.value }))} />
+                <AvisoTelefono telefono={newCliente.telefono} />
                 <div className="flex gap-2">
                   <Button type="button" variant="ghost" size="sm" onClick={() => setShowCreateCliente(false)} className="flex-1">Cancelar</Button>
                   <Button type="submit" size="sm" className="flex-1" disabled={creatingCliente}>
@@ -506,11 +508,13 @@ export const VenderModal: React.FC<VenderModalProps> = ({
     </div>
 
     <ClienteDuplicadoModal
-      isOpen={clienteDuplicado.isOpen}
-      mensaje={clienteDuplicado.mensaje}
-      cliente={clienteDuplicado.cliente}
-      onClose={() => setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' })}
+      isOpen={!!clienteDuplicado}
+      mensaje={clienteDuplicado?.mensaje ?? ''}
+      cliente={clienteDuplicado?.cliente ?? null}
+      motivo={clienteDuplicado?.motivo}
+      onClose={() => setClienteDuplicado(null)}
       onUsar={usarClienteExistente}
+      onCrearIgual={clienteDuplicado?.permiteCrearIgual ? () => { setClienteDuplicado(null); crearCliente(true); } : undefined}
     />
     </>
   );

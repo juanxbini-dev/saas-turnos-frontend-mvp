@@ -35,12 +35,15 @@ export interface CreateClienteData {
   telefono?: string
   // Solo en el alta: "Me autorizó a enviarle novedades por WhatsApp"
   marketing_consentimiento?: boolean
+  // "Es otra persona, crear igual": saltea el aviso de teléfono y nombre, nunca el de mail
+  es_otra_persona?: boolean
 }
 
 export interface UpdateClienteData {
   nombre?: string
   email?: string | null
   telefono?: string | null
+  es_otra_persona?: boolean
 }
 
 // GET /api/clientes/:id/beneficios — códigos de beneficio emitidos y vigentes
