@@ -8,8 +8,10 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { cacheService } from '../../cache/cache.service';
 import { disponibilidadService, turnoService, clienteService } from '../../services';
-import { getClienteDuplicado } from '../../services/cliente.service';
+import { ClienteDuplicado, getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
+import { AvisoTelefono } from '../clientes/AvisoTelefono';
+import { errorDeMail } from '../../utils/email.utils';
 import { Cliente as ClienteFull } from '../../types/cliente.types';
 import { useBeneficioTurno, mensajeErrorBeneficioTurno } from '../../hooks/useBeneficioTurno';
 import { BeneficioTurnoSelector, resumenBeneficioTurno } from './BeneficioTurnoSelector';
@@ -87,11 +89,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     telefono: ''
   });
   const [creatingCliente, setCreatingCliente] = useState(false);
-  const [clienteDuplicado, setClienteDuplicado] = useState<{ isOpen: boolean; cliente: ClienteFull | null; mensaje: string }>({
-    isOpen: false,
-    cliente: null,
-    mensaje: ''
-  });
+  const [clienteDuplicado, setClienteDuplicado] = useState<ClienteDuplicado | null>(null);
 
   const { state: authUser } = useAuth();
   const toast = useToast();
@@ -331,12 +329,18 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     setNewCliente({ nombre: '', email: '', telefono: '' });
     setCreatingCliente(false);
     setErrorModal(null);
+    setClienteDuplicado(null);
     beneficioTurno.reset();
   };
 
-  const handleCreateCliente = async () => {
+  const handleCreateCliente = async (esOtraPersona = false) => {
     if (!newCliente.nombre.trim()) {
       toast.error('El nombre es requerido');
+      return;
+    }
+    const errorMail = errorDeMail(newCliente.email);
+    if (errorMail) {
+      toast.error(errorMail);
       return;
     }
 
@@ -345,7 +349,8 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       const createdCliente = await clienteService.createCliente({
         nombre: newCliente.nombre,
         email: newCliente.email.trim() || undefined,
-        telefono: newCliente.telefono || undefined
+        telefono: newCliente.telefono || undefined,
+        es_otra_persona: esOtraPersona || undefined
       });
 
       // Seleccionar automáticamente el cliente creado
@@ -366,7 +371,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     } catch (error: any) {
       const dup = getClienteDuplicado(error);
       if (dup) {
-        setClienteDuplicado({ isOpen: true, cliente: dup.cliente, mensaje: dup.mensaje });
+        setClienteDuplicado(dup);
       } else {
         toast.error(error.response?.data?.message || error.message || 'Error al crear cliente');
       }
@@ -379,7 +384,9 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     setSelectedCliente({ id: cliente.id, nombre: cliente.nombre, email: cliente.email });
     setNewCliente({ nombre: '', email: '', telefono: '' });
     setShowCreateCliente(false);
-    setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' });
+    setClienteSearch('');
+    setShowClienteDropdown(false);
+    setClienteDuplicado(null);
     toast.success('Cliente existente seleccionado');
   };
 
@@ -485,6 +492,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       onClose={handleClose}
       title="Crear nuevo turno"
       size="lg"
+      closeOnEscape={!clienteDuplicado}
     >
       {/* Progress indicator */}
       <div className="flex items-center justify-center mb-6">
@@ -768,13 +776,13 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
+                  Email *
                 </label>
                 <Input
                   type="email"
                   value={newCliente.email}
                   onChange={(e) => setNewCliente(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="email@ejemplo.com (opcional)"
+                  placeholder="email@ejemplo.com"
                   disabled={creatingCliente}
                 />
               </div>
@@ -790,6 +798,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                   placeholder="+54 9 11 1234-5678"
                   disabled={creatingCliente}
                 />
+                <AvisoTelefono telefono={newCliente.telefono} />
               </div>
 
               <div className="flex justify-end space-x-2">
@@ -806,7 +815,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
                 </Button>
                 <Button
                   type="button"
-                  onClick={handleCreateCliente}
+                  onClick={() => handleCreateCliente()}
                   loading={creatingCliente}
                   disabled={!newCliente.nombre.trim()}
                 >
@@ -943,11 +952,13 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
     )}
 
     <ClienteDuplicadoModal
-      isOpen={clienteDuplicado.isOpen}
-      mensaje={clienteDuplicado.mensaje}
-      cliente={clienteDuplicado.cliente}
-      onClose={() => setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' })}
+      isOpen={!!clienteDuplicado}
+      mensaje={clienteDuplicado?.mensaje ?? ''}
+      cliente={clienteDuplicado?.cliente ?? null}
+      motivo={clienteDuplicado?.motivo}
+      onClose={() => setClienteDuplicado(null)}
       onUsar={usarClienteExistente}
+      onCrearIgual={clienteDuplicado?.permiteCrearIgual ? () => { setClienteDuplicado(null); handleCreateCliente(true); } : undefined}
     />
     </>
   );

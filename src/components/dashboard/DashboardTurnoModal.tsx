@@ -10,8 +10,10 @@ import { calcularMaxDuracionDesdeSlot } from '../../utils/calculos.utils';
 import { useToast } from '../../hooks/useToast';
 import { useFetch } from '../../hooks/useFetch';
 import { useDebounce } from '../../hooks/useDebounce';
-import { getClienteDuplicado } from '../../services/cliente.service';
+import { ClienteDuplicado, getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
+import { AvisoTelefono } from '../clientes/AvisoTelefono';
+import { errorDeMail } from '../../utils/email.utils';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { cacheService } from '../../cache/cache.service';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
@@ -62,11 +64,7 @@ export function DashboardTurnoModal({
   const [showCreateCliente, setShowCreateCliente] = useState(false);
   const [newCliente, setNewCliente] = useState({ nombre: '', email: '', telefono: '' });
   const [creatingCliente, setCreatingCliente] = useState(false);
-  const [clienteDuplicado, setClienteDuplicado] = useState<{ isOpen: boolean; cliente: Cliente | null; mensaje: string }>({
-    isOpen: false,
-    cliente: null,
-    mensaje: ''
-  });
+  const [clienteDuplicado, setClienteDuplicado] = useState<ClienteDuplicado | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
@@ -149,9 +147,14 @@ export function DashboardTurnoModal({
     (loadingClientes || debouncedClienteSearch !== clienteSearch.trim());
 
   // Manejar creación de cliente
-  const handleCreateCliente = async () => {
+  const handleCreateCliente = async (esOtraPersona = false) => {
     if (!newCliente.nombre.trim()) {
       setErrorModal('El nombre del cliente es requerido.');
+      return;
+    }
+    const errorMail = errorDeMail(newCliente.email);
+    if (errorMail) {
+      setErrorModal(errorMail);
       return;
     }
 
@@ -160,7 +163,8 @@ export function DashboardTurnoModal({
       const createdCliente = await clienteService.createCliente({
         nombre: newCliente.nombre,
         email: newCliente.email.trim() || undefined,
-        telefono: newCliente.telefono || undefined
+        telefono: newCliente.telefono || undefined,
+        es_otra_persona: esOtraPersona || undefined
       });
 
       setSelectedCliente(createdCliente);
@@ -172,7 +176,7 @@ export function DashboardTurnoModal({
     } catch (error: any) {
       const dup = getClienteDuplicado(error);
       if (dup) {
-        setClienteDuplicado({ isOpen: true, cliente: dup.cliente, mensaje: dup.mensaje });
+        setClienteDuplicado(dup);
       } else {
         setErrorModal(error.response?.data?.message || error.message || 'Error al crear cliente');
       }
@@ -186,7 +190,7 @@ export function DashboardTurnoModal({
     setNewCliente({ nombre: '', email: '', telefono: '' });
     setShowCreateCliente(false);
     setClienteSearch('');
-    setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' });
+    setClienteDuplicado(null);
     toast.success('Cliente existente seleccionado');
   };
 
@@ -273,6 +277,7 @@ export function DashboardTurnoModal({
     setShowCreateCliente(false);
     setNewCliente({ nombre: '', email: '', telefono: '' });
     setShowFinalizarModal(false);
+    setClienteDuplicado(null);
     beneficioTurno.reset();
     onClose();
   };
@@ -297,6 +302,7 @@ export function DashboardTurnoModal({
       onClose={handleClose}
       title={modalType === 'disponible' ? 'Crear Nuevo Turno' : 'Detalles del Turno'}
       size="lg"
+      closeOnEscape={!clienteDuplicado}
     >
       {modalType === 'disponible' ? (
         // Contenido para slot disponible
@@ -346,7 +352,7 @@ export function DashboardTurnoModal({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Buscar por nombre o email..."
+                    placeholder="Buscar por nombre, email o teléfono..."
                     value={clienteSearch}
                     onChange={(e) => setClienteSearch(e.target.value)}
                     className="pl-10"
@@ -402,7 +408,7 @@ export function DashboardTurnoModal({
                   onChange={(e) => setNewCliente({ ...newCliente, nombre: e.target.value })}
                 />
                 <Input
-                  placeholder="Email del cliente (opcional)"
+                  placeholder="Email del cliente *"
                   type="email"
                   value={newCliente.email}
                   onChange={(e) => setNewCliente({ ...newCliente, email: e.target.value })}
@@ -412,6 +418,7 @@ export function DashboardTurnoModal({
                   value={newCliente.telefono}
                   onChange={(e) => setNewCliente({ ...newCliente, telefono: e.target.value })}
                 />
+                <AvisoTelefono telefono={newCliente.telefono} />
 
                 <div className="flex gap-2">
                   <Button
@@ -422,7 +429,7 @@ export function DashboardTurnoModal({
                     Cancelar
                   </Button>
                   <Button
-                    onClick={handleCreateCliente}
+                    onClick={() => handleCreateCliente()}
                     loading={creatingCliente}
                     disabled={!newCliente.nombre.trim()}
                     block
@@ -680,11 +687,13 @@ export function DashboardTurnoModal({
       )}
 
       <ClienteDuplicadoModal
-        isOpen={clienteDuplicado.isOpen}
-        mensaje={clienteDuplicado.mensaje}
-        cliente={clienteDuplicado.cliente}
-        onClose={() => setClienteDuplicado({ isOpen: false, cliente: null, mensaje: '' })}
+        isOpen={!!clienteDuplicado}
+        mensaje={clienteDuplicado?.mensaje ?? ''}
+        cliente={clienteDuplicado?.cliente ?? null}
+        motivo={clienteDuplicado?.motivo}
+        onClose={() => setClienteDuplicado(null)}
         onUsar={usarClienteExistente}
+        onCrearIgual={clienteDuplicado?.permiteCrearIgual ? () => { setClienteDuplicado(null); handleCreateCliente(true); } : undefined}
       />
     </Modal>
   );

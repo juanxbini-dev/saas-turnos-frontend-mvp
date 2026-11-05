@@ -1,3 +1,4 @@
+import { CambioFicha } from './cliente.types';
 // DTO de GET /api/turnos/:id/seguimiento (spec seguimiento-reservas §3.3).
 // Solo lectura: "cómo se sacó el turno" y qué pasó con sus mensajes.
 // La API nunca devuelve ip_hash ni wamid.
@@ -68,6 +69,8 @@ export interface SeguimientoReservaWeb {
   /** null si no hay dato */
   dispositivo: SeguimientoDispositivo | null;
   eleccion_ficha: SeguimientoEleccionFicha;
+  /** "Editar datos": ausente en respuestas de un backend anterior */
+  cambios_ficha?: Pick<CambioFicha, 'id' | 'campo' | 'aplicado' | 'motivo_no_aplicado'>[];
   /** null si ya se borró (90 días) */
   tipeado: SeguimientoDatosPersona | null;
   datos_purgados_at: string | null;

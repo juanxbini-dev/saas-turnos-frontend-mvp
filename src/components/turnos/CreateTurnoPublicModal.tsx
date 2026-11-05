@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { Spinner } from '../ui';
+import { AvisoTelefono } from '../clientes/AvisoTelefono';
+import { pareceCelularAR } from '../../utils/telefono.utils';
+import { errorDeMail } from '../../utils/email.utils';
 import { Calendar, TimeSlots } from '../ui';
 import { useDisponibilidad } from '../../hooks/useDisponibilidad';
 import { useFetch } from '../../hooks/useFetch';
@@ -101,11 +104,14 @@ interface ClienteFormData {
   telefono: string;
 }
 
+const MENSAJE_MAIL_EN_USO = 'Ese mail ya está registrado con otro nombre. Escribí otro.';
+
 interface ExistingCliente {
   id: string;
   nombre: string;
   email?: string;
   telefono?: string;
+  reconocido_por?: 'telefono' | 'email';
 }
 
 interface ServicioProfesional {
@@ -153,6 +159,16 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
   // Estados para validación de cliente existente
   const [existingCliente, setExistingCliente] = useState<ExistingCliente | null>(null);
+  // "Editar datos" dentro de "Te reconocemos"
+  const [editandoFicha, setEditandoFicha] = useState(false);
+  // "No soy yo" crea una ficha aparte: siempre pide un paso más
+  const [confirmandoNoSoyYo, setConfirmandoNoSoyYo] = useState(false);
+  // El mail que ya es de otra ficha: "No soy yo" tiene que pedir otro
+  const mailEnUso = useRef<string | null>(null);
+  // Lo escrito antes de editar, para "Volver". Y si la reserva falla (horario ocupado), al reintentar
+  // se vuelve a la edición: con "Confirmar" se perdería el cambio sin que la persona lo note.
+  const datosAntesDeEditar = useRef<typeof clienteData | null>(null);
+  const edicionPendiente = useRef<string | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -389,7 +405,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     if (!clienteData.apellido.trim()) errors.apellido = 'El apellido es requerido';
     if (!clienteData.email.trim()) {
       errors.email = 'El email es requerido';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clienteData.email.trim())) {
+    } else if (errorDeMail(clienteData.email)) {
       errors.email = 'Ingresá un email válido';
     }
     if (!clienteData.telefono.trim()) errors.telefono = 'El teléfono es requerido';
@@ -439,6 +455,9 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       if ((response.data as any).data?.exists) {
         setExistingCliente((response.data as any).data.cliente);
         setShowMatchModal(true);
+        setConfirmandoNoSoyYo(false);
+        // Solo si es la misma ficha: al reintentar, el reconocimiento puede dar otra
+        setEditandoFicha(edicionPendiente.current === (response.data as any).data.cliente.id);
       } else {
         await createNewClienteAndTurno(null, !!opciones.sinBeneficio);
       }
@@ -452,13 +471,13 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
 
   // Acción del modal "Te reconocemos" que originó la reserva:
   //   'confirmar'   → se manda `cliente_id` de la ficha mostrada + modal_accion
-  //   'otros_datos' → se manda modal_accion SIN `cliente_id` (ficha nueva)
+  //   'otros_datos' → botón "No soy yo": se manda modal_accion SIN `cliente_id` (ficha nueva)
   //   null          → no hubo modal: no viaja ni `cliente_id` ni `modal_accion`
   // La acción se pasa por parámetro y no se guarda en estado: si el modal se
   // cierra con la X o el fondo, no queda ninguna acción "pegada" para la próxima.
   // `forzarSinBeneficio`: el clic en "Reservar sin beneficio" llega acá antes de
   // que el estado `sinBeneficioLink` se vea en este render.
-  const createNewClienteAndTurno = async (accion: 'confirmar' | 'otros_datos' | null = null, forzarSinBeneficio = false) => {
+  const createNewClienteAndTurno = async (accion: 'confirmar' | 'otros_datos' | null = null, forzarSinBeneficio = false, editarFicha = false) => {
     setSubmitError(null);
     if (!selectedServicio || !selectedDate || !selectedSlot) {
       setSubmitError('Elegí servicio, día y horario antes de confirmar.');
@@ -482,6 +501,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         cliente_data: buildClientePayload(),
         ...(accion === 'confirmar' && existingCliente?.id ? { cliente_id: existingCliente.id } : {}),
         ...(accion ? { modal_accion: accion } : {}),
+        ...(editarFicha ? { editar_ficha: true } : {}),
         notas,
         marketing_consentimiento: quiereNovedades,
         // Solo si la persona llegó desde un mensaje; si no, el campo no viaja
@@ -493,6 +513,9 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       };
 
       const respuesta = await turnoPublicService.createTurno(turnoData);
+      edicionPendiente.current = null;
+      datosAntesDeEditar.current = null;
+      mailEnUso.current = null;
 
       if (campaniaCodigo) onCampaniaCodigoUsado?.();
 
@@ -513,6 +536,20 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       setShowSuccessModal(true);
     } catch (error: any) {
       const codigoError: string | undefined = error.response?.data?.code;
+      if (codigoError === 'EMAIL_EN_USO') {
+        // El turno NO se creó. Se pide otro mail donde estaba
+        mailEnUso.current = clienteData.email.trim().toLowerCase();
+        setFieldErrors(prev => ({ ...prev, email: MENSAJE_MAIL_EN_USO }));
+        if (accion === 'otros_datos') {
+          setConfirmandoNoSoyYo(true);
+          setShowMatchModal(true);
+        } else {
+          setStep(3);
+          // El campo queda en la zona que se desplaza y el botón está fijo abajo
+          setTimeout(corregirDatos, 0);
+        }
+        return;
+      }
       const esErrorDeBeneficio = error.response?.status === 400
         && (codigoError === 'BENEFICIO_INVALIDO' || codigoError === 'BENEFICIO_NO_CORRESPONDE');
       if (esErrorDeBeneficio && beneficioLinkActivo && !forzarSinBeneficio) {
@@ -559,6 +596,11 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   };
 
   const handleConfirmExistingCliente = () => {
+    if (!validateForm()) {
+      setShowMatchModal(false);
+      return;
+    }
+    edicionPendiente.current = null;
     setShowMatchModal(false);
     createNewClienteAndTurno('confirmar');
   };
@@ -566,13 +608,91 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   // Cerrar sin elegir (X o fondo) olvida la ficha reconocida: la próxima reserva
   // vuelve a validar y, si no hay match, no manda ni `cliente_id` ni `modal_accion`.
   const handleCloseMatchModal = () => {
+    if (datosAntesDeEditar.current) setClienteData(datosAntesDeEditar.current);
+    mailEnUso.current = null;
+    edicionPendiente.current = null;
+    datosAntesDeEditar.current = null;
     setShowMatchModal(false);
+    setEditandoFicha(false);
+    setConfirmandoNoSoyYo(false);
     setExistingCliente(null);
   };
 
   const handleCreateNewCliente = () => {
+    edicionPendiente.current = null;
+    setConfirmandoNoSoyYo(false);
     setShowMatchModal(false);
     createNewClienteAndTurno('otros_datos');
+  };
+
+  const handleAbrirNoSoyYo = () => {
+    if (!datosAntesDeEditar.current) datosAntesDeEditar.current = clienteData;
+    // Reconocida por este mail: es de la otra ficha, así que la nueva necesita otro
+    if (existingCliente?.reconocido_por === 'email') {
+      mailEnUso.current = clienteData.email.trim().toLowerCase();
+      setClienteData(prev => ({ ...prev, email: '' }));
+    }
+    setConfirmandoNoSoyYo(true);
+  };
+
+  const handleConfirmarNoSoyYo = () => {
+    if (!validateForm()) return;
+    if (clienteData.email.trim().toLowerCase() === mailEnUso.current) {
+      setFieldErrors(prev => ({ ...prev, email: MENSAJE_MAIL_EN_USO }));
+      return;
+    }
+    handleCreateNewCliente();
+  };
+
+  // Para quien llegó hasta acá y no quiere seguir: empieza de cero. Conserva lo que trajo su link
+  // (precarga y código), menos un mail que ya se rechazó.
+  const handleVolverAlInicio = () => {
+    const rechazado = mailEnUso.current;
+    mailEnUso.current = null;
+    resetModal();
+    if (rechazado && beneficioLink?.precarga?.email?.trim().toLowerCase() === rechazado) {
+      setClienteData(prev => ({ ...prev, email: '' }));
+    }
+    if (beneficioInicial) {
+      setCodigoBeneficio(beneficioInicial.codigo);
+      setBeneficioValidado(beneficioInicial);
+    }
+  };
+
+  const handleAbrirEdicionFicha = () => {
+    datosAntesDeEditar.current = clienteData;
+    setEditandoFicha(true);
+  };
+
+  const handleVolverDeEdicion = () => {
+    if (datosAntesDeEditar.current) setClienteData(datosAntesDeEditar.current);
+    datosAntesDeEditar.current = null;
+    mailEnUso.current = null;
+    setFieldErrors({});
+    edicionPendiente.current = null;
+    setEditandoFicha(false);
+    setConfirmandoNoSoyYo(false);
+  };
+
+  // Dentro de la edición: lo que escribió pasa a la ficha nueva, así que también se valida
+  const handleNoSoyYoDesdeEdicion = () => {
+    if (!validateForm()) return;
+    setEditandoFicha(false);
+    handleAbrirNoSoyYo();
+  };
+
+  // "Editar datos": reserva con la ficha reconocida y le cambia nombre y mail con lo que escribió
+  const handleGuardarEdicionFicha = () => {
+    if (!validateForm()) return;
+    // Acá pide guardar justamente este número: si no es un celular completo, el backend no lo guarda
+    if (existingCliente?.reconocido_por === 'email' && !pareceCelularAR(clienteData.telefono)) {
+      setFieldErrors(prev => ({ ...prev, telefono: 'Revisá el número: tiene que ser un celular completo.' }));
+      return;
+    }
+    edicionPendiente.current = existingCliente?.id ?? null;
+    setShowMatchModal(false);
+    setEditandoFicha(false);
+    createNewClienteAndTurno('confirmar', false, true);
   };
 
   const resetModal = () => {
@@ -582,6 +702,10 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setQuiereNovedades(true);
     setExistingCliente(null);
     setShowMatchModal(false);
+    setEditandoFicha(false);
+    setConfirmandoNoSoyYo(false);
+    edicionPendiente.current = null;
+    datosAntesDeEditar.current = null;
     setShowSuccessModal(false);
     setFieldErrors({});
     setSubmitError(null);
@@ -881,6 +1005,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   {fieldErrors.telefono && (
                     <p className="text-red-400 text-xs mt-1">{fieldErrors.telefono}</p>
                   )}
+                  <AvisoTelefono telefono={clienteData.telefono} className="text-amber-300" />
                   {precargaTelefono && clienteData.telefono === precargaTelefono && (
                     <p className="text-white/60 text-xs mt-1">¿Sigue siendo tu número?</p>
                   )}
@@ -1108,9 +1233,145 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                 Te reconocemos
               </p>
               <p className="text-sm text-white/50">
-                Tus datos ya están registrados. ¿Confirmamos con ellos?
+                {confirmandoNoSoyYo
+                  ? <>¿Seguro que no sos <span className="text-white">{existingCliente.nombre}</span>? Vamos a crear una ficha nueva con estos datos. El mail es obligatorio y no puede ser de otra persona.</>
+                  : editandoFicha && existingCliente.reconocido_por === 'email'
+                  ? <>Vas a cambiar el teléfono de <span className="text-white">{existingCliente.nombre}</span>. Si no sos esa persona, tocá «No soy yo».</>
+                  : editandoFicha
+                  ? <>Vas a cambiar los datos de <span className="text-white">{existingCliente.nombre}</span>. Si no sos esa persona, tocá «No soy yo». El teléfono no se cambia.</>
+                  : existingCliente.reconocido_por === 'email' && existingCliente.telefono
+                  ? `Encontramos tus datos con otro teléfono: no es el ${clienteData.telefono.trim()}. Si confirmás, los avisos llegan al número de abajo. Si cambiaste de número, tocá «Editar datos».`
+                  : 'Tus datos ya están registrados. ¿Confirmamos con ellos?'}
               </p>
             </div>
+
+            {confirmandoNoSoyYo ? (
+              <>
+                <div className="bg-[#1a1a1a] border border-white/10 p-4 mb-4 space-y-1.5 text-sm">
+                  {[
+                    ['Nombre', buildClientePayload().nombre],
+                    ['Teléfono', buildClientePayload().telefono],
+                  ].map(([etiqueta, valor]) => (
+                    <div key={etiqueta} className="flex justify-between gap-4">
+                      <span className="text-white/40">{etiqueta}</span>
+                      <span className="text-white text-right break-all">{valor}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mb-5">
+                  <label htmlFor="no-soy-yo-email" className={darkLabel}>Email</label>
+                  <input
+                    id="no-soy-yo-email"
+                    type="email"
+                    maxLength={254}
+                    value={clienteData.email}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, email: e.target.value })); clearFieldError('email'); }}
+                    placeholder="tucorreo@ejemplo.com"
+                    className={darkInput(!!fieldErrors.email)}
+                  />
+                  {fieldErrors.email
+                    ? <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
+                    : mailEnUso.current && (!clienteData.email.trim() || clienteData.email.trim().toLowerCase() === mailEnUso.current) && (
+                      <p className="text-white/60 text-xs mt-1">{MENSAJE_MAIL_EN_USO}</p>
+                    )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button onClick={handleConfirmarNoSoyYo} disabled={loading} className={`${ghostBtn} w-full`}>
+                    Sí, crear ficha nueva
+                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={handleVolverDeEdicion} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                      Volver
+                    </button>
+                    <button onClick={handleVolverAlInicio} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                      Volver al inicio
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : editandoFicha && existingCliente.reconocido_por === 'email' ? (
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="editar-ficha-telefono" className={darkLabel}>Teléfono nuevo</label>
+                  <input
+                    id="editar-ficha-telefono"
+                    type="tel"
+                    maxLength={30}
+                    value={clienteData.telefono}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, telefono: e.target.value })); clearFieldError('telefono'); }}
+                    className={darkInput(!!fieldErrors.telefono)}
+                  />
+                  {fieldErrors.telefono && <p className="text-red-400 text-xs mt-1">{fieldErrors.telefono}</p>}
+                  <AvisoTelefono telefono={clienteData.telefono} className="text-amber-300" />
+                </div>
+                <div className="flex flex-col gap-2 pt-2">
+                  <button onClick={handleGuardarEdicionFicha} disabled={loading} className={`${ghostBtn} w-full`}>
+                    Guardar y confirmar turno
+                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={handleNoSoyYoDesdeEdicion} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                      No soy yo
+                    </button>
+                    <button onClick={handleVolverDeEdicion} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                      Volver
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : editandoFicha ? (
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="editar-ficha-nombre" className={darkLabel}>Nombre</label>
+                  <input
+                    id="editar-ficha-nombre"
+                    type="text"
+                    maxLength={45}
+                    value={clienteData.nombre}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, nombre: e.target.value })); clearFieldError('nombre'); }}
+                    className={darkInput(!!fieldErrors.nombre)}
+                  />
+                  {fieldErrors.nombre && <p className="text-red-400 text-xs mt-1">{fieldErrors.nombre}</p>}
+                </div>
+                <div>
+                  <label htmlFor="editar-ficha-apellido" className={darkLabel}>Apellido</label>
+                  <input
+                    id="editar-ficha-apellido"
+                    type="text"
+                    maxLength={45}
+                    value={clienteData.apellido}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, apellido: e.target.value })); clearFieldError('apellido'); }}
+                    className={darkInput(!!fieldErrors.apellido)}
+                  />
+                  {fieldErrors.apellido && <p className="text-red-400 text-xs mt-1">{fieldErrors.apellido}</p>}
+                </div>
+                <div>
+                  <label htmlFor="editar-ficha-email" className={darkLabel}>Email</label>
+                  <input
+                    id="editar-ficha-email"
+                    type="email"
+                    maxLength={254}
+                    value={clienteData.email}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, email: e.target.value })); clearFieldError('email'); }}
+                    className={darkInput(!!fieldErrors.email)}
+                  />
+                  {fieldErrors.email && <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>}
+                </div>
+                <div className="flex flex-col gap-2 pt-2">
+                  <button onClick={handleGuardarEdicionFicha} disabled={loading} className={`${ghostBtn} w-full`}>
+                    Guardar y confirmar turno
+                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={handleNoSoyYoDesdeEdicion} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                      No soy yo
+                    </button>
+                    <button onClick={handleVolverDeEdicion} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                      Volver
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+            <>
 
             <div className="bg-[#1a1a1a] border border-white/10 p-4 mb-5 space-y-1.5 text-sm">
               <div className="flex justify-between">
@@ -1131,14 +1392,24 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
               )}
             </div>
 
-            <div className="flex gap-3">
-              <button onClick={handleConfirmExistingCliente} disabled={loading} className={`${ghostBtn} flex-1`}>
+            <div className="flex flex-col gap-2">
+              <button onClick={handleConfirmExistingCliente} disabled={loading} className={`${ghostBtn} w-full`}>
                 {loading ? 'Confirmando...' : 'Confirmar'}
               </button>
-              <button onClick={handleCreateNewCliente} disabled={loading} className={`${ghostBtn} flex-1`}>
-                Otros datos
-              </button>
+              <div className="flex gap-2">
+                <button onClick={handleAbrirNoSoyYo} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                  No soy yo
+                </button>
+                {/* Sin teléfono en la ficha no hay con qué verificar a la persona */}
+                {existingCliente.telefono && existingCliente.reconocido_por && (
+                  <button onClick={handleAbrirEdicionFicha} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                    Editar datos
+                  </button>
+                )}
+              </div>
             </div>
+            </>
+            )}
           </div>
         </div>
       )}

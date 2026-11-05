@@ -191,12 +191,12 @@ describe('SeguimientoTurnoModal', () => {
     expect(textoDialogo()).toContain('Se intentó usar una ficha cuyo teléfono no coincidía con el que escribió');
   });
 
-  it('"Otros datos": explica que se creó una ficha nueva', async () => {
+  it('"No soy yo": explica que se creó una ficha nueva', async () => {
     const d = turnoWeb();
     d.reserva_web!.eleccion_ficha = { match_por: 'nueva', modal_accion: 'otros_datos', cliente_id_rechazado: false, fichas_mismo_telefono: 1 };
     abrir(d);
     await screen.findByText('Por la web');
-    expect(textoDialogo()).toContain('tocó «Otros datos» y se le creó una ficha nueva');
+    expect(textoDialogo()).toContain('tocó «No soy yo» y se le creó una ficha nueva');
   });
 
   it('cada estado de mensaje con su texto y la hora (AR) de cada hito', async () => {
