@@ -70,7 +70,7 @@ export interface SeguimientoReservaWeb {
   dispositivo: SeguimientoDispositivo | null;
   eleccion_ficha: SeguimientoEleccionFicha;
   /** "Editar datos": ausente en respuestas de un backend anterior */
-  cambios_ficha?: Pick<CambioFicha, 'id' | 'campo' | 'aplicado'>[];
+  cambios_ficha?: Pick<CambioFicha, 'id' | 'campo' | 'aplicado' | 'motivo_no_aplicado'>[];
   /** null si ya se borró (90 días) */
   tipeado: SeguimientoDatosPersona | null;
   datos_purgados_at: string | null;

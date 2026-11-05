@@ -44,7 +44,7 @@ vi.mock('../../hooks/useDisponibilidad', () => ({
 const SERVICIO = { id: 'srv-1', nombre: 'Corte', descripcion: '', precio: 10000, duracion_minutos: 30 };
 const FICHA = { id: 'cli-mama', nombre: 'Marta Pérez', email: 'marta@x.com', telefono: '2915134540' };
 
-const RECONOCIDO = { data: { data: { exists: true, cliente: FICHA } } };
+const RECONOCIDO = { data: { data: { exists: true, cliente: { ...FICHA, reconocido_por: 'telefono' } } } };
 const SIN_MATCH = { data: { data: { exists: false } } };
 
 function renderModal() {
@@ -172,6 +172,67 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
     expect(createTurno.mock.calls[0][0]).not.toHaveProperty('cliente_id');
   });
 
+  describe('Reconocida por mail y nombre, con otro teléfono', () => {
+    const POR_MAIL = { data: { data: { exists: true, cliente: { ...RECONOCIDO.data.data.cliente, reconocido_por: 'email', telefono: '291***540' } } } };
+
+    it('avisa que el número es otro y a cuál van los avisos', async () => {
+      validateCliente.mockResolvedValue(POR_MAIL);
+      await confirmarHastaElModal();
+
+      expect(screen.getByText(/Encontramos tus datos con otro teléfono/).textContent).toContain('291 513-4540');
+      expect(screen.getByText('291***540')).toBeTruthy();
+    });
+
+    it('"Confirmar" manda la ficha sin editar', async () => {
+      validateCliente.mockResolvedValue(POR_MAIL);
+      await confirmarHastaElModal();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+      await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+      expect(createTurno.mock.calls[0][0]).toMatchObject({ modal_accion: 'confirmar', cliente_id: RECONOCIDO.data.data.cliente.id });
+      expect(createTurno.mock.calls[0][0]).not.toHaveProperty('editar_ficha');
+    });
+
+    it('"Editar datos" frena un número incompleto', async () => {
+      validateCliente.mockResolvedValue(POR_MAIL);
+      await confirmarHastaElModal();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Editar datos' }));
+      fireEvent.change(screen.getByLabelText('Teléfono nuevo'), { target: { value: '14142475' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+
+      expect(createTurno).not.toHaveBeenCalled();
+      expect(screen.getAllByText('Revisá el número: tiene que ser un celular completo.').length).toBeGreaterThan(0);
+    });
+
+    it('"No soy yo" aclara que la ficha nueva queda sin ese mail', async () => {
+      validateCliente.mockResolvedValue(POR_MAIL);
+      await confirmarHastaElModal();
+
+      fireEvent.click(screen.getByRole('button', { name: 'No soy yo' }));
+
+      expect(screen.getByText('Sin mail: ese ya está en otra ficha')).toBeTruthy();
+    });
+
+    it('"Editar datos" deja cambiar solo el teléfono', async () => {
+      validateCliente.mockResolvedValue(POR_MAIL);
+      await confirmarHastaElModal();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Editar datos' }));
+
+      expect(screen.getByText(/Vas a cambiar el teléfono de/)).toBeTruthy();
+      expect(screen.queryByLabelText('Nombre')).toBeNull();
+      expect(screen.queryByLabelText('Email')).toBeNull();
+      fireEvent.change(screen.getByLabelText('Teléfono nuevo'), { target: { value: '2915000001' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+
+      await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+      expect(createTurno.mock.calls[0][0]).toMatchObject({ modal_accion: 'confirmar', editar_ficha: true });
+      expect(createTurno.mock.calls[0][0].cliente_data.telefono).toBe('2915000001');
+    });
+  });
+
   describe('Confirmación de "No soy yo"', () => {
     const abrir = async () => {
       validateCliente.mockResolvedValue(RECONOCIDO);
@@ -275,6 +336,13 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
 
       expect(await screen.findByRole('button', { name: 'Guardar y confirmar turno' })).toBeTruthy();
       expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('nueva@x.com');
+    });
+
+    it('sin reconocido_por (backend viejo) no ofrece editar', async () => {
+      validateCliente.mockResolvedValue({ data: { data: { exists: true, cliente: FICHA } } });
+      await confirmarHastaElModal();
+
+      expect(screen.queryByRole('button', { name: 'Editar datos' })).toBeNull();
     });
 
     it('no deja cambiar el teléfono', async () => {

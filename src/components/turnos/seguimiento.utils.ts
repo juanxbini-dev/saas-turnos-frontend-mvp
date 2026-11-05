@@ -96,13 +96,13 @@ export function describirDispositivo(d: SeguimientoDispositivo | null | undefine
   return partes.length ? partes.join(' · ') : null;
 }
 
-const CAMPO_FICHA: Record<CambioFicha['campo'], string> = { nombre: 'el nombre', email: 'el mail' };
+const CAMPO_FICHA: Record<CambioFicha['campo'], string> = { nombre: 'el nombre', email: 'el mail', telefono: 'el teléfono' };
 
 /** Frase humana de un cambio de ficha pedido al reservar por la web ("Editar datos"). */
-export function fraseCambioFicha(c: Pick<CambioFicha, 'campo' | 'aplicado'>): string {
-  return c.aplicado
-    ? `Tocó «Editar datos» y cambió ${CAMPO_FICHA[c.campo]} de la ficha.`
-    : `Quiso cambiar ${CAMPO_FICHA[c.campo]}, pero ya lo tiene otra ficha, y no se cambió.`;
+export function fraseCambioFicha(c: Pick<CambioFicha, 'campo' | 'aplicado'> & Partial<Pick<CambioFicha, 'motivo_no_aplicado'>>): string {
+  if (c.aplicado) return `Tocó «Editar datos» y cambió ${CAMPO_FICHA[c.campo]} de la ficha.`;
+  if (c.motivo_no_aplicado === 'telefono_invalido') return 'Quiso cambiar el teléfono, pero el número no es válido, y no se cambió.';
+  return `Quiso cambiar ${CAMPO_FICHA[c.campo]}, pero ya lo tiene otra ficha, y no se cambió.`;
 }
 
 /** Frase humana de cómo se eligió la ficha del cliente en la reserva web. */
@@ -123,7 +123,7 @@ export function fraseEleccionFicha(e: SeguimientoEleccionFicha): string {
     case 'telefono':
       return `Se usó la ficha que ya tenía ese teléfono${otras}.`;
     case 'email':
-      return 'Se usó la ficha que tenía ese email (esa ficha no tenía teléfono cargado).';
+      return 'Se usó la ficha que tenía ese mail y ese nombre.';
     case 'nueva':
     default:
       return 'No había ninguna ficha con ese teléfono, así que se creó una nueva con lo que escribió.';

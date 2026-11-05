@@ -98,11 +98,11 @@ export interface ProductoComprado {
 export interface CambioFicha {
   id: string
   turno_id: string | null
-  campo: 'nombre' | 'email'
+  campo: 'nombre' | 'email' | 'telefono'
   valor_anterior: string | null
   valor_nuevo: string | null
   aplicado: boolean
-  motivo_no_aplicado: 'email_de_otra_ficha' | null
+  motivo_no_aplicado: 'email_de_otra_ficha' | 'telefono_invalido' | 'telefono_de_otra_ficha' | null
   origen: 'reserva_web'
   creado_at: string
 }

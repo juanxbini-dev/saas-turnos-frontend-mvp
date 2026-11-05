@@ -113,6 +113,11 @@ describe('Frases del seguimiento', () => {
     expect(fraseCambioFicha({ campo: 'nombre', aplicado: true })).toBe('Tocó «Editar datos» y cambió el nombre de la ficha.');
   });
 
+  it('un teléfono inválido o de otra ficha aclara por qué no se cambió', () => {
+    expect(fraseCambioFicha({ campo: 'telefono', aplicado: false, motivo_no_aplicado: 'telefono_invalido' })).toContain('no es válido');
+    expect(fraseCambioFicha({ campo: 'telefono', aplicado: false, motivo_no_aplicado: 'telefono_de_otra_ficha' })).toContain('ya lo tiene otra ficha');
+  });
+
   it('un mail de otra ficha aclara que no se cambió', () => {
     expect(fraseCambioFicha({ campo: 'email', aplicado: false })).toBe('Quiso cambiar el mail, pero ya lo tiene otra ficha, y no se cambió.');
   });

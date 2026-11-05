@@ -15,7 +15,7 @@ interface ClientePerfilDrawerProps {
 type SeccionId = 'turnos' | 'productos' | 'cambios';
 type ActiveSection = SeccionId | null;
 
-const CAMPO_FICHA: Record<CambioFicha['campo'], string> = { nombre: 'Nombre', email: 'Mail' };
+const CAMPO_FICHA: Record<CambioFicha['campo'], string> = { nombre: 'Nombre', email: 'Mail', telefono: 'Teléfono' };
 
 // Lo que cambió la persona al reservar por la web. El valor anterior queda para poder corregirlo a mano.
 const CambioFichaRow: React.FC<{ cambio: CambioFicha }> = ({ cambio }) => (
@@ -24,7 +24,13 @@ const CambioFichaRow: React.FC<{ cambio: CambioFicha }> = ({ cambio }) => (
     <p className="text-gray-800 break-words">
       {CAMPO_FICHA[cambio.campo]}: {cambio.valor_anterior || 'sin dato'} → {cambio.valor_nuevo || 'sin dato'}
     </p>
-    {!cambio.aplicado && <p className="text-xs text-amber-700">No se cambió: ese mail ya lo tiene otra ficha.</p>}
+    {!cambio.aplicado && (
+      <p className="text-xs text-amber-700">
+        {cambio.motivo_no_aplicado === 'telefono_invalido'
+          ? 'No se cambió: el número no es válido.'
+          : `No se cambió: ${cambio.campo === 'telefono' ? 'ese número' : 'ese mail'} ya lo tiene otra ficha.`}
+      </p>
+    )}
   </li>
 );
 

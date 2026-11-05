@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { Spinner } from '../ui';
 import { AvisoTelefono } from '../clientes/AvisoTelefono';
+import { pareceCelularAR } from '../../utils/telefono.utils';
 import { Calendar, TimeSlots } from '../ui';
 import { useDisponibilidad } from '../../hooks/useDisponibilidad';
 import { useFetch } from '../../hooks/useFetch';
@@ -107,6 +108,7 @@ interface ExistingCliente {
   nombre: string;
   email?: string;
   telefono?: string;
+  reconocido_por?: 'telefono' | 'email';
 }
 
 interface ServicioProfesional {
@@ -161,7 +163,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   // Lo escrito antes de editar, para "Volver". Y si la reserva falla (horario ocupado), al reintentar
   // se vuelve a la edición: con "Confirmar" se perdería el cambio sin que la persona lo note.
   const datosAntesDeEditar = useRef<typeof clienteData | null>(null);
-  const edicionPendiente = useRef(false);
+  const edicionPendiente = useRef<string | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -449,7 +451,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
         setExistingCliente((response.data as any).data.cliente);
         setShowMatchModal(true);
         setConfirmandoNoSoyYo(false);
-        setEditandoFicha(edicionPendiente.current);
+        // Solo si es la misma ficha: al reintentar, el reconocimiento puede dar otra
+        setEditandoFicha(edicionPendiente.current === (response.data as any).data.cliente.id);
       } else {
         await createNewClienteAndTurno(null, !!opciones.sinBeneficio);
       }
@@ -505,7 +508,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       };
 
       const respuesta = await turnoPublicService.createTurno(turnoData);
-      edicionPendiente.current = false;
+      edicionPendiente.current = null;
 
       if (campaniaCodigo) onCampaniaCodigoUsado?.();
 
@@ -572,7 +575,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   };
 
   const handleConfirmExistingCliente = () => {
-    edicionPendiente.current = false;
+    edicionPendiente.current = null;
     setShowMatchModal(false);
     createNewClienteAndTurno('confirmar');
   };
@@ -580,7 +583,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   // Cerrar sin elegir (X o fondo) olvida la ficha reconocida: la próxima reserva
   // vuelve a validar y, si no hay match, no manda ni `cliente_id` ni `modal_accion`.
   const handleCloseMatchModal = () => {
-    edicionPendiente.current = false;
+    edicionPendiente.current = null;
     datosAntesDeEditar.current = null;
     setShowMatchModal(false);
     setEditandoFicha(false);
@@ -589,7 +592,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   };
 
   const handleCreateNewCliente = () => {
-    edicionPendiente.current = false;
+    edicionPendiente.current = null;
     datosAntesDeEditar.current = null;
     setConfirmandoNoSoyYo(false);
     setShowMatchModal(false);
@@ -605,7 +608,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     if (datosAntesDeEditar.current) setClienteData(datosAntesDeEditar.current);
     datosAntesDeEditar.current = null;
     setFieldErrors({});
-    edicionPendiente.current = false;
+    edicionPendiente.current = null;
     setEditandoFicha(false);
     setConfirmandoNoSoyYo(false);
   };
@@ -620,7 +623,12 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   // "Editar datos": reserva con la ficha reconocida y le cambia nombre y mail con lo que escribió
   const handleGuardarEdicionFicha = () => {
     if (!validateForm()) return;
-    edicionPendiente.current = true;
+    // Acá pide guardar justamente este número: si no es un celular completo, el backend no lo guarda
+    if (existingCliente?.reconocido_por === 'email' && !pareceCelularAR(clienteData.telefono)) {
+      setFieldErrors(prev => ({ ...prev, telefono: 'Revisá el número: tiene que ser un celular completo.' }));
+      return;
+    }
+    edicionPendiente.current = existingCliente?.id ?? null;
     setShowMatchModal(false);
     setEditandoFicha(false);
     createNewClienteAndTurno('confirmar', false, true);
@@ -635,7 +643,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
     setShowMatchModal(false);
     setEditandoFicha(false);
     setConfirmandoNoSoyYo(false);
-    edicionPendiente.current = false;
+    edicionPendiente.current = null;
     datosAntesDeEditar.current = null;
     setShowSuccessModal(false);
     setFieldErrors({});
@@ -1166,8 +1174,12 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
               <p className="text-sm text-white/50">
                 {confirmandoNoSoyYo
                   ? <>¿Seguro que no sos <span className="text-white">{existingCliente.nombre}</span>? Vamos a crear una ficha nueva con estos datos.</>
+                  : editandoFicha && existingCliente.reconocido_por === 'email'
+                  ? <>Vas a cambiar el teléfono de <span className="text-white">{existingCliente.nombre}</span>. Si no sos esa persona, tocá «No soy yo».</>
                   : editandoFicha
                   ? <>Vas a cambiar los datos de <span className="text-white">{existingCliente.nombre}</span>. Si no sos esa persona, tocá «No soy yo». El teléfono no se cambia.</>
+                  : existingCliente.reconocido_por === 'email' && existingCliente.telefono
+                  ? `Encontramos tus datos con otro teléfono: no es el ${clienteData.telefono.trim()}. Si confirmás, los avisos llegan al número de abajo. Si cambiaste de número, tocá «Editar datos».`
                   : 'Tus datos ya están registrados. ¿Confirmamos con ellos?'}
               </p>
             </div>
@@ -1177,7 +1189,8 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                 <div className="bg-[#1a1a1a] border border-white/10 p-4 mb-5 space-y-1.5 text-sm">
                   {[
                     ['Nombre', buildClientePayload().nombre],
-                    ['Email', buildClientePayload().email],
+                    // Reconocida por este mail: ya es de la otra ficha y la nueva queda sin él
+                    ['Email', existingCliente.reconocido_por === 'email' ? 'Sin mail: ese ya está en otra ficha' : buildClientePayload().email],
                     ['Teléfono', buildClientePayload().telefono],
                   ].map(([etiqueta, valor]) => (
                     <div key={etiqueta} className="flex justify-between gap-4">
@@ -1195,6 +1208,35 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   </button>
                 </div>
               </>
+            ) : editandoFicha && existingCliente.reconocido_por === 'email' ? (
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="editar-ficha-telefono" className={darkLabel}>Teléfono nuevo</label>
+                  <input
+                    id="editar-ficha-telefono"
+                    type="tel"
+                    maxLength={30}
+                    value={clienteData.telefono}
+                    onChange={(e) => { setClienteData(prev => ({ ...prev, telefono: e.target.value })); clearFieldError('telefono'); }}
+                    className={darkInput(!!fieldErrors.telefono)}
+                  />
+                  {fieldErrors.telefono && <p className="text-red-400 text-xs mt-1">{fieldErrors.telefono}</p>}
+                  <AvisoTelefono telefono={clienteData.telefono} className="text-amber-300" />
+                </div>
+                <div className="flex flex-col gap-2 pt-2">
+                  <button onClick={handleGuardarEdicionFicha} disabled={loading} className={`${ghostBtn} w-full`}>
+                    Guardar y confirmar turno
+                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={handleNoSoyYoDesdeEdicion} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                      No soy yo
+                    </button>
+                    <button onClick={handleVolverDeEdicion} disabled={loading} className={`${ghostBtnSm} flex-1`}>
+                      Volver
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : editandoFicha ? (
               <div className="space-y-3">
                 <div>
@@ -1278,7 +1320,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   No soy yo
                 </button>
                 {/* Sin teléfono en la ficha no hay con qué verificar a la persona */}
-                {existingCliente.telefono && (
+                {existingCliente.telefono && existingCliente.reconocido_por && (
                   <button onClick={handleAbrirEdicionFicha} disabled={loading} className={`${ghostBtnSm} flex-1`}>
                     Editar datos
                   </button>

@@ -22,6 +22,7 @@ export interface ValidateClienteResponse {
     nombre: string;
     email?: string;
     telefono?: string;
+    reconocido_por?: 'telefono' | 'email';
   };
 }
 
