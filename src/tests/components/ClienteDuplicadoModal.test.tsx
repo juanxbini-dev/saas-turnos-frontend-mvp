@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClienteDuplicadoModal } from '../../components/clientes/ClienteDuplicadoModal';
 import { AvisoTelefono } from '../../components/clientes/AvisoTelefono';
 import { getClienteDuplicado } from '../../services/cliente.service';
-import { fraseEleccionFicha } from '../../components/turnos/seguimiento.utils';
+import { fraseCambioFicha, fraseEleccionFicha } from '../../components/turnos/seguimiento.utils';
 import { pareceCelularAR } from '../../utils/telefono.utils';
 import { Cliente } from '../../types/cliente.types';
 
@@ -101,15 +101,19 @@ describe('AvisoTelefono', () => {
   });
 });
 
-describe('fraseEleccionFicha con "Otros datos"', () => {
-  it('si se reusó la ficha no dice que se creó una nueva', () => {
-    const frase = fraseEleccionFicha({ match_por: 'telefono', modal_accion: 'otros_datos', cliente_id_rechazado: false, fichas_mismo_telefono: 1 });
-    expect(frase).toContain('se usó la misma ficha');
-    expect(frase).not.toContain('nueva');
+describe('Frases del seguimiento', () => {
+  it('"No soy yo" explica que se creó una ficha nueva', () => {
+    const frase = fraseEleccionFicha({ match_por: 'nueva', modal_accion: 'otros_datos', cliente_id_rechazado: false, fichas_mismo_telefono: 1 });
+    expect(frase).toContain('«No soy yo»');
+    expect(frase).toContain('ficha nueva');
   });
 
-  it('si se creó una nueva lo sigue diciendo', () => {
-    const frase = fraseEleccionFicha({ match_por: 'nueva', modal_accion: 'otros_datos', cliente_id_rechazado: false, fichas_mismo_telefono: 1 });
-    expect(frase).toContain('ficha nueva');
+  it('"Editar datos" dice qué cambió', () => {
+    expect(fraseCambioFicha({ campo: 'email', aplicado: true })).toBe('Tocó «Editar datos» y cambió el mail de la ficha.');
+    expect(fraseCambioFicha({ campo: 'nombre', aplicado: true })).toBe('Tocó «Editar datos» y cambió el nombre de la ficha.');
+  });
+
+  it('un mail de otra ficha aclara que no se cambió', () => {
+    expect(fraseCambioFicha({ campo: 'email', aplicado: false })).toBe('Quiso cambiar el mail, pero ya lo tiene otra ficha, y no se cambió.');
   });
 });

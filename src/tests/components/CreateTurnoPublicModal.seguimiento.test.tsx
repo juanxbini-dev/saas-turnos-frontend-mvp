@@ -5,7 +5,7 @@ import { CreateTurnoPublicModal } from '../../components/turnos/CreateTurnoPubli
 
 // Spec seguimiento-reservas §8 caso 20: `modal_accion` en la reserva web.
 //  - "Confirmar"   → cliente_id + modal_accion:'confirmar'
-//  - "Otros datos" → modal_accion:'otros_datos' SIN cliente_id
+//  - "No soy yo" → modal_accion:'otros_datos' SIN cliente_id
 //  - sin modal     → no viaja modal_accion (ni cliente_id)
 //  - cerrar el modal con la X / el fondo olvida la acción
 
@@ -75,6 +75,11 @@ function completarDatos() {
   fireEvent.change(screen.getByPlaceholderText('+54 9 11 1234-5678'), { target: { value: '291 513-4540' } });
 }
 
+function tocarNoSoyYo() {
+  fireEvent.click(screen.getByRole('button', { name: 'No soy yo' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Sí, crear ficha nueva' }));
+}
+
 async function confirmarHastaElModal() {
   renderModal();
   await irAlPaso3();
@@ -102,11 +107,11 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
     expect(createTurno.mock.calls[0][0]).toMatchObject({ cliente_id: 'cli-mama', modal_accion: 'confirmar' });
   });
 
-  it('"Otros datos" manda modal_accion:"otros_datos" y NO manda cliente_id', async () => {
+  it('"No soy yo" manda modal_accion:"otros_datos" y NO manda cliente_id', async () => {
     validateCliente.mockResolvedValue(RECONOCIDO);
     await confirmarHastaElModal();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Otros datos' }));
+    tocarNoSoyYo();
 
     await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
     const payload = createTurno.mock.calls[0][0];
@@ -153,17 +158,166 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
     expect(payload).not.toHaveProperty('cliente_id');
   });
 
-  it('cerrar con la X y volver a ver el modal: "Otros datos" sigue sin cliente_id', async () => {
+  it('cerrar con la X y volver a ver el modal: "No soy yo" sigue sin cliente_id', async () => {
     validateCliente.mockResolvedValue(RECONOCIDO);
     await confirmarHastaElModal();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
     await screen.findByText('Te reconocemos');
-    fireEvent.click(screen.getByRole('button', { name: 'Otros datos' }));
+    tocarNoSoyYo();
 
     await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
     expect(createTurno.mock.calls[0][0]).toHaveProperty('modal_accion', 'otros_datos');
     expect(createTurno.mock.calls[0][0]).not.toHaveProperty('cliente_id');
+  });
+
+  describe('Confirmación de "No soy yo"', () => {
+    const abrir = async () => {
+      validateCliente.mockResolvedValue(RECONOCIDO);
+      await confirmarHastaElModal();
+      fireEvent.click(screen.getByRole('button', { name: 'No soy yo' }));
+    };
+
+    it('tocar "No soy yo" no reserva: muestra lo que se va a guardar', async () => {
+      await abrir();
+
+      expect(createTurno).not.toHaveBeenCalled();
+      expect(screen.getByText(/¿Seguro que no sos/).textContent).toContain(RECONOCIDO.data.data.cliente.nombre);
+      expect(screen.getByText('Lucía Pérez')).toBeTruthy();
+      expect(screen.getByText('lucia@x.com')).toBeTruthy();
+      expect(screen.getByText('291 513-4540')).toBeTruthy();
+    });
+
+    it('"Volver" regresa a los tres botones sin reservar', async () => {
+      await abrir();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Volver' }));
+
+      expect(screen.getByRole('button', { name: 'Confirmar' })).toBeTruthy();
+      expect(createTurno).not.toHaveBeenCalled();
+    });
+
+    it('desde la edición también pide confirmar, y "Volver" deshace lo editado', async () => {
+      validateCliente.mockResolvedValue(RECONOCIDO);
+      await confirmarHastaElModal();
+      fireEvent.click(screen.getByRole('button', { name: 'Editar datos' }));
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'otra@x.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'No soy yo' }));
+
+      expect(screen.getByText('otra@x.com')).toBeTruthy();
+      expect(createTurno).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Volver' }));
+      tocarNoSoyYo();
+
+      await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+      expect(createTurno.mock.calls[0][0].cliente_data.email).toBe('lucia@x.com');
+    });
+  });
+
+  describe('"Editar datos"', () => {
+    const abrirEdicion = async () => {
+      validateCliente.mockResolvedValue(RECONOCIDO);
+      await confirmarHastaElModal();
+      fireEvent.click(screen.getByRole('button', { name: 'Editar datos' }));
+    };
+
+    it('parte de lo que escribió la persona y manda la ficha con editar_ficha', async () => {
+      await abrirEdicion();
+
+      expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('lucia@x.com');
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'nueva@x.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+
+      await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+      expect(createTurno.mock.calls[0][0]).toMatchObject({
+        modal_accion: 'confirmar',
+        editar_ficha: true,
+        cliente_id: RECONOCIDO.data.data.cliente.id,
+      });
+      expect(createTurno.mock.calls[0][0].cliente_data.email).toBe('nueva@x.com');
+    });
+
+    it('dice de quién son los datos que se van a cambiar y ofrece "No soy yo"', async () => {
+      await abrirEdicion();
+
+      expect(screen.getByText(/Vas a cambiar los datos de/).textContent).toContain(RECONOCIDO.data.data.cliente.nombre);
+      tocarNoSoyYo();
+
+      await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+      expect(createTurno.mock.calls[0][0]).toMatchObject({ modal_accion: 'otros_datos' });
+      expect(createTurno.mock.calls[0][0]).not.toHaveProperty('editar_ficha');
+    });
+
+    it('"Volver" deshace lo editado: un mail inválido no llega a la reserva', async () => {
+      await abrirEdicion();
+
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sin-arroba' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Volver' }));
+      tocarNoSoyYo();
+
+      await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+      expect(createTurno.mock.calls[0][0].cliente_data.email).toBe('lucia@x.com');
+    });
+
+    it('si el horario se ocupó, al reintentar vuelve a la edición en vez de perderla', async () => {
+      createTurno.mockRejectedValueOnce({ response: { status: 409, data: { message: 'Ocupado' } } });
+      await abrirEdicion();
+
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'nueva@x.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+      await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+      await screen.findByText('Ocupado');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Confirmar turno' }));
+
+      expect(await screen.findByRole('button', { name: 'Guardar y confirmar turno' })).toBeTruthy();
+      expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('nueva@x.com');
+    });
+
+    it('no deja cambiar el teléfono', async () => {
+      await abrirEdicion();
+
+      expect(screen.queryByLabelText('Teléfono')).toBeNull();
+    });
+
+    it('con un mail inválido no reserva', async () => {
+      await abrirEdicion();
+
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sin-arroba' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+
+      expect(createTurno).not.toHaveBeenCalled();
+    });
+
+    it('"Volver" vuelve a los tres botones sin reservar', async () => {
+      await abrirEdicion();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Volver' }));
+
+      expect(screen.getByRole('button', { name: 'No soy yo' })).toBeTruthy();
+      expect(createTurno).not.toHaveBeenCalled();
+    });
+
+    it('"Confirmar" y "No soy yo" no mandan editar_ficha', async () => {
+      validateCliente.mockResolvedValue(RECONOCIDO);
+      await confirmarHastaElModal();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+      await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
+      expect(createTurno.mock.calls[0][0]).not.toHaveProperty('editar_ficha');
+    });
+
+    it('una ficha sin teléfono no ofrece editar', async () => {
+      const cliente = { ...RECONOCIDO.data.data.cliente, telefono: undefined };
+      validateCliente.mockResolvedValue({ data: { data: { exists: true, cliente } } });
+      await confirmarHastaElModal();
+
+      expect(screen.queryByRole('button', { name: 'Editar datos' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'No soy yo' })).toBeTruthy();
+    });
   });
 });

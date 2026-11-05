@@ -94,9 +94,24 @@ export interface ProductoComprado {
   fecha: string
 }
 
+// Cambio de ficha pedido al reservar por la web ("Editar datos")
+export interface CambioFicha {
+  id: string
+  turno_id: string | null
+  campo: 'nombre' | 'email'
+  valor_anterior: string | null
+  valor_nuevo: string | null
+  aplicado: boolean
+  motivo_no_aplicado: 'email_de_otra_ficha' | null
+  origen: 'reserva_web'
+  creado_at: string
+}
+
 export interface ClientePerfil {
   cliente: Cliente
   stats: ClientePerfilStats
   turnos_recientes: TurnoResumen[]
   productos_comprados: ProductoComprado[]
+  /** Ausente en respuestas de un backend anterior */
+  cambios_ficha?: CambioFicha[]
 }

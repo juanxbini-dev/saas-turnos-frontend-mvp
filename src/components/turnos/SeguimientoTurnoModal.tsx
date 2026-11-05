@@ -18,6 +18,7 @@ import {
   formatearFechaHoraAR,
   formatearFechaTurno,
   formatearHitoAR,
+  fraseCambioFicha,
   fraseEleccionFicha,
   FRASE_CLIENTE_ID_RECHAZADO,
   limpiarTextoError,
@@ -136,6 +137,9 @@ const SeccionDatos: React.FC<{ r: SeguimientoReservaWeb }> = ({ r }) => {
   return (
     <Seccion titulo="Datos">
       <p className="text-sm text-gray-700">{fraseEleccionFicha(r.eleccion_ficha)}</p>
+      {r.cambios_ficha?.map((cambio) => (
+        <p key={cambio.id} className="text-sm text-gray-700">{fraseCambioFicha(cambio)}</p>
+      ))}
       {r.eleccion_ficha.cliente_id_rechazado && (
         <p className="flex items-start gap-1.5 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded px-2 py-1.5">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />

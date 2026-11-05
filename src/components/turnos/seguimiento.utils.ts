@@ -2,6 +2,7 @@
 // Todo en lenguaje simple: nunca se nombra la herramienta de automatización ni
 // identificadores técnicos; se habla de "el servicio de mensajes".
 
+import { CambioFicha } from '../../types/cliente.types';
 import {
   MensajeTurnoEstado,
   MensajeTurnoTipo,
@@ -95,18 +96,23 @@ export function describirDispositivo(d: SeguimientoDispositivo | null | undefine
   return partes.length ? partes.join(' · ') : null;
 }
 
+const CAMPO_FICHA: Record<CambioFicha['campo'], string> = { nombre: 'el nombre', email: 'el mail' };
+
+/** Frase humana de un cambio de ficha pedido al reservar por la web ("Editar datos"). */
+export function fraseCambioFicha(c: Pick<CambioFicha, 'campo' | 'aplicado'>): string {
+  return c.aplicado
+    ? `Tocó «Editar datos» y cambió ${CAMPO_FICHA[c.campo]} de la ficha.`
+    : `Quiso cambiar ${CAMPO_FICHA[c.campo]}, pero ya lo tiene otra ficha, y no se cambió.`;
+}
+
 /** Frase humana de cómo se eligió la ficha del cliente en la reserva web. */
 export function fraseEleccionFicha(e: SeguimientoEleccionFicha): string {
   const otras = e.fichas_mismo_telefono && e.fichas_mismo_telefono > 1
     ? ` (había ${e.fichas_mismo_telefono} fichas con ese teléfono)`
     : '';
 
-  if (e.modal_accion === 'otros_datos' && e.match_por === 'telefono') {
-    return 'La web le mostró una ficha que ya existía y tocó «Otros datos», pero el teléfono y el nombre coincidían, así que se usó la misma ficha.';
-  }
-
   if (e.modal_accion === 'otros_datos') {
-    return 'La web le mostró una ficha que ya existía, tocó «Otros datos» y se le creó una ficha nueva con lo que escribió.';
+    return 'La web le mostró una ficha que ya existía, tocó «No soy yo» y se le creó una ficha nueva con lo que escribió.';
   }
 
   switch (e.match_por) {

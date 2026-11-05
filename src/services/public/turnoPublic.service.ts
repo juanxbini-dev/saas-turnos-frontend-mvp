@@ -59,6 +59,8 @@ export interface CreateTurnoPublicRequest {
   // para este turno. Si no corresponde (reservado, usado, vencido, baja…):
   // 400 BENEFICIO_INVALIDO con `motivo` y el turno NO se crea.
   beneficio_m?: string;
+  // "Editar datos" en "Te reconocemos": va con modal_accion 'confirmar' y cliente_id
+  editar_ficha?: boolean;
 }
 
 export interface CreateTurnoPublicResponse {
