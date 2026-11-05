@@ -157,6 +157,10 @@ export function DashboardTurnoModal({
       setErrorModal(errorMail);
       return;
     }
+    if (!newCliente.telefono.trim()) {
+      setErrorModal('El teléfono es obligatorio.');
+      return;
+    }
 
     setCreatingCliente(true);
     try {
@@ -414,7 +418,7 @@ export function DashboardTurnoModal({
                   onChange={(e) => setNewCliente({ ...newCliente, email: e.target.value })}
                 />
                 <Input
-                  placeholder="Teléfono (opcional)"
+                  placeholder="Teléfono *"
                   value={newCliente.telefono}
                   onChange={(e) => setNewCliente({ ...newCliente, telefono: e.target.value })}
                 />

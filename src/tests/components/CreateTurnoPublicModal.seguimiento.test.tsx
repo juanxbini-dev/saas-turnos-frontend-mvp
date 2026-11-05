@@ -200,7 +200,7 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
 
       fireEvent.click(screen.getByRole('button', { name: 'Editar datos' }));
       fireEvent.change(screen.getByLabelText('Teléfono nuevo'), { target: { value: '14142475' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno y pedir el cambio' }));
 
       expect(createTurno).not.toHaveBeenCalled();
       expect(screen.getAllByText('Revisá el número: tiene que ser un celular completo.').length).toBeGreaterThan(0);
@@ -212,7 +212,7 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
 
       fireEvent.click(screen.getByRole('button', { name: 'No soy yo' }));
       expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('');
-      expect(screen.getByText('Ese mail ya está registrado con otro nombre. Escribí otro.')).toBeTruthy();
+      expect(screen.getByText('Ese mail ya está registrado con otro nombre. Si es tuyo, revisá cómo escribiste tu nombre. Si no, usá el tuyo.')).toBeTruthy();
 
       fireEvent.click(screen.getByRole('button', { name: 'Sí, crear ficha nueva' }));
       expect(createTurno).not.toHaveBeenCalled();
@@ -249,11 +249,11 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
 
       fireEvent.click(screen.getByRole('button', { name: 'Editar datos' }));
 
-      expect(screen.getByText(/Vas a cambiar el teléfono de/)).toBeTruthy();
+      expect(screen.getByText(/Vas a pedir cambiar el teléfono de/)).toBeTruthy();
       expect(screen.queryByLabelText('Nombre')).toBeNull();
       expect(screen.queryByLabelText('Email')).toBeNull();
       fireEvent.change(screen.getByLabelText('Teléfono nuevo'), { target: { value: '2915000001' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno y pedir el cambio' }));
 
       await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
       expect(createTurno.mock.calls[0][0]).toMatchObject({ modal_accion: 'confirmar', editar_ficha: true });
@@ -284,7 +284,7 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
 
       fireEvent.click(screen.getByRole('button', { name: 'Sí, crear ficha nueva' }));
 
-      expect((await screen.findAllByText('Ese mail ya está registrado con otro nombre. Escribí otro.')).length).toBeGreaterThan(0);
+      expect((await screen.findAllByText('Ese mail ya está registrado con otro nombre. Si es tuyo, revisá cómo escribiste tu nombre. Si no, usá el tuyo.')).length).toBeGreaterThan(0);
       expect(screen.getByRole('button', { name: 'Sí, crear ficha nueva' })).toBeTruthy();
       expect(createTurno).toHaveBeenCalledTimes(1);
     });
@@ -294,7 +294,7 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
       createTurno.mockRejectedValueOnce({ response: { status: 400, data: { code: 'EMAIL_EN_USO', message: 'En uso' } } });
       fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'tomado@x.com' } });
       fireEvent.click(screen.getByRole('button', { name: 'Sí, crear ficha nueva' }));
-      await screen.findAllByText('Ese mail ya está registrado con otro nombre. Escribí otro.');
+      await screen.findAllByText('Ese mail ya está registrado con otro nombre. Si es tuyo, revisá cómo escribiste tu nombre. Si no, usá el tuyo.');
 
       fireEvent.click(screen.getByRole('button', { name: 'Volver' }));
       fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
@@ -313,7 +313,7 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
 
       fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno' }));
 
-      expect((await screen.findAllByText('Ese mail ya está registrado con otro nombre. Escribí otro.')).length).toBeGreaterThan(0);
+      expect((await screen.findAllByText('Ese mail ya está registrado con otro nombre. Si es tuyo, revisá cómo escribiste tu nombre. Si no, usá el tuyo.')).length).toBeGreaterThan(0);
       expect(screen.queryByText('Te reconocemos')).toBeNull();
     });
 
@@ -356,7 +356,7 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
 
       expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('lucia@x.com');
       fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'nueva@x.com' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno y pedir el cambio' }));
 
       await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
       expect(createTurno.mock.calls[0][0]).toMatchObject({
@@ -367,10 +367,29 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
       expect(createTurno.mock.calls[0][0].cliente_data.email).toBe('nueva@x.com');
     });
 
+    it('con el pedido en revisión, la pantalla de éxito lo dice', async () => {
+      createTurno.mockResolvedValue({ data: { data: { edicion_pendiente: true } } });
+      await abrirEdicion();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno y pedir el cambio' }));
+
+      expect((await screen.findByTestId('edicion-en-revision')).textContent).toContain('el salón lo va a revisar');
+    });
+
+    it('si no quedó nada en revisión, no dice nada', async () => {
+      createTurno.mockResolvedValue({ data: { data: {} } });
+      await abrirEdicion();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno y pedir el cambio' }));
+
+      await screen.findByText('Turno confirmado');
+      expect(screen.queryByTestId('edicion-en-revision')).toBeNull();
+    });
+
     it('dice de quién son los datos que se van a cambiar y ofrece "No soy yo"', async () => {
       await abrirEdicion();
 
-      expect(screen.getByText(/Vas a cambiar los datos de/).textContent).toContain(RECONOCIDO.data.data.cliente.nombre);
+      expect(screen.getByText(/Vas a pedir cambiar los datos de/).textContent).toContain(RECONOCIDO.data.data.cliente.nombre);
       tocarNoSoyYo();
 
       await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
@@ -394,14 +413,14 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
       await abrirEdicion();
 
       fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'nueva@x.com' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno y pedir el cambio' }));
       await waitFor(() => expect(createTurno).toHaveBeenCalledTimes(1));
       await screen.findByText('Ocupado');
 
       fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Confirmar turno' }));
 
-      expect(await screen.findByRole('button', { name: 'Guardar y confirmar turno' })).toBeTruthy();
+      expect(await screen.findByRole('button', { name: 'Confirmar turno y pedir el cambio' })).toBeTruthy();
       expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('nueva@x.com');
     });
 
@@ -422,7 +441,7 @@ describe('CreateTurnoPublicModal — modal_accion (seguimiento de reservas)', ()
       await abrirEdicion();
 
       fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sin-arroba' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Guardar y confirmar turno' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar turno y pedir el cambio' }));
 
       expect(createTurno).not.toHaveBeenCalled();
     });

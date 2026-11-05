@@ -81,6 +81,13 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
       return;
     }
 
+    // Una ficha vieja sin teléfono se puede seguir corrigiendo sin agregarlo
+    const telefonoOpcional = isEditing && !(cliente?.telefono ?? '').trim();
+    if (!telefonoOpcional && !formData.telefono.trim()) {
+      toast.error('El teléfono es obligatorio');
+      return;
+    }
+
     setLoading(true);
     try {
       if (isEditing && cliente) {
@@ -171,7 +178,7 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Teléfono
+            Teléfono{isEditing && !cliente?.telefono ? '' : ' *'}
           </label>
           <Input
             type="tel"

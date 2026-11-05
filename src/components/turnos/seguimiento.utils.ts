@@ -99,8 +99,11 @@ export function describirDispositivo(d: SeguimientoDispositivo | null | undefine
 const CAMPO_FICHA: Record<CambioFicha['campo'], string> = { nombre: 'el nombre', email: 'el mail', telefono: 'el teléfono' };
 
 /** Frase humana de un cambio de ficha pedido al reservar por la web ("Editar datos"). */
-export function fraseCambioFicha(c: Pick<CambioFicha, 'campo' | 'aplicado'> & Partial<Pick<CambioFicha, 'motivo_no_aplicado'>>): string {
-  if (c.aplicado) return `Tocó «Editar datos» y cambió ${CAMPO_FICHA[c.campo]} de la ficha.`;
+export function fraseCambioFicha(c: Pick<CambioFicha, 'campo' | 'estado'> & Partial<Pick<CambioFicha, 'motivo_no_aplicado'>>): string {
+  if (c.estado === 'aplicado') return `Se actualizó ${CAMPO_FICHA[c.campo]} de la ficha con lo que escribió.`;
+  if (c.estado === 'pendiente') return `Pidió cambiar ${CAMPO_FICHA[c.campo]} de la ficha. Espera la aprobación del salón, en Clientes.`;
+  if (c.estado === 'rechazado') return `Pidió cambiar ${CAMPO_FICHA[c.campo]} de la ficha, y el salón lo rechazó.`;
+  if (c.motivo_no_aplicado === 'reemplazado') return `Pidió cambiar ${CAMPO_FICHA[c.campo]} de la ficha, y después pidió otro cambio.`;
   if (c.motivo_no_aplicado === 'telefono_invalido') return 'Quiso cambiar el teléfono, pero el número no es válido, y no se cambió.';
   return `Quiso cambiar ${CAMPO_FICHA[c.campo]}, pero ya lo tiene otra ficha, y no se cambió.`;
 }

@@ -1,5 +1,6 @@
+import type { AxiosRequestConfig } from 'axios';
 import axiosInstance from '../api/axiosInstance';
-import { Cliente, CreateClienteData, UpdateClienteData, ClientePerfil, ClienteMarketing, ClienteBeneficioCodigo } from '../types/cliente.types';
+import { Cliente, CreateClienteData, UpdateClienteData, ClientePerfil, ClienteMarketing, ClienteBeneficioCodigo, DecisionEdicion, EdicionPendiente, ResultadoEdicion } from '../types/cliente.types';
 import { cacheService } from '../cache/cache.service';
 import { buildKey, ENTITIES } from '../cache/key.builder';
 import { invalidarCacheCampanias } from './campanias.service';
@@ -96,5 +97,21 @@ export const clienteService = {
   async getBeneficios(id: string): Promise<ClienteBeneficioCodigo[]> {
     const response = await axiosInstance.get(`/api/clientes/${encodeURIComponent(id)}/beneficios`);
     return response.data.data?.items ?? [];
+  },
+
+  // Lo pedido con "Editar datos" en la reserva web. Solo admin o super_admin.
+  async getEdicionesPendientes(): Promise<EdicionPendiente[]> {
+    // Si falla, no se le abre a cada admin el modal de reportar a soporte: el aviso no se muestra y listo
+    const response = await axiosInstance.get('/api/clientes/ediciones-pendientes', { _sinReporteGlobal: true } as AxiosRequestConfig);
+    return response.data.data;
+  },
+
+  // ids: los pedidos que se tenían a la vista. Uno que llegó después no se resuelve sin verlo.
+  async resolverEdicion(id: string, decision: DecisionEdicion, ids: string[]): Promise<ResultadoEdicion> {
+    const response = await axiosInstance.post(`/api/clientes/${encodeURIComponent(id)}/ediciones-pendientes`, { decision, ids });
+    // Un cambio de teléfono o de nombre cambia a quién le llega la campaña
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.CLIENTES));
+    invalidarCacheCampanias();
+    return response.data.data;
   }
 };

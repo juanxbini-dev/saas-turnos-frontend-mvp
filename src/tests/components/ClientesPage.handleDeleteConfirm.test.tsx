@@ -30,6 +30,11 @@ vi.mock('../../services/disponibilidad.service', () => ({
   },
 }));
 
+// El aviso tiene sus propios tests (EdicionesPendientes.test.tsx). Acá importa quién lo ve
+vi.mock('../../components/clientes/EdicionesPendientes', () => ({
+  EdicionesPendientes: () => <div data-testid="ediciones-pendientes" />,
+}));
+
 vi.mock('../../hooks/useFetch', () => ({
   useFetch: vi.fn(),
 }));
@@ -464,4 +469,21 @@ describe('ClientesPage — handleDeleteConfirm', () => {
 
   });
 
+});
+
+describe('ClientesPage — pedidos de cambio de datos', () => {
+  it.each([
+    [['admin'], true],
+    [['super_admin'], true],
+    [['staff'], false],
+  ])('roles %j: lo ve = %s', (roles, loVe) => {
+    setupDefaultMocks();
+    (useAuth as ReturnType<typeof vi.fn>).mockReturnValue({
+      state: { roles, authUser: null, status: 'authenticated' },
+    });
+
+    render(<ClientesPage />);
+
+    expect(screen.queryByTestId('ediciones-pendientes') !== null).toBe(loVe);
+  });
 });

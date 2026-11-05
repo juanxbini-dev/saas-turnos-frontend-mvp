@@ -343,6 +343,10 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       toast.error(errorMail);
       return;
     }
+    if (!newCliente.telefono.trim()) {
+      toast.error('El teléfono es obligatorio');
+      return;
+    }
 
     setCreatingCliente(true);
     try {
@@ -789,7 +793,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teléfono
+                  Teléfono *
                 </label>
                 <Input
                   type="tel"
