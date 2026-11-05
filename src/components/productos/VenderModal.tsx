@@ -108,6 +108,10 @@ export const VenderModal: React.FC<VenderModalProps> = ({
       toast.error(errorMail);
       return;
     }
+    if (!newCliente.telefono.trim()) {
+      toast.error('El teléfono es obligatorio');
+      return;
+    }
     setCreatingCliente(true);
     try {
       const created = await clienteService.createCliente({ ...newCliente, es_otra_persona: esOtraPersona || undefined } as CreateClienteData);
@@ -302,7 +306,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
               <form onSubmit={handleCrearCliente} className="space-y-2">
                 <Input placeholder="Nombre *" value={newCliente.nombre} onChange={e => setNewCliente(f => ({ ...f, nombre: e.target.value }))} required />
                 <Input placeholder="Email *" type="email" value={newCliente.email} onChange={e => setNewCliente(f => ({ ...f, email: e.target.value }))} />
-                <Input placeholder="Teléfono" value={newCliente.telefono} onChange={e => setNewCliente(f => ({ ...f, telefono: e.target.value }))} />
+                <Input placeholder="Teléfono *" value={newCliente.telefono} onChange={e => setNewCliente(f => ({ ...f, telefono: e.target.value }))} />
                 <AvisoTelefono telefono={newCliente.telefono} />
                 <div className="flex gap-2">
                   <Button type="button" variant="ghost" size="sm" onClick={() => setShowCreateCliente(false)} className="flex-1">Cancelar</Button>

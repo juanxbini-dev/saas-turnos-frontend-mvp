@@ -17,19 +17,25 @@ type ActiveSection = SeccionId | null;
 
 const CAMPO_FICHA: Record<CambioFicha['campo'], string> = { nombre: 'Nombre', email: 'Mail', telefono: 'Teléfono' };
 
-// Lo que cambió la persona al reservar por la web. El valor anterior queda para poder corregirlo a mano.
+function estadoCambioFicha(cambio: CambioFicha): string | null {
+  const quien = cambio.resuelto_por_nombre ? ` por ${cambio.resuelto_por_nombre}` : '';
+  if (cambio.estado === 'pendiente') return 'Espera la aprobación del salón.';
+  if (cambio.estado === 'rechazado') return `Rechazado${quien}. La ficha no cambió.`;
+  if (cambio.estado === 'aplicado') return quien ? `Aprobado${quien}.` : null;
+  if (cambio.motivo_no_aplicado === 'reemplazado') return 'No se cambió: después pidió otro cambio.';
+  if (cambio.motivo_no_aplicado === 'telefono_invalido') return 'No se cambió: el número no es válido.';
+  return `No se cambió: ${cambio.campo === 'telefono' ? 'ese número' : 'ese mail'} ya lo tiene otra ficha.`;
+}
+
+// Lo que pidió la persona al reservar por la web. El valor anterior queda para poder corregirlo a mano.
 const CambioFichaRow: React.FC<{ cambio: CambioFicha }> = ({ cambio }) => (
   <li className="px-4 py-3 text-sm">
     <p className="text-xs text-gray-400">{formatFechaHoraAR(cambio.creado_at)} · Desde la web, al sacar un turno</p>
     <p className="text-gray-800 break-words">
       {CAMPO_FICHA[cambio.campo]}: {cambio.valor_anterior || 'sin dato'} → {cambio.valor_nuevo || 'sin dato'}
     </p>
-    {!cambio.aplicado && (
-      <p className="text-xs text-amber-700">
-        {cambio.motivo_no_aplicado === 'telefono_invalido'
-          ? 'No se cambió: el número no es válido.'
-          : `No se cambió: ${cambio.campo === 'telefono' ? 'ese número' : 'ese mail'} ya lo tiene otra ficha.`}
-      </p>
+    {estadoCambioFicha(cambio) && (
+      <p className={`text-xs ${cambio.estado === 'aplicado' ? 'text-gray-500' : 'text-amber-700'}`}>{estadoCambioFicha(cambio)}</p>
     )}
   </li>
 );

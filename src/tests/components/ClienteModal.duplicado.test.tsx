@@ -36,6 +36,7 @@ describe('ClienteModal · aviso de ficha repetida', () => {
   const cargarYCrear = () => {
     fireEvent.change(screen.getByPlaceholderText('Nombre del cliente'), { target: { value: 'Sofía Gómez' } });
     fireEvent.change(screen.getByPlaceholderText('email@ejemplo.com'), { target: { value: 'sofia@x.com' } });
+    fireEvent.change(screen.getByPlaceholderText('+54 9 11 1234-5678'), { target: { value: '2915000000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear' }));
   };
 
@@ -93,6 +94,7 @@ describe('ClienteModal · aviso de ficha repetida', () => {
 
       fireEvent.change(screen.getByPlaceholderText('Nombre del cliente'), { target: { value: 'Sofía Gómez' } });
       fireEvent.change(screen.getByPlaceholderText('email@ejemplo.com'), { target: { value: email } });
+      fireEvent.change(screen.getByPlaceholderText('+54 9 11 1234-5678'), { target: { value: '2915000000' } });
       fireEvent.submit(screen.getByRole('button', { name: 'Crear' }).closest('form')!);
 
       await waitFor(() => expect(createCliente).not.toHaveBeenCalled());
@@ -115,6 +117,16 @@ describe('ClienteModal · aviso de ficha repetida', () => {
 
       await waitFor(() => expect(updateCliente).not.toHaveBeenCalled());
     });
+  });
+
+  it('sin teléfono no crea la ficha', async () => {
+    render(<ClienteModal cliente={null} isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('Nombre del cliente'), { target: { value: 'Sofía Gómez' } });
+    fireEvent.change(screen.getByPlaceholderText('email@ejemplo.com'), { target: { value: 'sofia@x.com' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /crear/i }));
+
+    expect(clienteService.createCliente).not.toHaveBeenCalled();
   });
 
   it('al reabrir para otra alta el formulario viene vacío', () => {

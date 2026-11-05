@@ -74,6 +74,8 @@ export interface CreateTurnoPublicResponse {
   servicio_nombre: string;
   // Solo cuando la reserva llevó código o `beneficio_m`: lo que queda aplicado al pagar
   beneficio?: BeneficioReserva | null;
+  // Pidió cambiar sus datos con "Editar datos": espera la aprobación del salón
+  edicion_pendiente?: boolean;
 }
 
 export const turnoPublicService = {

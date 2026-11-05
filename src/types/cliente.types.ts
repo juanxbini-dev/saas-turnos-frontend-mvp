@@ -101,10 +101,27 @@ export interface CambioFicha {
   campo: 'nombre' | 'email' | 'telefono'
   valor_anterior: string | null
   valor_nuevo: string | null
-  aplicado: boolean
-  motivo_no_aplicado: 'email_de_otra_ficha' | 'telefono_invalido' | 'telefono_de_otra_ficha' | null
+  /** pendiente: espera al salón. aplicado: está en la ficha. rechazado: el salón dijo que no */
+  estado: 'pendiente' | 'aplicado' | 'rechazado' | 'no_aplicado'
+  motivo_no_aplicado: 'email_de_otra_ficha' | 'telefono_invalido' | 'telefono_de_otra_ficha' | 'reemplazado' | null
   origen: 'reserva_web'
   creado_at: string
+  resuelto_at?: string | null
+  /** Vacío si nadie del salón intervino */
+  resuelto_por_nombre?: string | null
+}
+
+export interface EdicionPendiente {
+  cliente: { id: string; nombre: string; email: string | null; telefono: string | null }
+  cambios: CambioFicha[]
+}
+
+export type DecisionEdicion = 'aprobar' | 'rechazar'
+
+export interface ResultadoEdicion {
+  aplicados: CambioFicha['campo'][]
+  rechazados: CambioFicha['campo'][]
+  no_aplicados: { campo: CambioFicha['campo']; motivo: CambioFicha['motivo_no_aplicado'] }[]
 }
 
 export interface ClientePerfil {
