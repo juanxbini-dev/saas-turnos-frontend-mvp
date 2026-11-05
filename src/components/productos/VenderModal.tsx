@@ -6,6 +6,7 @@ import { Producto } from '../../types/producto.types';
 import { ClienteDuplicado, clienteService, getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
 import { AvisoTelefono } from '../clientes/AvisoTelefono';
+import { errorDeMail } from '../../utils/email.utils';
 import { ventasService } from '../../services/ventas.service';
 import { productosService } from '../../services/productos.service';
 import { useToast } from '../../hooks/useToast';
@@ -100,6 +101,11 @@ export const VenderModal: React.FC<VenderModalProps> = ({
   const crearCliente = async (esOtraPersona = false) => {
     if (!newCliente.nombre.trim()) {
       toast.error('El nombre es requerido');
+      return;
+    }
+    const errorMail = errorDeMail(newCliente.email);
+    if (errorMail) {
+      toast.error(errorMail);
       return;
     }
     setCreatingCliente(true);
@@ -295,7 +301,7 @@ export const VenderModal: React.FC<VenderModalProps> = ({
             ) : showCreateCliente ? (
               <form onSubmit={handleCrearCliente} className="space-y-2">
                 <Input placeholder="Nombre *" value={newCliente.nombre} onChange={e => setNewCliente(f => ({ ...f, nombre: e.target.value }))} required />
-                <Input placeholder="Email (opcional)" type="email" value={newCliente.email} onChange={e => setNewCliente(f => ({ ...f, email: e.target.value }))} />
+                <Input placeholder="Email *" type="email" value={newCliente.email} onChange={e => setNewCliente(f => ({ ...f, email: e.target.value }))} />
                 <Input placeholder="Teléfono" value={newCliente.telefono} onChange={e => setNewCliente(f => ({ ...f, telefono: e.target.value }))} />
                 <AvisoTelefono telefono={newCliente.telefono} />
                 <div className="flex gap-2">

@@ -4,6 +4,7 @@ import { Cliente, CreateClienteData, UpdateClienteData } from '../../types/clien
 import { ClienteDuplicado, clienteService, getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from './ClienteDuplicadoModal';
 import { AvisoTelefono } from './AvisoTelefono';
+import { errorDeMail } from '../../utils/email.utils';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../context/AuthContext';
 import { cacheService } from '../../cache/cache.service';
@@ -73,6 +74,13 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
       return;
     }
 
+    const mailSinCambios = isEditing && (formData.email.trim() === (cliente?.email ?? '').trim());
+    const errorMail = mailSinCambios ? null : errorDeMail(formData.email);
+    if (errorMail) {
+      toast.error(errorMail);
+      return;
+    }
+
     setLoading(true);
     try {
       if (isEditing && cliente) {
@@ -132,7 +140,8 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
       title={title}
       closeOnEscape={!duplicado}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      {/* noValidate: el navegador frenaría una ficha vieja con un mail raro aunque no se toque */}
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Nombre *
@@ -149,13 +158,13 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email
+            Email{isEditing && !cliente?.email ? '' : ' *'}
           </label>
           <Input
             type="email"
             value={formData.email}
             onChange={(e) => handleInputChange('email', e.target.value)}
-            placeholder="email@ejemplo.com (opcional)"
+            placeholder={isEditing && !cliente?.email ? 'Esta ficha todavía no tiene mail' : 'email@ejemplo.com'}
             disabled={loading}
           />
         </div>

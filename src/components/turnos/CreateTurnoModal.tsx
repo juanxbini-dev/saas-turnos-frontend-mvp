@@ -11,6 +11,7 @@ import { disponibilidadService, turnoService, clienteService } from '../../servi
 import { ClienteDuplicado, getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
 import { AvisoTelefono } from '../clientes/AvisoTelefono';
+import { errorDeMail } from '../../utils/email.utils';
 import { Cliente as ClienteFull } from '../../types/cliente.types';
 import { useBeneficioTurno, mensajeErrorBeneficioTurno } from '../../hooks/useBeneficioTurno';
 import { BeneficioTurnoSelector, resumenBeneficioTurno } from './BeneficioTurnoSelector';
@@ -335,6 +336,11 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   const handleCreateCliente = async (esOtraPersona = false) => {
     if (!newCliente.nombre.trim()) {
       toast.error('El nombre es requerido');
+      return;
+    }
+    const errorMail = errorDeMail(newCliente.email);
+    if (errorMail) {
+      toast.error(errorMail);
       return;
     }
 
@@ -770,13 +776,13 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
+                  Email *
                 </label>
                 <Input
                   type="email"
                   value={newCliente.email}
                   onChange={(e) => setNewCliente(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="email@ejemplo.com (opcional)"
+                  placeholder="email@ejemplo.com"
                   disabled={creatingCliente}
                 />
               </div>

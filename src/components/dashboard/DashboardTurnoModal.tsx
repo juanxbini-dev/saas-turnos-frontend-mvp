@@ -13,6 +13,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { ClienteDuplicado, getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from '../clientes/ClienteDuplicadoModal';
 import { AvisoTelefono } from '../clientes/AvisoTelefono';
+import { errorDeMail } from '../../utils/email.utils';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import { cacheService } from '../../cache/cache.service';
 import { Modal, Button, Card, Input, Spinner } from '../ui';
@@ -149,6 +150,11 @@ export function DashboardTurnoModal({
   const handleCreateCliente = async (esOtraPersona = false) => {
     if (!newCliente.nombre.trim()) {
       setErrorModal('El nombre del cliente es requerido.');
+      return;
+    }
+    const errorMail = errorDeMail(newCliente.email);
+    if (errorMail) {
+      setErrorModal(errorMail);
       return;
     }
 
@@ -402,7 +408,7 @@ export function DashboardTurnoModal({
                   onChange={(e) => setNewCliente({ ...newCliente, nombre: e.target.value })}
                 />
                 <Input
-                  placeholder="Email del cliente (opcional)"
+                  placeholder="Email del cliente *"
                   type="email"
                   value={newCliente.email}
                   onChange={(e) => setNewCliente({ ...newCliente, email: e.target.value })}

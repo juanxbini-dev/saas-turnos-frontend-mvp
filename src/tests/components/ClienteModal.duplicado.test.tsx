@@ -35,6 +35,7 @@ describe('ClienteModal · aviso de ficha repetida', () => {
 
   const cargarYCrear = () => {
     fireEvent.change(screen.getByPlaceholderText('Nombre del cliente'), { target: { value: 'Sofía Gómez' } });
+    fireEvent.change(screen.getByPlaceholderText('email@ejemplo.com'), { target: { value: 'sofia@x.com' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear' }));
   };
 
@@ -84,6 +85,36 @@ describe('ClienteModal · aviso de ficha repetida', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
 
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  describe('mail obligatorio', () => {
+    it.each([['', 'vacío'], ['nadie', 'inválido']])('un alta con mail %s no se envía (%s)', async (email) => {
+      render(<ClienteModal cliente={null} isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+      fireEvent.change(screen.getByPlaceholderText('Nombre del cliente'), { target: { value: 'Sofía Gómez' } });
+      fireEvent.change(screen.getByPlaceholderText('email@ejemplo.com'), { target: { value: email } });
+      fireEvent.submit(screen.getByRole('button', { name: 'Crear' }).closest('form')!);
+
+      await waitFor(() => expect(createCliente).not.toHaveBeenCalled());
+    });
+
+    it('una ficha vieja sin mail se puede editar sin agregarlo', async () => {
+      updateCliente.mockResolvedValueOnce(existente);
+      render(<ClienteModal cliente={{ ...existente, id: 'c2' }} isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Actualizar' }));
+
+      await waitFor(() => expect(updateCliente).toHaveBeenCalledTimes(1));
+    });
+
+    it('a una ficha con mail no se le puede vaciar', async () => {
+      render(<ClienteModal cliente={{ ...existente, id: 'c2', email: 'ana@x.com' }} isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+      fireEvent.change(screen.getByDisplayValue('ana@x.com'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Actualizar' }));
+
+      await waitFor(() => expect(updateCliente).not.toHaveBeenCalled());
+    });
   });
 
   it('al reabrir para otra alta el formulario viene vacío', () => {
