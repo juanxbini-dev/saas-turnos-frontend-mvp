@@ -2,7 +2,7 @@
 // GET /api/clientes/duplicados y /api/clientes/duplicados/unificaciones.
 
 export type CategoriaPar = 'fuerte' | 'a_corroborar' | 'contacto_compartido';
-export type MotivoPar = 'telefono' | 'nombre' | 'nombre_parecido' | 'mail';
+export type MotivoPar = 'telefono' | 'nombre' | 'nombre_compatible' | 'nombre_parecido' | 'mail';
 export type DecisionPar = 'pendiente' | 'misma_persona' | 'personas_distintas' | 'contacto_compartido';
 export type FiltroDecision = DecisionPar | 'todas';
 export type OrdenDuplicados = 'categoria' | 'nombre' | 'turnos';

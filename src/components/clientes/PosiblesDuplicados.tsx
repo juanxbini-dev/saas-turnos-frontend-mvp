@@ -43,6 +43,7 @@ const CATEGORIA: Record<CategoriaPar, { texto: string; clase: string; ayuda: str
 const MOTIVO: Record<MotivoPar, string> = {
   telefono: 'mismo teléfono',
   nombre: 'mismo nombre',
+  nombre_compatible: 'nombre compatible',
   nombre_parecido: 'nombre parecido',
   mail: 'mismo mail',
 };
