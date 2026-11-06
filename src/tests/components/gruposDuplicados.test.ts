@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agruparPares, coincideBusqueda, elegiblesCon, ordenarGrupos } from '../../components/clientes/gruposDuplicados';
+import { agruparPares, coincideBusqueda, elegiblesCon, fichaPrincipalPorDefecto, ordenarGrupos } from '../../components/clientes/gruposDuplicados';
 import type { FichaDuplicado, ParDuplicado } from '../../types/clienteDuplicados.types';
 
 const ficha = (id: string, nombre: string, turnos = 0): FichaDuplicado => ({
@@ -39,6 +39,20 @@ describe('ordenarGrupos y coincideBusqueda', () => {
     expect(coincideBusqueda(aCorroborar, 'ruiz')).toBe(true);
     expect(coincideBusqueda(aCorroborar, 'nadie')).toBe(false);
     expect(coincideBusqueda(fuerte, '')).toBe(true);
+  });
+});
+
+describe('fichaPrincipalPorDefecto', () => {
+  const conFecha = (id: string, turnos: number, creado: string): FichaDuplicado => ({ ...ficha(id, 'Ana Ruiz', turnos), creado_at: creado });
+
+  it('la principal por defecto es la ficha con más turnos, no la que viene primero', () => {
+    const grupo = agruparPares([par('fuerte', conFecha('a', 1, '2026-01-01T00:00:00.000Z'), conFecha('b', 7, '2026-06-01T00:00:00.000Z'))])[0];
+    expect(fichaPrincipalPorDefecto(grupo)).toBe('b');
+  });
+
+  it('si empatan en turnos, queda la ficha más antigua', () => {
+    const grupo = agruparPares([par('fuerte', conFecha('a', 3, '2026-06-01T00:00:00.000Z'), conFecha('b', 3, '2026-01-01T00:00:00.000Z'))])[0];
+    expect(fichaPrincipalPorDefecto(grupo)).toBe('b');
   });
 });
 

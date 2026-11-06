@@ -22,6 +22,7 @@ import {
   claveGrupo,
   coincideBusqueda,
   elegiblesCon,
+  fichaPrincipalPorDefecto,
   hayParEntre,
   letraDe,
   ordenarGrupos,
@@ -172,7 +173,7 @@ export const PosiblesDuplicados: React.FC<{ onCambio?: () => void }> = ({ onCamb
       const vigentes = elegiblesCon(g, guardada.principalId);
       return { principalId: guardada.principalId, marcadasIds: guardada.marcadasIds.filter((id) => vigentes.includes(id)) };
     }
-    const principalId = g.fichas[0].id;
+    const principalId = fichaPrincipalPorDefecto(g);
     return { principalId, marcadasIds: elegiblesCon(g, principalId) };
   };
 

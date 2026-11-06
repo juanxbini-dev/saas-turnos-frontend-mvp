@@ -146,6 +146,18 @@ export function claveGrupo(grupo: GrupoDuplicados): string {
 }
 
 /** Fichas que se pueden unir con esta principal (tienen una coincidencia directa y unible con ella) */
+/**
+ * Principal que se marca por defecto: la ficha con más turnos. Si empatan, la más antigua
+ * (la que lleva más tiempo en el sistema). Dani la puede cambiar.
+ */
+export function fichaPrincipalPorDefecto(grupo: GrupoDuplicados): string {
+  const elegida = grupo.fichas.reduce((mejor, f) => {
+    if (f.turnos !== mejor.turnos) return f.turnos > mejor.turnos ? f : mejor;
+    return f.creado_at < mejor.creado_at ? f : mejor;
+  });
+  return elegida.id;
+}
+
 export function elegiblesCon(grupo: GrupoDuplicados, principalId: string): string[] {
   return grupo.fichas.filter((f) => f.id !== principalId && hayParEntre(grupo, principalId, f.id)).map((f) => f.id);
 }
