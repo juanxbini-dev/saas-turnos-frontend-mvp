@@ -91,15 +91,15 @@ describe('PosiblesDuplicados', () => {
     expect(screen.getByText(/Coincide por: mismo nombre/)).toBeInTheDocument();
   });
 
-  it('dos pares con una ficha en común son una sola persona con tres fichas', async () => {
+  it('H2: A con B y A con C, sin nada entre B y C, son dos tarjetas y no una persona de tres', async () => {
     const c = ficha({ id: 'c3', nombre: 'Agus P.', telefono: '2915705322', turnos: 0 });
     vi.mocked(clienteDuplicadosService.listar).mockResolvedValue(lista([
       par(),
       par({ a: par().a, b: c }),
     ]));
     render(<PosiblesDuplicados />);
-    expect(await screen.findByRole('button', { name: /Persona con 3 fichas/ })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Persona con/ })).toHaveLength(1);
+    expect(await screen.findAllByRole('button', { name: /Persona con 2 fichas/ })).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /Persona con 3 fichas/ })).not.toBeInTheDocument();
   });
 
   it('sin filtro, pide las pendientes y ordena por categoría', async () => {
@@ -179,28 +179,57 @@ describe('PosiblesDuplicados', () => {
     ));
   });
 
-  it('con tres fichas, una que no coincide con la principal queda bloqueada y separada', async () => {
-    // Pares: a1-b2 y a1-c3. Con b2 (A) como principal, c3 (B) no coincide directamente.
-    const c = ficha({ id: 'c3', nombre: 'Agus P.', telefono: '2915705322', turnos: 2 });
+  it('H2: A-B y B-C sin A-C: la principal no arrastra a A y C juntas, cada par va en su tarjeta', async () => {
+    const a = ficha({ id: 'a', nombre: 'Ana Lopez', telefono: P1, turnos: 3, email: 'a@x.com' });
+    const b = ficha({ id: 'b', nombre: 'Ana', telefono: P1, turnos: 5, email: 'b@x.com' });
+    const c = ficha({ id: 'c', nombre: 'Ana Gomez', telefono: null, turnos: 0, email: 'c@x.com' });
     vi.mocked(clienteDuplicadosService.listar).mockResolvedValue(lista([
-      par(),
-      par({ a: par().a, b: c }),
+      par({ categoria: 'fuerte', motivos: ['telefono', 'nombre'], a, b }),
+      par({ categoria: 'a_corroborar', motivos: ['nombre'], a: b, b: c }),
     ]));
     render(<PosiblesDuplicados />);
-    await desplegar(/Persona con 3 fichas/);
+    expect(await screen.findAllByRole('button', { name: /Persona con 2 fichas/ })).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /Persona con 3 fichas/ })).not.toBeInTheDocument();
 
-    const checkB = screen.getByRole('checkbox', { name: /Unir B/ }) as HTMLInputElement;
-    expect(checkB).toBeDisabled();
-    expect(checkB.checked).toBe(false);
-    expect(screen.getByText('No coincide con la principal: se queda separada')).toBeInTheDocument();
+    // Tarjeta de A y B: B es la principal y solo se marca A. C no aparece ni se marca.
+    await desplegar(/Ana Lopez/);
+    expect((screen.getByRole('checkbox', { name: /Unir B/ }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByRole('checkbox', { name: /Unir C/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Unificar 2 fichas/ })).toBeInTheDocument();
   });
 
-  it('con tres fichas y la principal que coincide con todas, se unen las dos', async () => {
-    const c = ficha({ id: 'c3', nombre: 'Agus P.', telefono: '2915705322', turnos: 2 });
+  it('H2: madre e hija que solo comparten teléfono no tienen nada para unir desde la tarjeta', async () => {
+    const madre = ficha({ id: 'm', nombre: 'Maria Lopez', telefono: P1, turnos: 6, email: 'm@x.com' });
+    const hija = ficha({ id: 'h', nombre: 'Lucia Lopez', telefono: P1, turnos: 0, email: 'h@x.com' });
     vi.mocked(clienteDuplicadosService.listar).mockResolvedValue(lista([
-      par(),
-      par({ a: par().a, b: c }),
+      par({ categoria: 'contacto_compartido', motivos: ['telefono'], a: madre, b: hija }),
     ]));
+    render(<PosiblesDuplicados />);
+    await desplegar(/Mismo teléfono, nombres distintos/);
+    expect(screen.queryByRole('button', { name: /Unificar/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /Unir/ })).not.toBeInTheDocument();
+  });
+
+  it('H2: dentro de una tarjeta, el contacto compartido con la principal no viene marcado para unir', async () => {
+    // M-X coinciden y X-H coinciden; M y H solo comparten teléfono
+    const m = ficha({ id: 'm', nombre: 'Maria Lopez', telefono: P1, turnos: 6, email: 'm@x.com' });
+    const x = ficha({ id: 'x', nombre: 'Maria', telefono: P1, turnos: 1, email: 'x@x.com' });
+    const h = ficha({ id: 'h', nombre: 'Lucia Maria', telefono: P1, turnos: 0, email: 'h@x.com' });
+    vi.mocked(clienteDuplicadosService.listar).mockResolvedValue(lista([
+      par({ categoria: 'fuerte', motivos: ['telefono', 'nombre'], a: m, b: x }),
+      par({ categoria: 'fuerte', motivos: ['telefono', 'nombre'], a: x, b: h }),
+      par({ categoria: 'contacto_compartido', motivos: ['telefono'], a: m, b: h }),
+    ]));
+    render(<PosiblesDuplicados />);
+    expect(screen.queryByRole('button', { name: /Persona con 3 fichas/ })).not.toBeInTheDocument();
+
+    await desplegar(/Maria Lopez · Maria/);
+    expect((screen.getByRole('checkbox', { name: /Unir B/ }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByRole('checkbox', { name: /Lucia Maria/ })).not.toBeInTheDocument();
+  });
+
+  it('con tres fichas que coinciden todas con todas, la principal C se une con las otras dos', async () => {
+    vi.mocked(clienteDuplicadosService.listar).mockResolvedValue(lista(triangulo()));
     vi.mocked(clienteDuplicadosService.unificar).mockResolvedValue('reg-1');
     render(<PosiblesDuplicados />);
     await desplegar(/Persona con 3 fichas/);
@@ -216,11 +245,7 @@ describe('PosiblesDuplicados', () => {
   });
 
   it('desmarcar una ficha la deja separada y no se une', async () => {
-    const c = ficha({ id: 'c3', nombre: 'Agus P.', telefono: '2915705322', turnos: 2 });
-    vi.mocked(clienteDuplicadosService.listar).mockResolvedValue(lista([
-      par(),
-      par({ a: par().a, b: c }),
-    ]));
+    vi.mocked(clienteDuplicadosService.listar).mockResolvedValue(lista(triangulo()));
     vi.mocked(clienteDuplicadosService.unificar).mockResolvedValue('reg-1');
     render(<PosiblesDuplicados />);
     await desplegar(/Persona con 3 fichas/);

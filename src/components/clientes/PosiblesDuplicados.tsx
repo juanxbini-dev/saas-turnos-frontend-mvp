@@ -351,11 +351,11 @@ export const PosiblesDuplicados: React.FC<{ onCambio?: () => void }> = ({ onCamb
           const clave = claveGrupo(grupo);
           const abierta = desplegada === clave;
           const sel = seleccionDe(grupo);
-          const unible = !grupo.soloContactoCompartido && grupo.fichas.length >= 2;
+          const unible = !grupo.sinUnir && grupo.fichas.length >= 2;
           const nombreRadio = `principal-${clave}`;
           const cat = CATEGORIA[categoriaDelGrupo(grupo)];
-          const titulo = grupo.soloContactoCompartido
-            ? 'Mismo teléfono, nombres distintos'
+          const titulo = grupo.sinUnir
+            ? (grupo.pares[0].categoria === 'contacto_compartido' ? 'Mismo teléfono, nombres distintos' : 'Par sin unificar')
             : `Persona con ${grupo.fichas.length} fichas`;
           const nombres = grupo.fichas.map((f) => f.nombre || 'Sin nombre').join(' · ');
           return (

@@ -1,73 +1,104 @@
 import type { FichaDuplicado, ParDuplicado } from '../../types/clienteDuplicados.types';
 
-// Agrupa los pares por persona. Solo las coincidencias fuertes o a corroborar unen fichas:
-// si A con B y B con C están en la lista, A, B y C son una persona.
-// Un contacto compartido (mismo teléfono, nombres distintos) NO une: puede ser familia o dos personas
-// que usan la misma línea. Esos pares quedan como tarjetas aparte, sin botón de unificar.
+// Criterio de agrupación (spec: backend/docs/clientes-unificar-spec.md, "Clasificación de los pares"):
+// - No se encadena. Una tarjeta es un conjunto de fichas en el que TODAS coinciden con todas.
+//   Si A coincide con B y B con C, pero A y C no coinciden, son dos tarjetas (A-B y B-C), no una persona de tres.
+// - Solo cuentan para unir los pares "unibles": ni contacto compartido ni pares marcados como personas
+//   distintas o contacto compartido. Un contacto compartido nunca une: queda en una tarjeta aparte, sin unificar.
+// - Ninguna ficha se une por cadena: cada unión sale de un par directo que Dani confirma.
 export interface GrupoDuplicados {
   id: string;
   fichas: FichaDuplicado[];
   pares: ParDuplicado[];
-  /** true si el grupo es solo un contacto compartido: no se puede unificar desde acá */
-  soloContactoCompartido: boolean;
+  /** true si el grupo es un par que no se puede unir desde la tarjeta (contacto compartido o par separado) */
+  sinUnir: boolean;
+  /** Claves "idA|idB" de las parejas de fichas del grupo que coinciden directamente y se pueden unir */
+  directos: string[];
+}
+
+const RANGO_CATEGORIA: Record<ParDuplicado['categoria'], number> = { fuerte: 0, a_corroborar: 1, contacto_compartido: 2 };
+
+const clavePar = (x: string, y: string): string => (x < y ? `${x}|${y}` : `${y}|${x}`);
+
+/** Par que puede unirse: no es contacto compartido y no se marcó como personas distintas ni contacto compartido */
+export function esUnible(par: ParDuplicado): boolean {
+  return par.categoria !== 'contacto_compartido' && (par.decision === 'pendiente' || par.decision === 'misma_persona');
 }
 
 export function agruparPares(pares: ParDuplicado[]): GrupoDuplicados[] {
-  const padre = new Map<string, string>();
-  const raiz = (id: string): string => {
-    let actual = id;
-    while (padre.get(actual) !== actual) actual = padre.get(actual)!;
-    padre.set(id, actual);
-    return actual;
-  };
-  const unir = (x: string, y: string) => {
-    const rx = raiz(x);
-    const ry = raiz(y);
-    if (rx !== ry) padre.set(rx, ry);
-  };
-  const uneta = (par: ParDuplicado) => par.categoria !== 'contacto_compartido';
-
+  const fichaPorId = new Map<string, FichaDuplicado>();
   for (const par of pares) {
-    for (const id of [par.a.id, par.b.id]) if (!padre.has(id)) padre.set(id, id);
-  }
-  for (const par of pares) if (uneta(par)) unir(par.a.id, par.b.id);
-
-  const grupos = new Map<string, GrupoDuplicados>();
-  const agregar = (clave: string, par: ParDuplicado, solo: boolean) => {
-    let grupo = grupos.get(clave);
-    if (!grupo) {
-      grupo = { id: clave, fichas: [], pares: [], soloContactoCompartido: solo };
-      grupos.set(clave, grupo);
-    }
-    grupo.pares.push(par);
-    for (const ficha of [par.a, par.b]) {
-      if (!grupo.fichas.some((f) => f.id === ficha.id)) grupo.fichas.push(ficha);
-    }
-    if (!solo) grupo.soloContactoCompartido = false;
-  };
-
-  for (const par of pares) {
-    if (uneta(par)) {
-      agregar(raiz(par.a.id), par, false);
-    } else if (raiz(par.a.id) === raiz(par.b.id)) {
-      // Contacto compartido entre fichas que ya son la misma persona por otro par: va con su grupo
-      agregar(raiz(par.a.id), par, false);
-    } else {
-      // Contacto compartido entre dos personas: tarjeta aparte
-      const [x, y] = [par.a.id, par.b.id].sort();
-      agregar(`compartido:${x}|${y}`, par, true);
-    }
+    fichaPorId.set(par.a.id, par.a);
+    fichaPorId.set(par.b.id, par.b);
   }
 
-  return [...grupos.values()].map((g) => ({
-    ...g,
-    fichas: [...g.fichas].sort((x, y) => y.turnos - x.turnos || (x.nombre ?? '').localeCompare(y.nombre ?? '')),
-  }));
+  const unibles = pares.filter(esUnible);
+  const directos = new Set(unibles.map((p) => clavePar(p.a.id, p.b.id)));
+  const coinciden = (x: string, y: string) => directos.has(clavePar(x, y));
+
+  // Las coincidencias fuertes arman primero las tarjetas; el orden de ids deja el resultado estable
+  const ordenados = [...unibles].sort(
+    (p, q) => RANGO_CATEGORIA[p.categoria] - RANGO_CATEGORIA[q.categoria] || clavePar(p.a.id, p.b.id).localeCompare(clavePar(q.a.id, q.b.id))
+  );
+
+  interface Tarjeta { miembros: Set<string>; pares: ParDuplicado[] }
+  const tarjetas: Tarjeta[] = [];
+  // Una ficha entra a una tarjeta solo si coincide directamente con todas las que ya están
+  const todasCoinciden = (t: Tarjeta, id: string) => [...t.miembros].every((m) => coinciden(m, id));
+
+  for (const par of ordenados) {
+    const x = par.a.id;
+    const y = par.b.id;
+    const conAmbas = tarjetas.find((t) => t.miembros.has(x) && t.miembros.has(y));
+    if (conAmbas) {
+      conAmbas.pares.push(par);
+      continue;
+    }
+    const conX = tarjetas.find((t) => t.miembros.has(x) && todasCoinciden(t, y));
+    if (conX) {
+      conX.miembros.add(y);
+      conX.pares.push(par);
+      continue;
+    }
+    const conY = tarjetas.find((t) => t.miembros.has(y) && todasCoinciden(t, x));
+    if (conY) {
+      conY.miembros.add(x);
+      conY.pares.push(par);
+      continue;
+    }
+    tarjetas.push({ miembros: new Set([x, y]), pares: [par] });
+  }
+
+  const armar = (ids: string[], paresDelGrupo: ParDuplicado[], sinUnir: boolean): GrupoDuplicados => {
+    const fichas = ids
+      .map((id) => fichaPorId.get(id)!)
+      .sort((x, y) => y.turnos - x.turnos || (x.nombre ?? '').localeCompare(y.nombre ?? ''));
+    const directosDelGrupo: string[] = [];
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        if (coinciden(ids[i], ids[j])) directosDelGrupo.push(clavePar(ids[i], ids[j]));
+      }
+    }
+    return {
+      id: [...ids].sort().join('|'),
+      fichas,
+      pares: paresDelGrupo,
+      sinUnir,
+      directos: directosDelGrupo,
+    };
+  };
+
+  const grupos = tarjetas.map((t) => armar([...t.miembros], t.pares, false));
+  // Contacto compartido y pares separados: tarjeta aparte, sin botón de unificar
+  for (const par of pares) {
+    if (!esUnible(par)) grupos.push(armar([par.a.id, par.b.id], [par], true));
+  }
+  return grupos;
 }
 
-/** ¿Hay un par visible entre estas dos fichas? El servidor solo une fichas que coinciden directamente. */
+/** ¿Hay una coincidencia directa que se pueda unir entre estas dos fichas de la tarjeta? */
 export function hayParEntre(grupo: GrupoDuplicados, idA: string, idB: string): boolean {
-  return grupo.pares.some((p) => (p.a.id === idA && p.b.id === idB) || (p.a.id === idB && p.b.id === idA));
+  return grupo.directos.includes(clavePar(idA, idB));
 }
 
 /** Letra de cada ficha dentro del grupo (A, B, C…). Va en la tarjeta, en las coincidencias y en el modal. */
@@ -75,8 +106,6 @@ export function letraDe(grupo: GrupoDuplicados, fichaId: string): string {
   const i = grupo.fichas.findIndex((f) => f.id === fichaId);
   return i >= 0 ? String.fromCharCode(65 + i) : '?';
 }
-
-const RANGO_CATEGORIA: Record<ParDuplicado['categoria'], number> = { fuerte: 0, a_corroborar: 1, contacto_compartido: 2 };
 
 /** Categoría más fuerte que tiene el grupo: fuerte antes que a corroborar, y así */
 export function categoriaDelGrupo(grupo: GrupoDuplicados): ParDuplicado['categoria'] {
@@ -116,7 +145,7 @@ export function claveGrupo(grupo: GrupoDuplicados): string {
   return grupo.fichas.map((f) => f.id).sort().join('|');
 }
 
-/** Fichas que el servidor puede unir con esta principal (tienen un par directo con ella) */
+/** Fichas que se pueden unir con esta principal (tienen una coincidencia directa y unible con ella) */
 export function elegiblesCon(grupo: GrupoDuplicados, principalId: string): string[] {
   return grupo.fichas.filter((f) => f.id !== principalId && hayParEntre(grupo, principalId, f.id)).map((f) => f.id);
 }
