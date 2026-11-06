@@ -359,4 +359,34 @@ describe('PosiblesDuplicados', () => {
     ));
     expect(clienteDuplicadosService.unificar).not.toHaveBeenCalledWith('b2', 'a1', expect.anything());
   });
+
+  it('H3: si falla la segunda ficha, el modal queda abierto con el error y lo que sí se unió', async () => {
+    vi.mocked(clienteDuplicadosService.listar).mockResolvedValue(lista(triangulo()));
+    vi.mocked(clienteDuplicadosService.unificar)
+      .mockResolvedValueOnce('reg-1')
+      .mockRejectedValueOnce({ response: { data: { message: 'El mail ya lo usa otra ficha' } } });
+    render(<PosiblesDuplicados />);
+    await desplegar(/Persona con 3 fichas/);
+    // Principal b2 con a1 y c3 marcadas: se unen c3 (primera, bien) y a1 (falla)
+    fireEvent.click(screen.getByRole('button', { name: /Unificar 3 fichas/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Unificar…' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sí, unificar' }));
+
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveTextContent('El mail ya lo usa otra ficha');
+    // El modal sigue abierto y muestra qué quedó unido y qué no
+    expect(screen.getByText(/Unificar en la principal/)).toBeInTheDocument();
+    expect(screen.getByText('Ya se unieron:')).toBeInTheDocument();
+    expect(screen.getByText('B · Agus P.')).toBeInTheDocument();
+    expect(screen.getByText('Todavía no se unieron:')).toBeInTheDocument();
+    expect(screen.getByText('C · Agustin Perez')).toBeInTheDocument();
+    // La lista no se recarga hasta que Dani cierra; ya no se puede seguir uniendo desde esta ventana
+    expect(clienteDuplicadosService.listar).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Unificar…' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+    await waitFor(() => expect(screen.queryByText(/Unificar en la principal/)).not.toBeInTheDocument());
+    await waitFor(() => expect(vi.mocked(clienteDuplicadosService.listar).mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(clienteDuplicadosService.unificar).toHaveBeenCalledTimes(2);
+  });
 });
