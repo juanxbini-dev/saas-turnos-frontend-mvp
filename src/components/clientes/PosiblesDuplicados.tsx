@@ -163,10 +163,15 @@ export const PosiblesDuplicados: React.FC<{ onCambio?: () => void }> = ({ onCamb
   const paginaActual = Math.min(pagina, totalPaginas);
   const visibles = filtrados.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA);
 
-  // Selección por defecto: la ficha con más turnos como principal, y se marcan las que coinciden con ella
+  // Selección por defecto: la ficha con más turnos como principal, y se marcan las que coinciden con ella.
+  // Lo guardado solo vale si las fichas marcadas siguen coincidiendo directamente con la principal:
+  // si un par cambió de estado, la ficha separada no vuelve a contarse para unir.
   const seleccionDe = (g: GrupoDuplicados): Seleccion => {
     const guardada = seleccionPorGrupo[claveGrupo(g)];
-    if (guardada && g.fichas.some((f) => f.id === guardada.principalId)) return guardada;
+    if (guardada && g.fichas.some((f) => f.id === guardada.principalId)) {
+      const vigentes = elegiblesCon(g, guardada.principalId);
+      return { principalId: guardada.principalId, marcadasIds: guardada.marcadasIds.filter((id) => vigentes.includes(id)) };
+    }
     const principalId = g.fichas[0].id;
     return { principalId, marcadasIds: elegiblesCon(g, principalId) };
   };
@@ -174,11 +179,22 @@ export const PosiblesDuplicados: React.FC<{ onCambio?: () => void }> = ({ onCamb
   const guardarSeleccion = (g: GrupoDuplicados, s: Seleccion) =>
     setSeleccionPorGrupo((prev) => ({ ...prev, [claveGrupo(g)]: s }));
 
+  // Olvida la selección de las tarjetas que tienen alguna de estas fichas (al cambiar el estado de un par o al unificar)
+  const olvidarSeleccion = (fichaIds: string[]) =>
+    setSeleccionPorGrupo((prev) => {
+      const siguiente = { ...prev };
+      for (const g of grupos) {
+        if (g.fichas.some((f) => fichaIds.includes(f.id))) delete siguiente[claveGrupo(g)];
+      }
+      return siguiente;
+    });
+
   const cambiarPrincipal = (g: GrupoDuplicados, principalId: string) =>
     guardarSeleccion(g, { principalId, marcadasIds: elegiblesCon(g, principalId) });
 
   const alternarFicha = (g: GrupoDuplicados, fichaId: string) => {
     const s = seleccionDe(g);
+    if (!hayParEntre(g, s.principalId, fichaId)) return; // sin coincidencia directa no se une
     const marcadasIds = s.marcadasIds.includes(fichaId)
       ? s.marcadasIds.filter((x) => x !== fichaId)
       : [...s.marcadasIds, fichaId];
@@ -212,6 +228,7 @@ export const PosiblesDuplicados: React.FC<{ onCambio?: () => void }> = ({ onCamb
       await clienteDuplicadosService.revisar(par.a.id, par.b.id, decision);
       toast.success(decision === 'pendiente' ? 'El par volvió a pendiente' : `Marcado como ${DECISION[decision].toLowerCase()}`);
       setAConfirmar(null);
+      olvidarSeleccion([par.a.id, par.b.id]);
       recargar();
     } catch (e) {
       error(e);
@@ -237,6 +254,7 @@ export const PosiblesDuplicados: React.FC<{ onCambio?: () => void }> = ({ onCamb
     setLoteEnCurso(false);
     setLoteAConfirmar(null);
     setLote({});
+    olvidarSeleccion(pares.flatMap((p) => [p.a.id, p.b.id]));
     toast.success(`${ok} ${ok === 1 ? 'par marcado' : 'pares marcados'} como ${DECISION[loteAConfirmar].toLowerCase()}`);
     if (fallos > 0) toast.error(`${fallos} ${fallos === 1 ? 'par no se pudo marcar' : 'pares no se pudieron marcar'}. Probá de nuevo`);
     recargar();
@@ -523,6 +541,7 @@ export const PosiblesDuplicados: React.FC<{ onCambio?: () => void }> = ({ onCamb
           isOpen
           onClose={() => setAUnificar(null)}
           onUnificado={() => {
+            olvidarSeleccion(aUnificar.grupo.fichas.map((f) => f.id));
             setAUnificar(null);
             recargar();
           }}

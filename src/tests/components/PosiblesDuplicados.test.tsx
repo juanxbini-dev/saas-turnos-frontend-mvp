@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { vi, beforeEach, describe, expect, it } from 'vitest';
 import { PosiblesDuplicados } from '../../components/clientes/PosiblesDuplicados';
 import { clienteDuplicadosService } from '../../services/clienteDuplicados.service';
@@ -47,6 +47,29 @@ const lista = (pares: ParDuplicado[]): ListaDuplicados => ({
 const desplegar = async (titulo: RegExp) => {
   const boton = await screen.findByRole('button', { name: titulo });
   fireEvent.click(boton);
+};
+
+const P1 = '2915705322';
+
+// Tres fichas del mismo teléfono y todas con todas en coincidencia directa: a1 (1 turno), b2 (4), c3 (2)
+const triangulo = (): ParDuplicado[] => {
+  const a1 = ficha({ id: 'a1', nombre: 'Agustin Perez', telefono: P1, turnos: 1, email: 'a1@x.com' });
+  const b2 = ficha({ id: 'b2', nombre: 'Agus Perez', telefono: P1, turnos: 4, email: 'b2@x.com' });
+  const c3 = ficha({ id: 'c3', nombre: 'Agus P.', telefono: P1, turnos: 2, email: 'c3@x.com' });
+  return [par({ a: a1, b: b2 }), par({ a: a1, b: c3 }), par({ a: b2, b: c3 })];
+};
+
+// Servidor simulado: guarda la decisión de cada par y la devuelve en cada listado, como el backend
+const servidorSimulado = (pares: ParDuplicado[]) => {
+  const estado = pares.map((p) => ({ ...p }));
+  vi.mocked(clienteDuplicadosService.listar).mockImplementation(async (filtro) =>
+    lista(estado.filter((p) => filtro === 'todas' || p.decision === filtro))
+  );
+  vi.mocked(clienteDuplicadosService.revisar).mockImplementation(async (a, b, decision) => {
+    const encontrado = estado.find((p) => (p.a.id === a && p.b.id === b) || (p.a.id === b && p.b.id === a));
+    if (encontrado) encontrado.decision = decision;
+  });
+  return estado;
 };
 
 describe('PosiblesDuplicados', () => {
@@ -278,5 +301,37 @@ describe('PosiblesDuplicados', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Marcar 1' }));
     await waitFor(() => expect(clienteDuplicadosService.revisar).toHaveBeenCalledWith('a1', 'b2', 'personas_distintas'));
     expect(clienteDuplicadosService.revisar).toHaveBeenCalledTimes(1);
+  });
+
+  it('H1: si Dani marca "personas distintas" un par, la ficha que estaba marcada para unir no se une', async () => {
+    servidorSimulado(triangulo());
+    render(<PosiblesDuplicados />);
+    await desplegar(/Persona con 3 fichas/);
+    // Dani elige una principal y después vuelve a b2: la selección queda guardada con a1 y c3 marcadas
+    fireEvent.click(screen.getByRole('radio', { name: 'Principal C' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Principal A' }));
+    expect((screen.getByRole('checkbox', { name: /Unir C/ }) as HTMLInputElement).checked).toBe(true);
+
+    // Dani separa a1 de b2: el par a1 ↔ b2 pasa a personas distintas
+    const filaAB = screen.getByText((_, el) => el?.tagName === 'SPAN' && /Agustin Perez ↔ A /.test((el.textContent ?? '').replace(/\s+/g, ' ')));
+    const fila = filaAB.parentElement!.parentElement as HTMLElement; // fila completa: datos del par y sus botones
+    fireEvent.click(within(fila).getByRole('button', { name: 'Son personas distintas' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Marcar personas distintas' }));
+    await waitFor(() => expect(clienteDuplicadosService.revisar).toHaveBeenCalledWith('a1', 'b2', 'personas_distintas'));
+    await waitFor(() => expect(vi.mocked(clienteDuplicadosService.listar).mock.calls.length).toBeGreaterThanOrEqual(2));
+
+    // La selección anterior no puede seguir uniendo a a1
+    expect(screen.queryByRole('button', { name: /Unificar 3 fichas/ })).not.toBeInTheDocument();
+
+    // Lo que queda pendiente es b2 con c3: solo se une c3 (si la tarjeta ya estaba abierta, no se pliega)
+    const tarjeta = await screen.findByRole('button', { name: /Agus Perez · Agus P\./ });
+    if (tarjeta.getAttribute('aria-expanded') !== 'true') fireEvent.click(tarjeta);
+    fireEvent.click(screen.getByRole('button', { name: /Unificar 2 fichas/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Unificar…' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sí, unificar' }));
+    await waitFor(() => expect(clienteDuplicadosService.unificar).toHaveBeenCalledWith(
+      'b2', 'c3', { telefono: P1, email: 'b2@x.com' }
+    ));
+    expect(clienteDuplicadosService.unificar).not.toHaveBeenCalledWith('b2', 'a1', expect.anything());
   });
 });
