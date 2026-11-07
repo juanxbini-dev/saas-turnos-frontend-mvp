@@ -23,6 +23,7 @@ import type {
 } from '../../types/beneficios.public.types';
 import { CartelBeneficioLink, PrecioServicio } from '../../components/turnos/BeneficioLinkPublico';
 import { LandingConfig, LandingProfesional } from '../../types/landing.types';
+import { beneficioValeCon, nombreDePila, textoBeneficioNoAplicaCon, unirNombres } from '../../config/beneficio';
 
 
 import { EMPRESA_ID, EMPRESA_SLUG } from '../../config/debsalon';
@@ -99,9 +100,15 @@ interface ServiciosModalProps {
   onReservar: (p: ProfesionalPublic) => void;
   // Beneficio del mail disponible: precios tachados en los servicios a los que aplica
   beneficio?: BeneficioPublico | null;
+  // Hay un beneficio en la visita, pero no vale con este profesional (D3)
+  sinBeneficio?: boolean;
+  // Con quiénes vale ese beneficio (para el aviso)
+  beneficioDeLaVisitaProfesionales?: BeneficioPublico['profesionales'];
 }
 
-function ServiciosModal({ profesional, isOpen, onClose, onReservar, beneficio = null }: ServiciosModalProps) {
+function ServiciosModal({
+  profesional, isOpen, onClose, onReservar, beneficio = null, sinBeneficio = false, beneficioDeLaVisitaProfesionales,
+}: ServiciosModalProps) {
   const [servicios, setServicios] = useState<ServicioProfesional[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -136,6 +143,13 @@ function ServiciosModal({ profesional, isOpen, onClose, onReservar, beneficio = 
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* lista-vieja-cierre D3: con este profesional el beneficio no aplica */}
+        {sinBeneficio && (
+          <p data-testid="servicios-sin-beneficio" className="px-6 pt-3 text-xs tracking-wide text-white/50">
+            {textoBeneficioNoAplicaCon(beneficioDeLaVisitaProfesionales, profesional.nombre)}
+          </p>
+        )}
 
         {/* Lista de servicios */}
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-3">
@@ -207,9 +221,12 @@ interface StaffCardProps {
   profesional: ProfesionalPublic;
   onTurnos: (p: ProfesionalPublic) => void;
   onVerServicios: (p: ProfesionalPublic) => void;
+  // Hay un beneficio en la visita (link, cupón o código) y no vale con este
+  // profesional: "Sin el beneficio" (lista-vieja-cierre D3)
+  sinBeneficio?: boolean;
 }
 
-function StaffCard({ profesional, onTurnos, onVerServicios }: StaffCardProps) {
+function StaffCard({ profesional, onTurnos, onVerServicios, sinBeneficio = false }: StaffCardProps) {
   return (
     <div className="flex flex-col items-center text-center px-6 py-8 bg-[#111] border border-white/10 rounded-none h-full overflow-hidden">
       {/* Foto circular */}
@@ -242,6 +259,15 @@ function StaffCard({ profesional, onTurnos, onVerServicios }: StaffCardProps) {
       >
         {profesional.nombre}
       </h3>
+
+      {sinBeneficio && (
+        <p
+          data-testid="staff-sin-beneficio"
+          className="text-[10px] tracking-[0.25em] uppercase text-white/50 border border-white/20 px-2 py-0.5 mb-3"
+        >
+          Sin el beneficio
+        </p>
+      )}
 
       {/* Subtitulo */}
       {profesional.subtitulo && (
@@ -824,6 +850,16 @@ export const DebSalonLandingPage: React.FC = () => {
   };
 
   const beneficioLinkDisponible = beneficioLink?.estado === 'disponible' ? beneficioLink : null;
+  // El beneficio que acompaña la visita (el del mail o el código `?b=`): decide
+  // qué tarjetas dicen "Sin el beneficio" (D3)
+  const beneficioDeLaVisita = beneficioLinkDisponible?.beneficio ?? beneficioVisita?.beneficio ?? null;
+  const sinBeneficioCon = (p: ProfesionalPublic | null): boolean =>
+    !!beneficioDeLaVisita && !!p && !beneficioValeCon(beneficioDeLaVisita, p.id);
+  // Cartel fijo: si hay profesionales de la landing con los que no vale, dice con quiénes sí
+  const conQuienesVale = beneficioLinkDisponible?.beneficio.profesionales?.length
+    && profesionales.some((p) => sinBeneficioCon(p))
+    ? `Vale con ${unirNombres(beneficioLinkDisponible.beneficio.profesionales.map((p) => nombreDePila(p.nombre)), 'o')}`
+    : null;
   // El aviso de un beneficio que ya no aplica se puede cerrar; el disponible queda fijo
   const mostrarCartel = !!beneficioLink && (beneficioLink.estado === 'disponible' || !cartelCerrado);
 
@@ -1012,6 +1048,7 @@ export const DebSalonLandingPage: React.FC = () => {
                   profesional={profesional}
                   onTurnos={handleTurnos}
                   onVerServicios={handleVerServicios}
+                  sinBeneficio={sinBeneficioCon(profesional)}
                 />
               </Reveal>
             ))}
@@ -1123,7 +1160,11 @@ export const DebSalonLandingPage: React.FC = () => {
       {mostrarCartel && beneficioLink && (
         <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#0a0a0a]/95 border-t border-white/15 backdrop-blur-sm">
           <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-            <CartelBeneficioLink link={beneficioLink} className="flex-1 border-0 bg-transparent px-0 py-0" />
+            <CartelBeneficioLink
+              link={beneficioLink}
+              detalle={beneficioLink.estado === 'disponible' ? conQuienesVale : null}
+              className="flex-1 border-0 bg-transparent px-0 py-0"
+            />
             {beneficioLink.estado === 'disponible' ? (
               <GhostButton
                 onClick={() => document.getElementById('equipo')?.scrollIntoView({ behavior: 'smooth' })}
@@ -1151,7 +1192,9 @@ export const DebSalonLandingPage: React.FC = () => {
         isOpen={showServiciosModal}
         onClose={() => setShowServiciosModal(false)}
         onReservar={handleReservar}
-        beneficio={beneficioLinkDisponible?.beneficio ?? null}
+        beneficio={sinBeneficioCon(selectedProfesional) ? null : beneficioLinkDisponible?.beneficio ?? null}
+        sinBeneficio={sinBeneficioCon(selectedProfesional)}
+        beneficioDeLaVisitaProfesionales={beneficioDeLaVisita?.profesionales}
       />
 
       {selectedProfesional && (

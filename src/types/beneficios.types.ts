@@ -7,6 +7,13 @@
 // aparece el aviso y quien cobra lo aplica a mano.
 export type BeneficioTipo = 'descuento' | 'otro';
 
+// Profesional con el que vale un beneficio (lista-vieja-cierre D1): solo se
+// puede usar al reservar con alguno de ellos.
+export interface ProfesionalDeBeneficio {
+  id: string;
+  nombre: string;
+}
+
 export interface BeneficioCodigosResumen {
   emitidos: number;
   reservados: number;
@@ -27,8 +34,12 @@ export interface Beneficio {
   aplica_servicio: boolean;
   aplica_productos: boolean;
   vigencia_dias: number;       // 1 a 365: cuánto dura cada código desde que se emite
-  // Uno solo por empresa: es el que ofrecen las campañas y la página /beneficio
+  // Uno solo por empresa. Desde lista-vieja-cierre D5 significa "está en la
+  // campaña de mails"; todos los beneficios se pueden aplicar desde el panel.
   activo: boolean;
+  // Con quiénes vale (D1). Siempre viene desde la migración 026; opcional por
+  // si responde un backend anterior (entonces vale con todos).
+  profesionales?: ProfesionalDeBeneficio[];
   created_at: string;
   updated_at: string;
 }
@@ -37,7 +48,8 @@ export interface BeneficioConCodigos extends Beneficio {
   codigos: BeneficioCodigosResumen;
 }
 
-// Nace inactivo. Con 'otro' no viaja porcentaje (el backend lo rechaza) ni "aplica".
+// Nace fuera de la campaña de mails. Con 'otro' no viaja porcentaje (el backend
+// lo rechaza) ni "aplica". `profesional_ids`: al menos uno (D1).
 export interface CrearBeneficioData {
   nombre: string;
   tipo: BeneficioTipo;
@@ -45,6 +57,7 @@ export interface CrearBeneficioData {
   aplica_servicio?: boolean;
   aplica_productos?: boolean;
   vigencia_dias: number;
+  profesional_ids: string[];
 }
 
 // Tipo, porcentaje y "aplica" solo se pueden cambiar si el beneficio no tiene
@@ -56,9 +69,12 @@ export interface EditarBeneficioData {
   porcentaje?: number;
   aplica_servicio?: boolean;
   aplica_productos?: boolean;
+  // Si viaja, reemplaza la lista entera (al menos uno)
+  profesional_ids?: string[];
 }
 
-// POST /api/beneficios/:id/activar: apaga el activo anterior (si había) y prende este
+// POST /api/beneficios/:id/activar: lo pone en la campaña de mails y saca al
+// que estaba (si había)
 export interface ActivarBeneficioRespuesta {
   activo: Beneficio;
   reemplazado: { id: string; nombre: string } | null;

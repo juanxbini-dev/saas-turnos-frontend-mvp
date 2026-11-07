@@ -16,7 +16,8 @@ import {
   beneficioPublicService, normalizarCodigoBeneficio, formatearVenceEl,
 } from '../../services/public/beneficioPublic.service';
 import {
-  describirBeneficio, esBeneficioOtro, formatearDiaMes, textoCartelBeneficioLink, textoConfirmacionBeneficio,
+  beneficioValeCon, describirBeneficio, esBeneficioOtro, formatearDiaMes, textoBeneficioNoAplicaCon, TEXTO_TURNO_SIN_BENEFICIO,
+  textoCartelBeneficioLink, textoConfirmacionBeneficio,
 } from '../../config/beneficio';
 import type {
   BeneficioDeLink, BeneficioDeVisita, BeneficioReserva, MotivoCodigoBeneficio, PrecargaBeneficio, TurnoConBeneficio,
@@ -191,21 +192,37 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   // del rechazo (el turno no se creó), con la opción de reservar sin beneficio.
   const [sinBeneficioLink, setSinBeneficioLink] = useState(false);
   const [errorBeneficioLink, setErrorBeneficioLink] = useState<string | null>(null);
-  const beneficioLinkActivo = beneficioLink?.estado === 'disponible' && !sinBeneficioLink;
+  // lista-vieja-cierre D3: el beneficio vale con algunos profesionales. Con uno
+  // que no está, la reserva va SIN beneficio (no viaja `beneficio_m`, ni el
+  // cupón, ni el código) y el link no se consume: sigue recordado para otra vez.
+  const linkDisponible = beneficioLink?.estado === 'disponible' && !sinBeneficioLink;
+  const linkNoAplica = linkDisponible && !beneficioValeCon(beneficioLink!.beneficio, profesionalId);
+  const beneficioLinkActivo = linkDisponible && !linkNoAplica;
 
   // Cupón del mail (D26): un `DEB-XXXXX` escrito en "¿Tenés un código?" que el
   // backend reconoce como alias del link (`origen: 'cupon'`). Disponible →
   // mismo cartel y precios tachados que el link, para el resto de la reserva,
   // sin precargar datos. Viaja como `beneficio_codigo`, igual que un código.
   const [cupon, setCupon] = useState<BeneficioDeLink | null>(null);
-  const cuponActivo = !beneficioLinkActivo && cupon?.estado === 'disponible' ? cupon : null;
+  const cuponActivo = !beneficioLinkActivo && cupon?.estado === 'disponible' && beneficioValeCon(cupon.beneficio, profesionalId)
+    ? cupon
+    : null;
+  // Un código (o cupón) validado cuyo beneficio no vale con este profesional (D3)
+  const codigoNoAplica = !beneficioLinkActivo && !!beneficioValidado && !beneficioValeCon(beneficioValidado.beneficio, profesionalId);
+  // El aviso "Con {Nombre} el beneficio no aplica. Lo podés usar con A, B o C."
+  const beneficioQueNoAplica = linkNoAplica
+    ? beneficioLink!.beneficio
+    : codigoNoAplica ? beneficioValidado!.beneficio : null;
+  const avisoNoAplica = beneficioQueNoAplica
+    ? textoBeneficioNoAplicaCon(beneficioQueNoAplica.profesionales, profesionalNombre)
+    : null;
 
   // El beneficio que pinta los precios: el del mail o el del cupón, si están activos
   const beneficioDePrecios = beneficioLinkActivo ? beneficioLink!.beneficio : cuponActivo?.beneficio ?? null;
   // El cartel de arriba: el link activo, si no el cupón, si no el aviso del link
   const linkDelCartel = beneficioLinkActivo
     ? beneficioLink
-    : cuponActivo ?? (beneficioLink && !sinBeneficioLink ? beneficioLink : null);
+    : cuponActivo ?? (beneficioLink && !sinBeneficioLink && !linkNoAplica ? beneficioLink : null);
 
   // La reserva se creó pero el backend no pudo aplicar el beneficio
   const [beneficioNoAplicado, setBeneficioNoAplicado] = useState(false);
@@ -493,7 +510,10 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
       // `beneficio_codigo`
       const conLink = beneficioLinkActivo && !forzarSinBeneficio;
       const beneficioM = conLink ? beneficioLink!.m : null;
-      const codigoBeneficioNormalizado = conLink || forzarSinBeneficio ? null : normalizarCodigoBeneficio(codigoBeneficio);
+      // Un código cuyo beneficio no vale con este profesional tampoco viaja (D3)
+      const codigoBeneficioNormalizado = conLink || forzarSinBeneficio || codigoNoAplica
+        ? null
+        : normalizarCodigoBeneficio(codigoBeneficio);
 
       const turnoData = {
         profesional_id: profesionalId,
@@ -551,6 +571,25 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
           // El campo queda en la zona que se desplaza y el botón está fijo abajo
           setTimeout(corregirDatos, 0);
         }
+        return;
+      }
+      // D4: el backend dice que el beneficio no vale con este profesional (la
+      // lista que tenía la landing estaba vieja). El turno NO se creó. Con el
+      // link o el cupón se ofrece reservar sin beneficio; el link NO se da por
+      // perdido (sigue valiendo con los otros profesionales).
+      if (error.response?.status === 400 && codigoError === 'BENEFICIO_PROFESIONAL' && !forzarSinBeneficio) {
+        const conLinkAhora = beneficioLinkActivo;
+        const beneficioEnJuego = conLinkAhora
+          ? beneficioLink!.beneficio
+          : cuponActivo?.beneficio ?? beneficioValidado?.beneficio ?? null;
+        const texto = textoBeneficioNoAplicaCon(beneficioEnJuego?.profesionales, profesionalNombre);
+        setStep(3);
+        if (conLinkAhora || cuponActivo) {
+          setErrorBeneficioLink(texto);
+          return;
+        }
+        setBeneficioValidado(null);
+        setBeneficioError(texto);
         return;
       }
       const esErrorDeBeneficio = error.response?.status === 400
@@ -773,7 +812,7 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
   // Chip 🎟 "15 % en servicios aplicado · vence el 12/11" (o "Tu beneficio: Ampolla
   // de regalo · vence el 12/11" con tipo 'otro'): arriba del cuerpo, en los tres pasos
   const venceEl = formatearVenceEl(beneficioValidado?.vence_el);
-  const chipBeneficio = beneficioValidado && !beneficioLinkActivo && !cuponActivo && (
+  const chipBeneficio = beneficioValidado && !beneficioLinkActivo && !cuponActivo && !codigoNoAplica && (
     <div
       data-testid="chip-beneficio"
       className="flex items-center gap-2 border border-white/30 bg-white/5 px-3 py-2 text-xs tracking-wide text-white"
@@ -848,6 +887,20 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
               <CartelBeneficioLink link={linkDelCartel} className="mb-4" />
             )}
             {chipBeneficio && <div className="mb-4">{chipBeneficio}</div>}
+            {/* D3: con este profesional el beneficio no aplica (se ve en los tres pasos) */}
+            {avisoNoAplica && (
+              <div
+                role="status"
+                data-testid="aviso-beneficio-no-aplica"
+                className="mb-4 flex items-start gap-2 border border-amber-400/60 bg-amber-400/10 px-3 py-2 text-xs sm:text-sm tracking-wide text-amber-100"
+              >
+                <span aria-hidden="true">ℹ</span>
+                <span>
+                  <span className="block">{avisoNoAplica}</span>
+                  <span className="block text-xs text-amber-100/70">{TEXTO_TURNO_SIN_BENEFICIO}</span>
+                </span>
+              </div>
+            )}
 
               {/* Step 1 - Servicio */}
             {step === 1 && (
@@ -1043,11 +1096,16 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
                   {beneficioError && (
                     <p role="alert" className="text-red-300 text-sm font-medium mt-1.5">{beneficioError}</p>
                   )}
-                  {!beneficioError && !validandoBeneficio && beneficioValidado && (
+                  {!beneficioError && !validandoBeneficio && beneficioValidado && (codigoNoAplica ? (
+                    <div className="mt-1" data-testid="codigo-no-aplica">
+                      <p className="text-amber-200 text-xs">{avisoNoAplica}</p>
+                      <p className="text-amber-200/70 text-[11px]">{TEXTO_TURNO_SIN_BENEFICIO}</p>
+                    </div>
+                  ) : (
                     <p className="text-white/50 text-xs mt-1">
                       Código válido: {describirBeneficio(beneficioValidado.beneficio)}.
                     </p>
-                  )}
+                  ))}
                 </div>
                 )}
 
@@ -1142,6 +1200,11 @@ export const CreateTurnoPublicModal: React.FC<CreateTurnoPublicModalProps> = ({
               >
                 Ver política de privacidad
               </a>
+              {beneficioQueNoAplica && !errorBeneficioLink && (
+                <p data-testid="aviso-sin-beneficio-confirmar" className="mt-3 text-xs text-amber-200 leading-snug">
+                  {TEXTO_TURNO_SIN_BENEFICIO}
+                </p>
+              )}
               {(beneficioLinkActivo || cuponActivo) && (
                 <p data-testid="beneficio-cancelacion" className="mt-3 text-xs text-white/60 leading-snug">
                   Si no podés venir, cancelás hasta 24 h antes y tu beneficio te sigue esperando.

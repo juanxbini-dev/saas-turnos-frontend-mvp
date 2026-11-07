@@ -154,6 +154,14 @@ describe('beneficioPublic.service — llamadas', () => {
     expect(get.mock.calls[1][1]).toMatchObject({ params: { m: 'Xk92mPq7Lt', empresa_id: EMPRESA } });
   });
 
+  it('validarCodigo: los profesionales del beneficio quedan adentro de `beneficio`, vengan adentro o al lado (lista-vieja-cierre §3)', async () => {
+    const PROFS = [{ id: 'u-caro', nombre: 'Caro' }];
+    post.mockResolvedValue({ data: { success: true, data: { valido: true, beneficio: BENEFICIO, profesionales: PROFS, vence_el: '2026-11-12' } } });
+    expect((await beneficioPublicService.validarCodigo('DEB-7K3P9', EMPRESA))?.beneficio).toEqual({ ...BENEFICIO, profesionales: PROFS });
+    post.mockResolvedValue({ data: { success: true, data: { valido: true, beneficio: { ...BENEFICIO, profesionales: PROFS } } } });
+    expect((await beneficioPublicService.validarCodigo('DEB-7K3P9', EMPRESA))?.beneficio?.profesionales).toEqual(PROFS);
+  });
+
   it('ya no existe solicitar (beneficio-con-turno D1: el beneficio se consigue reservando)', () => {
     expect((beneficioPublicService as Record<string, unknown>).solicitar).toBeUndefined();
   });
@@ -183,6 +191,22 @@ describe('beneficioPublic.service — beneficio del link del mail (?m=)', () => 
       precarga: { nombre: 'Ana', apellido: 'Pérez', email: 'ana@gmail.com', telefono: null },
       turno: null,
     });
+  });
+
+  it('lista-vieja-cierre §3: guarda con qué profesionales vale (adentro o al lado de `beneficio`) y sobrevive al sessionStorage', () => {
+    const PROFS = [{ id: 'u-caro', nombre: 'Caro' }, { id: 'u-juli', nombre: 'Juli' }];
+    expect(beneficioDeLinkDesdeContexto(M, { ...CONTEXTO, profesionales: PROFS })?.beneficio.profesionales).toEqual(PROFS);
+    const link = beneficioDeLinkDesdeContexto(M, { ...CONTEXTO, beneficio: { ...CONTEXTO.beneficio, profesionales: PROFS } });
+    expect(link?.beneficio.profesionales).toEqual(PROFS);
+    guardarBeneficioDeLink(link!);
+    expect(leerBeneficioDeLink()?.beneficio.profesionales).toEqual(PROFS);
+    // Sin lista: no se inventa (vale con todos)
+    expect(beneficioDeLinkDesdeContexto(M, CONTEXTO)?.beneficio).not.toHaveProperty('profesionales');
+    // `[]` se conserva (no vale con nadie), también al guardar y levantar
+    const vacio = beneficioDeLinkDesdeContexto(M, { ...CONTEXTO, beneficio: { ...CONTEXTO.beneficio, profesionales: [] } });
+    expect(vacio?.beneficio.profesionales).toEqual([]);
+    guardarBeneficioDeLink(vacio!);
+    expect(leerBeneficioDeLink()?.beneficio.profesionales).toEqual([]);
   });
 
   it('con estado reservado conserva el turno', () => {

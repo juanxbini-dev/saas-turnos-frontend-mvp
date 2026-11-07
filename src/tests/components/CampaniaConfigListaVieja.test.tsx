@@ -2,6 +2,9 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { render, screen, fireEvent, waitFor, configure } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { cacheService } from '../../cache/cache.service';
+import { buildKey, ENTITIES } from '../../cache/key.builder';
+import { AVISO_CAMPANIA_SIN_ACTIVO } from '../../components/beneficios/beneficios.utils';
 import {
   AVISO_SIN_BENEFICIO,
   CampaniaConfigListaVieja,
@@ -12,9 +15,10 @@ import {
 import type { CampaniaListaVieja } from '../../types/campanias.types';
 
 // Configuración de "Lista vieja (mail)" (mails-beneficios §4.3 + beneficios-tipos
-// §3.5/§3.7): tope y días para el recordatorio (0 a 60). Sin selector de
-// beneficio: muestra el activo ("Ofrece: … · Se cambia en Beneficios") o el
-// aviso de que sin activo la campaña no puede salir.
+// §3.5/§3.7): tope y días para el recordatorio (0 a 60). Desde lista-vieja-cierre
+// D6, el selector "Beneficio que ofrece el mail" elige el beneficio de la campaña
+// con activar/desactivar (confirma si la campaña está prendida). Si la lista de
+// beneficios no carga, queda el "Ofrece: … · Se cambia en Beneficios" de antes.
 
 configure({ asyncUtilTimeout: 5000 });
 
@@ -29,11 +33,19 @@ vi.mock('../../services/campanias.service', () => ({
     error?.response?.data?.message || porDefecto,
 }));
 
-// La pestaña ya no pide la lista de beneficios
 const listar = vi.fn();
+const activar = vi.fn();
+const desactivar = vi.fn();
 vi.mock('../../services/beneficios.service', async () => {
   const real = await vi.importActual<typeof import('../../services/beneficios.service')>('../../services/beneficios.service');
-  return { ...real, beneficiosService: { listar: (...a: unknown[]) => listar(...a) } };
+  return {
+    ...real,
+    beneficiosService: {
+      listar: (...a: unknown[]) => listar(...a),
+      activar: (...a: unknown[]) => activar(...a),
+      desactivar: (...a: unknown[]) => desactivar(...a),
+    },
+  };
 });
 
 vi.mock('../../services/toast.service', () => ({
@@ -57,11 +69,28 @@ const campania = (beneficio: BeneficioAviso = null, over: Partial<CampaniaListaV
   avisos: { servicios_activos: 9, servicios_con_frecuencia: 3, modo_prueba: false, conexion_configurada: true, canal: 'email', beneficio, contactos_pendientes: 100, resend_configurado: true },
 });
 
+const BEN = {
+  aplica_servicio: true, aplica_productos: false, vigencia_dias: 18, created_at: '', updated_at: '',
+  codigos: { emitidos: 0, reservados: 0, usados: 0, vencidos: 0 },
+};
+const LISTA_DESCUENTO = {
+  ...BEN, id: 'ben-1', nombre: 'Bienvenida', tipo: 'descuento' as const, porcentaje: 20, activo: true,
+  profesionales: [{ id: 'u-caro', nombre: 'Caro' }, { id: 'u-juli', nombre: 'Juli' }],
+};
+const LISTA_REGALO = {
+  ...BEN, id: 'ben-2', nombre: 'Ampolla de tratamiento de regalo', tipo: 'otro' as const, porcentaje: null, activo: false,
+  profesionales: [{ id: 'u-meli', nombre: 'Meli' }],
+};
+
 const campo = (label: string) => screen.getByLabelText(label) as HTMLInputElement;
+const selector = () => screen.getByLabelText('Beneficio que ofrece el mail') as HTMLSelectElement;
 const guardar = () => screen.getByRole('button', { name: 'Guardar cambios' }) as HTMLButtonElement;
 
 function renderForm(c: CampaniaListaVieja | null = campania(DESCUENTO), errorBeneficio: string | null = null) {
-  const props = { campania: c, loading: false, error: false, onReintentar: vi.fn(), onGuardado: vi.fn(), errorBeneficio };
+  const props = {
+    campania: c, loading: false, error: false, onReintentar: vi.fn(), onGuardado: vi.fn(), errorBeneficio,
+    onBeneficioCambiado: vi.fn(),
+  };
   const utils = render(
     <MemoryRouter>
       <CampaniaConfigListaVieja {...props} />
@@ -102,35 +131,90 @@ describe('armarPatchListaVieja', () => {
 describe('CampaniaConfigListaVieja', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.BENEFICIOS));
+    listar.mockResolvedValue([LISTA_DESCUENTO, LISTA_REGALO]);
   });
 
-  it('sin selector: muestra "Ofrece: …" con el link a Beneficios y no pide la lista de beneficios', () => {
+  it('selector "Beneficio que ofrece el mail": todos los beneficios, el de la campaña elegido y con quiénes vale', async () => {
     renderForm();
     expect(campo('Máximo de mails por día').value).toBe('50');
     expect(campo('Días para el recordatorio').value).toBe('10');
-    expect(screen.queryByRole('combobox')).toBeNull();
-    expect(screen.queryByLabelText('Beneficio del mail')).toBeNull();
 
-    const ofrece = screen.getByTestId('lista-vieja-ofrece');
-    expect(ofrece.textContent).toBe('Ofrece: Bienvenida (20 %) · Se cambia en Beneficios');
-    expect(screen.getByRole('link', { name: 'Se cambia en Beneficios' }).getAttribute('href')).toBe('/beneficios');
-    expect(screen.queryByText(/No hay beneficio activo/)).toBeNull();
-    expect(listar).not.toHaveBeenCalled();
+    await screen.findByRole('option', { name: 'Ampolla de tratamiento de regalo' });
+    expect(selector().value).toBe('ben-1');
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Ninguno', 'Bienvenida (20 %)', 'Ampolla de tratamiento de regalo']);
+    expect(screen.getByTestId('lista-vieja-vale-con').textContent).toContain('Vale con Caro y Juli. El mail los nombra.');
+    expect(screen.queryByTestId('lista-vieja-ofrece')).toBeNull();
+    expect(screen.queryByTestId('lista-vieja-sin-beneficio')).toBeNull();
     expect(guardar().disabled).toBe(true);
   });
 
-  it('con un beneficio "otro" lo describe por su nombre, sin porcentaje', () => {
-    renderForm(campania(REGALO));
-    expect(screen.getByTestId('lista-vieja-ofrece').textContent).toBe('Ofrece: Ampolla de tratamiento de regalo · Se cambia en Beneficios');
+  it('con la campaña apagada, elegir otro lo pone en la campaña sin confirmar y avisa al panel', async () => {
+    activar.mockResolvedValue({ activo: { ...LISTA_REGALO, activo: true }, reemplazado: { id: 'ben-1', nombre: 'Bienvenida' } });
+    const { props } = renderForm();
+    await screen.findByRole('option', { name: 'Ampolla de tratamiento de regalo' });
+
+    fireEvent.change(selector(), { target: { value: 'ben-2' } });
+    await waitFor(() => expect(activar).toHaveBeenCalledWith('ben-2'));
+    expect(screen.queryByRole('heading', { name: 'Cambiar el beneficio de la campaña' })).toBeNull();
+    await waitFor(() => expect(props.onBeneficioCambiado).toHaveBeenCalled());
+    expect(actualizarCampania).not.toHaveBeenCalled();
   });
 
-  it('sin beneficio activo: aviso "la campaña no puede salir" con link a Beneficios', () => {
+  it('con la campaña prendida, confirma antes y avisa qué va a ofrecer', async () => {
+    activar.mockResolvedValue({ activo: { ...LISTA_REGALO, activo: true }, reemplazado: { id: 'ben-1', nombre: 'Bienvenida' } });
+    const { props } = renderForm({ ...campania(DESCUENTO), activa: true });
+    await screen.findByRole('option', { name: 'Ampolla de tratamiento de regalo' });
+
+    fireEvent.change(selector(), { target: { value: 'ben-2' } });
+    expect(await screen.findByRole('heading', { name: 'Cambiar el beneficio de la campaña' })).toBeTruthy();
+    expect(screen.getByText(/La campaña Lista vieja está prendida: desde ahora va a ofrecer «Ampolla de tratamiento de regalo»/)).toBeTruthy();
+    expect(activar).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Usar en la campaña' }));
+    await waitFor(() => expect(activar).toHaveBeenCalledWith('ben-2'));
+    await waitFor(() => expect(props.onBeneficioCambiado).toHaveBeenCalled());
+  });
+
+  it('"Ninguno" con la campaña prendida: confirma que va a dejar de mandar mails y lo saca', async () => {
+    desactivar.mockResolvedValue({ ...LISTA_DESCUENTO, activo: false });
+    renderForm({ ...campania(DESCUENTO), activa: true });
+    await screen.findByRole('option', { name: 'Ampolla de tratamiento de regalo' });
+
+    fireEvent.change(selector(), { target: { value: '' } });
+    const mensaje = await screen.findByText(/Vas a sacar «Bienvenida» de la campaña de mails/);
+    expect(mensaje.textContent).toContain(AVISO_CAMPANIA_SIN_ACTIVO);
+    fireEvent.click(screen.getByRole('button', { name: 'Sacar de la campaña' }));
+    await waitFor(() => expect(desactivar).toHaveBeenCalledWith('ben-1'));
+  });
+
+  it('si falla el cambio, avisa y no da por cambiado', async () => {
+    activar.mockRejectedValue({ response: { status: 500, data: { message: 'Algo falló' } } });
+    const { props } = renderForm();
+    await screen.findByRole('option', { name: 'Ampolla de tratamiento de regalo' });
+    fireEvent.change(selector(), { target: { value: 'ben-2' } });
+    const { toastService } = await import('../../services/toast.service');
+    await waitFor(() => expect(toastService.error).toHaveBeenCalledWith('Algo falló'));
+    expect(props.onBeneficioCambiado).not.toHaveBeenCalled();
+  });
+
+  it('sin beneficio en la campaña: "Ninguno" elegido y el aviso de que no puede salir', async () => {
+    listar.mockResolvedValue([{ ...LISTA_DESCUENTO, activo: false }, LISTA_REGALO]);
     renderForm(campania(null));
-    const aviso = screen.getByTestId('lista-vieja-sin-beneficio');
-    expect(aviso.textContent).toContain(AVISO_SIN_BENEFICIO);
-    expect(AVISO_SIN_BENEFICIO).toBe('No hay beneficio activo: la campaña no puede salir.');
-    expect(screen.getByRole('link', { name: 'Activá uno en Beneficios' }).getAttribute('href')).toBe('/beneficios');
-    expect(screen.queryByTestId('lista-vieja-ofrece')).toBeNull();
+    await screen.findByRole('option', { name: 'Ampolla de tratamiento de regalo' });
+    expect(selector().value).toBe('');
+    expect(screen.getByTestId('lista-vieja-sin-beneficio').textContent).toContain(AVISO_SIN_BENEFICIO);
+    expect(AVISO_SIN_BENEFICIO).toBe('No hay beneficio elegido: la campaña no puede salir.');
+  });
+
+  it('si la lista de beneficios no carga, muestra el que ofrece en solo lectura con el link a Beneficios', async () => {
+    listar.mockRejectedValue(new Error('403'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    renderForm(campania(REGALO));
+    const ofrece = await screen.findByTestId('lista-vieja-ofrece');
+    expect(ofrece.textContent).toBe('Ofrece: Ampolla de tratamiento de regalo · Se cambia en Beneficios');
+    expect(screen.getByRole('link', { name: 'Se cambia en Beneficios' }).getAttribute('href')).toBe('/beneficios');
+    expect(screen.queryByLabelText('Beneficio que ofrece el mail')).toBeNull();
   });
 
   it('sin beneficio activo igual se editan tope y recordatorio (D16), y el PATCH no lleva beneficio_id', async () => {
@@ -153,8 +237,9 @@ describe('CampaniaConfigListaVieja', () => {
     await waitFor(() => expect(actualizarCampania).not.toHaveBeenCalled());
   });
 
-  it('con el error del servidor al prender sin beneficio activo, lo muestra', () => {
+  it('con el error del servidor al prender sin beneficio activo, lo muestra', async () => {
     renderForm(campania(null), 'No hay un beneficio activo');
     expect(screen.getByRole('alert').textContent).toBe('No hay un beneficio activo');
+    await screen.findByRole('option', { name: 'Ampolla de tratamiento de regalo' });
   });
 });

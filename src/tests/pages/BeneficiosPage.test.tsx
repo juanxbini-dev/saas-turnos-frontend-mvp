@@ -6,7 +6,8 @@ import BeneficiosPage, { AVISO_CAMPANIA_SIN_ACTIVO, TEXTO_SOLO_UNO, mensajeConfi
 import { cacheService } from '../../cache/cache.service';
 import { buildKey, ENTITIES } from '../../cache/key.builder';
 import {
-  TEXTO_BLOQUEO, TEXTO_BLOQUEO_OTRO, TEXTO_NACE_INACTIVO, MENSAJE_APLICA, MENSAJE_CON_CODIGOS,
+  TEXTO_BLOQUEO, TEXTO_BLOQUEO_OTRO, TEXTO_NACE_INACTIVO, TEXTO_TURNOS_NO_CAMBIAN, MENSAJE_APLICA, MENSAJE_CON_CODIGOS,
+  MENSAJE_PROFESIONALES,
   armarCrear, armarEditar, beneficioSchema,
 } from '../../components/beneficios/BeneficioModal';
 import { toastService } from '../../services/toast.service';
@@ -16,6 +17,9 @@ import type { BeneficioCodigo, BeneficioConCodigos, CodigosRespuesta } from '../
 // D9, D13, D14, D19): la lista con un solo activo, activar/reemplazar/desactivar
 // con confirmación, el alta por tipo (descuento u otro) con validaciones, el
 // bloqueo de lo prometido cuando ya hay códigos, la tabla de códigos y "Anular".
+// lista-vieja-cierre D1/D5/D6/D14/D16: "Vale con" (profesionales del beneficio,
+// todos tildados al crear, al menos uno), "En la campaña de mails" y los
+// botones "Usar en la campaña de mails" / "Sacar de la campaña".
 
 configure({ asyncUtilTimeout: 5000 });
 
@@ -51,6 +55,15 @@ vi.mock('../../services/campanias.service', () => ({
   campaniasService: { estaPrendidaListaVieja: (...a: unknown[]) => estaPrendidaListaVieja(...a) },
 }));
 
+// Profesionales del panel para "Vale con" (D14): los super_admin no se ofrecen
+const getProfesionales = vi.fn();
+vi.mock('../../services/disponibilidad.service', () => ({
+  disponibilidadService: { getProfesionales: (...a: unknown[]) => getProfesionales(...a) },
+}));
+const CARO = { id: 'u-caro', nombre: 'Caro', username: 'caro', email: '', roles: ['staff'], activo: true };
+const JULI = { id: 'u-juli', nombre: 'Juli', username: 'juli', email: '', roles: ['admin'], activo: true };
+const SUPER = { id: 'u-super', nombre: 'Soporte', username: 'soporte', email: '', roles: ['super_admin'], activo: true };
+
 const getClientes = vi.fn();
 vi.mock('../../services/cliente.service', () => ({
   clienteService: { getClientes: (...a: unknown[]) => getClientes(...a) },
@@ -65,6 +78,7 @@ const SIN_CODIGOS = { emitidos: 0, reservados: 0, usados: 0, vencidos: 0 };
 const SERVICIOS: BeneficioConCodigos = {
   id: 'ben-1', nombre: '20 % en tu próximo servicio', tipo: 'descuento', porcentaje: 20, aplica_servicio: true, aplica_productos: false,
   vigencia_dias: 30, activo: true,
+  profesionales: [{ id: 'u-caro', nombre: 'Caro' }, { id: 'u-juli', nombre: 'Juli' }],
   created_at: '2026-10-22T13:00:00.000Z', updated_at: '2026-10-22T13:00:00.000Z',
   codigos: { emitidos: 12, reservados: 3, usados: 5, vencidos: 1 },
 };
@@ -72,6 +86,7 @@ const SERVICIOS: BeneficioConCodigos = {
 const PRODUCTOS: BeneficioConCodigos = {
   id: 'ben-2', nombre: '10 % en productos', tipo: 'descuento', porcentaje: 10, aplica_servicio: false, aplica_productos: true,
   vigencia_dias: 15, activo: false,
+  profesionales: [{ id: 'u-caro', nombre: 'Caro' }],
   created_at: '2026-10-22T13:00:00.000Z', updated_at: '2026-10-22T13:00:00.000Z',
   codigos: SIN_CODIGOS,
 };
@@ -112,6 +127,8 @@ describe('BeneficiosPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     cacheService.invalidateByPrefix(buildKey(ENTITIES.BENEFICIOS));
+    cacheService.invalidateByPrefix(buildKey(ENTITIES.PROFESIONALES));
+    getProfesionales.mockResolvedValue({ success: true, data: { profesionales: [CARO, JULI, SUPER] } });
     // El activo llega último a propósito: la pantalla igual lo pone primero
     listar.mockResolvedValue([PRODUCTOS, SERVICIOS]);
     estaPrendidaListaVieja.mockResolvedValue(false);
@@ -119,7 +136,7 @@ describe('BeneficiosPage', () => {
     getClientes.mockResolvedValue({ items: [], total: 0, pagina: 1, por_pagina: 10, total_paginas: 0 });
   });
 
-  it('lista los beneficios con el activo primero (pill "Activo" + "Desactivar"), y "Activar" en los demás', async () => {
+  it('lista los beneficios con el de la campaña primero ("En la campaña de mails" + "Sacar de la campaña"), y "Usar en la campaña de mails" en los demás', async () => {
     renderPage();
 
     expect(await screen.findByText('20 % en tu próximo servicio')).toBeTruthy();
@@ -131,9 +148,14 @@ describe('BeneficiosPage', () => {
     expect(within(filaServicios).getByText('20 %')).toBeTruthy();
     expect(within(filaServicios).getByText('Servicios')).toBeTruthy();
     expect(within(filaServicios).getByText('30 días')).toBeTruthy();
-    expect(within(filaServicios).getByText('Activo')).toBeTruthy();
-    expect(within(filaServicios).getByRole('button', { name: 'Desactivar 20 % en tu próximo servicio' })).toBeTruthy();
-    expect(within(filaServicios).queryByRole('button', { name: /^Activar/ })).toBeNull();
+    expect(within(filaServicios).getByText('En la campaña de mails')).toBeTruthy();
+    // Vale con todos los del panel (Caro y Juli; el super_admin no cuenta): no se escribe la lista entera
+    expect(within(filaServicios).getByText('Todos los profesionales')).toBeTruthy();
+    expect(within(filaServicios).getByRole('button', { name: 'Sacar 20 % en tu próximo servicio de la campaña' }).textContent).toBe('Sacar de la campaña');
+    expect(within(filaServicios).queryByRole('button', { name: /^Usar/ })).toBeNull();
+    expect(screen.queryByText('Activo')).toBeNull();
+    expect(screen.getByRole('columnheader', { name: 'Vale con' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Campaña de mails' })).toBeTruthy();
     expect(screen.queryByText('En la landing')).toBeNull();
     expect(within(filaServicios).getByText('12 emitidos')).toBeTruthy();
     expect(within(filaServicios).getByText('3 reservados')).toBeTruthy();
@@ -141,9 +163,10 @@ describe('BeneficiosPage', () => {
 
     const filaProductos = screen.getByText('10 % en productos').closest('tr')!;
     expect(within(filaProductos).getByText('Productos')).toBeTruthy();
-    expect(within(filaProductos).queryByText('Activo')).toBeNull();
-    expect(within(filaProductos).getByRole('button', { name: 'Activar 10 % en productos' })).toBeTruthy();
-    expect(within(filaProductos).queryByRole('button', { name: /^Desactivar/ })).toBeNull();
+    expect(within(filaProductos).getByText('Caro')).toBeTruthy();
+    expect(within(filaProductos).queryByText('En la campaña de mails')).toBeNull();
+    expect(within(filaProductos).getByRole('button', { name: 'Usar 10 % en productos en la campaña de mails' }).textContent).toBe('Usar en la campaña de mails');
+    expect(within(filaProductos).queryByRole('button', { name: /^Sacar/ })).toBeNull();
 
     // Hasta no elegir uno, no hay tabla de códigos
     expect(getCodigos).not.toHaveBeenCalled();
@@ -162,30 +185,37 @@ describe('BeneficiosPage', () => {
     const fila = (await screen.findByText('Ampolla de tratamiento de regalo')).closest('tr')!;
     expect(within(fila).getByText('Otro beneficio')).toBeTruthy();
     expect(within(fila).getByText('—')).toBeTruthy();
+    // Sin `profesionales` (backend anterior a la 026): vale con todos
+    expect(within(fila).getByText('Todos')).toBeTruthy();
   });
 
-  describe('Activar / desactivar (un solo activo)', () => {
+  it('TEXTO_SOLO_UNO: uno en la campaña, todos se aplican desde el panel', () => {
+    expect(TEXTO_SOLO_UNO).toBe('Solo uno puede estar en la campaña de mails. Todos se pueden aplicar en los turnos desde el panel.');
+  });
+
+  describe('Usar en la campaña de mails / sacar de la campaña (uno solo)', () => {
     it('si ya hay otro activo, confirma el reemplazo antes de llamar a la API', async () => {
       activar.mockResolvedValue({ activo: { ...PRODUCTOS, activo: true }, reemplazado: { id: 'ben-1', nombre: SERVICIOS.nombre } });
       renderPage();
       await screen.findByText('10 % en productos');
 
-      fireEvent.click(screen.getByRole('button', { name: 'Activar 10 % en productos' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Usar 10 % en productos en la campaña de mails' }));
       expect(activar).not.toHaveBeenCalled();
       expect(await screen.findByText(textoReemplazo('20 % en tu próximo servicio'))).toBeTruthy();
-      expect(screen.getByText('Va a reemplazar a «20 % en tu próximo servicio» como beneficio activo. Los códigos ya enviados siguen valiendo.')).toBeTruthy();
+      expect(screen.getByText('Va a reemplazar a «20 % en tu próximo servicio» en la campaña de mails. Los códigos ya enviados siguen valiendo.')).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Cambiar el beneficio de la campaña' })).toBeTruthy();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Activar' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Usar en la campaña' }));
       await waitFor(() => expect(activar).toHaveBeenCalledWith('ben-2'));
       expect(editar).not.toHaveBeenCalled();
-      await waitFor(() => expect(toastService.success).toHaveBeenCalledWith('«10 % en productos» es el beneficio activo (reemplazó a «20 % en tu próximo servicio»)'));
+      await waitFor(() => expect(toastService.success).toHaveBeenCalledWith('«10 % en productos» quedó en la campaña de mails (reemplazó a «20 % en tu próximo servicio»)'));
       await waitFor(() => expect(listar).toHaveBeenCalledTimes(2));
     });
 
     it('cancelar la confirmación no activa nada', async () => {
       renderPage();
       await screen.findByText('10 % en productos');
-      fireEvent.click(screen.getByRole('button', { name: 'Activar 10 % en productos' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Usar 10 % en productos en la campaña de mails' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
       await waitFor(() => expect(screen.queryByText(/Va a reemplazar/)).toBeNull());
       expect(activar).not.toHaveBeenCalled();
@@ -196,7 +226,7 @@ describe('BeneficiosPage', () => {
       renderPage();
       await screen.findByText('10 % en productos');
       await waitFor(() => expect(estaPrendidaListaVieja).toHaveBeenCalled());
-      fireEvent.click(screen.getByRole('button', { name: 'Activar 10 % en productos' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Usar 10 % en productos en la campaña de mails' }));
       expect(await screen.findByText(/La campaña Lista vieja está prendida: desde ahora va a ofrecer «10 % en productos»\./)).toBeTruthy();
     });
 
@@ -206,26 +236,29 @@ describe('BeneficiosPage', () => {
       renderPage();
       await screen.findByText('10 % en productos');
 
-      fireEvent.click(screen.getByRole('button', { name: 'Activar 10 % en productos' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Usar 10 % en productos en la campaña de mails' }));
       await waitFor(() => expect(activar).toHaveBeenCalledWith('ben-2'));
       expect(screen.queryByText(/Va a reemplazar/)).toBeNull();
-      await waitFor(() => expect(toastService.success).toHaveBeenCalledWith('«10 % en productos» es el beneficio activo'));
+      await waitFor(() => expect(toastService.success).toHaveBeenCalledWith('«10 % en productos» quedó en la campaña de mails'));
     });
 
-    it('"Desactivar" confirma y, con la campaña prendida, avisa que va a dejar de mandar mails (D13)', async () => {
+    it('"Sacar de la campaña" confirma y, con la campaña prendida, avisa que va a dejar de mandar mails (D13)', async () => {
       estaPrendidaListaVieja.mockResolvedValue(true);
       desactivar.mockResolvedValue({ ...SERVICIOS, activo: false });
       renderPage();
       await screen.findByText('20 % en tu próximo servicio');
       await waitFor(() => expect(estaPrendidaListaVieja).toHaveBeenCalled());
 
-      fireEvent.click(screen.getByRole('button', { name: 'Desactivar 20 % en tu próximo servicio' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Sacar 20 % en tu próximo servicio de la campaña' }));
       expect(desactivar).not.toHaveBeenCalled();
-      const mensaje = await screen.findByText(/La campaña Lista vieja está prendida y va a dejar de mandar mails hasta que actives otro/);
+      const mensaje = await screen.findByText(/La campaña Lista vieja está prendida y va a dejar de mandar mails hasta que elijas otro beneficio/);
       expect(mensaje.textContent).toContain(AVISO_CAMPANIA_SIN_ACTIVO);
+      expect(mensaje.textContent).toContain('Se puede seguir aplicando en los turnos desde el panel');
+      expect(screen.getByRole('heading', { name: 'Sacar de la campaña de mails' })).toBeTruthy();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Desactivar' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Sacar de la campaña' }));
       await waitFor(() => expect(desactivar).toHaveBeenCalledWith('ben-1'));
+      await waitFor(() => expect(toastService.success).toHaveBeenCalledWith('«20 % en tu próximo servicio» salió de la campaña de mails. La campaña no tiene beneficio.'));
       await waitFor(() => expect(listar).toHaveBeenCalledTimes(2));
     });
 
@@ -234,7 +267,7 @@ describe('BeneficiosPage', () => {
       activar.mockRejectedValue({ response: { status: 500, data: { message: 'Algo falló' } } });
       renderPage();
       await screen.findByText('10 % en productos');
-      fireEvent.click(screen.getByRole('button', { name: 'Activar 10 % en productos' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Usar 10 % en productos en la campaña de mails' }));
       await waitFor(() => expect(toastService.error).toHaveBeenCalledWith('Algo falló'));
     });
   });
@@ -290,6 +323,7 @@ describe('BeneficiosPage', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Nuevo beneficio' }));
       await screen.findByRole('heading', { name: 'Nuevo beneficio' });
 
+      await screen.findByRole('checkbox', { name: 'Caro' });
       fireEvent.change(campo('Nombre'), { target: { value: '  Bienvenida  ' } });
       fireEvent.change(campo('Descuento (%)'), { target: { value: '25' } });
       fireEvent.change(campo('Vigencia del código (días)'), { target: { value: '45' } });
@@ -298,9 +332,10 @@ describe('BeneficiosPage', () => {
 
       await waitFor(() => expect(crear).toHaveBeenCalledWith({
         nombre: 'Bienvenida', tipo: 'descuento', porcentaje: 25, aplica_servicio: true, aplica_productos: true, vigencia_dias: 45,
+        profesional_ids: ['u-caro', 'u-juli'],
       }));
       await waitFor(() => expect(screen.queryByRole('heading', { name: 'Nuevo beneficio' })).toBeNull());
-      expect(toastService.success).toHaveBeenCalledWith('Beneficio creado. Activalo desde la lista para ofrecerlo.');
+      expect(toastService.success).toHaveBeenCalledWith('Beneficio creado. Ya se puede aplicar en los turnos desde el panel.');
       await waitFor(() => expect(listar).toHaveBeenCalledTimes(2));
     });
 
@@ -322,15 +357,126 @@ describe('BeneficiosPage', () => {
       expect(screen.getByTestId('ayuda-tipo').textContent).toBe('Al cobrar aparece el aviso con este texto; quien cobra lo aplica.');
 
       fireEvent.change(queRecibe, { target: { value: 'Ampolla de tratamiento de regalo' } });
+      await screen.findByRole('checkbox', { name: 'Caro' });
       fireEvent.click(screen.getByRole('button', { name: 'Crear beneficio' }));
 
       await waitFor(() => expect(crear).toHaveBeenCalledWith({
-        nombre: 'Ampolla de tratamiento de regalo', tipo: 'otro', vigencia_dias: 30,
+        nombre: 'Ampolla de tratamiento de regalo', tipo: 'otro', vigencia_dias: 30, profesional_ids: ['u-caro', 'u-juli'],
       }));
       const body = crear.mock.calls[0][0];
       expect(body).not.toHaveProperty('porcentaje');
       expect(body).not.toHaveProperty('aplica_servicio');
       expect(body).not.toHaveProperty('aplica_productos');
+    });
+  });
+
+  describe('"Vale con" (D1, D14)', () => {
+    it('al crear vienen todos los profesionales del panel tildados (sin los super_admin)', async () => {
+      renderPage();
+      await screen.findByText('20 % en tu próximo servicio');
+      fireEvent.click(screen.getByRole('button', { name: 'Nuevo beneficio' }));
+      const caro = await screen.findByRole('checkbox', { name: 'Caro' }) as HTMLInputElement;
+      const juli = screen.getByRole('checkbox', { name: 'Juli' }) as HTMLInputElement;
+      await waitFor(() => expect(caro.checked).toBe(true));
+      expect(juli.checked).toBe(true);
+      expect(screen.queryByRole('checkbox', { name: 'Soporte' })).toBeNull();
+      expect(within(screen.getByTestId('vale-con')).getByText('Solo se puede usar al reservar con estos profesionales.')).toBeTruthy();
+      expect(screen.queryByTestId('nota-turnos-reservados')).toBeNull();
+    });
+
+    it('si destilda a todos, avisa y no crea; con uno solo, manda ese', async () => {
+      crear.mockResolvedValue({ ...PRODUCTOS, id: 'ben-9' });
+      renderPage();
+      await screen.findByText('20 % en tu próximo servicio');
+      fireEvent.click(screen.getByRole('button', { name: 'Nuevo beneficio' }));
+      await screen.findByRole('checkbox', { name: 'Caro' });
+      fireEvent.change(campo('Nombre'), { target: { value: 'Bienvenida' } });
+      fireEvent.change(campo('Descuento (%)'), { target: { value: '20' } });
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Caro' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Juli' }));
+      expect(await screen.findByText(MENSAJE_PROFESIONALES)).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Crear beneficio' }));
+      await waitFor(() => expect(screen.getByText(MENSAJE_PROFESIONALES)).toBeTruthy());
+      expect(crear).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Juli' }));
+      await waitFor(() => expect(screen.queryByText(MENSAJE_PROFESIONALES)).toBeNull());
+      fireEvent.click(screen.getByRole('button', { name: 'Crear beneficio' }));
+      await waitFor(() => expect(crear).toHaveBeenCalledWith(expect.objectContaining({ profesional_ids: ['u-juli'] })));
+    });
+
+    it('si no se pueden cargar los profesionales, lo dice y deja reintentar', async () => {
+      // La lista también la pide la pantalla (columna "Vale con"), con la misma clave de cache: falla hasta reintentar
+      getProfesionales.mockRejectedValue(new Error('500'));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderPage();
+      await screen.findByText('20 % en tu próximo servicio');
+      fireEvent.click(screen.getByRole('button', { name: 'Nuevo beneficio' }));
+      expect(await screen.findByText('No se pudieron cargar los profesionales.')).toBeTruthy();
+      getProfesionales.mockResolvedValue({ success: true, data: { profesionales: [CARO, JULI, SUPER] } });
+      fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+      expect(await screen.findByRole('checkbox', { name: 'Caro' })).toBeTruthy();
+    });
+
+    it('D14: un id del beneficio que no está en el checklist (p. ej. un super_admin sembrado) no se muestra ni se reenvía', async () => {
+      listar.mockResolvedValue([{ ...SERVICIOS, profesionales: [{ id: 'u-caro', nombre: 'Caro' }, { id: 'u-super', nombre: 'Soporte' }] }, PRODUCTOS]);
+      editar.mockResolvedValue(SERVICIOS);
+      renderPage();
+      await screen.findByText('20 % en tu próximo servicio');
+      fireEvent.click(screen.getByRole('button', { name: 'Editar 20 % en tu próximo servicio' }));
+      await screen.findByRole('heading', { name: 'Editar beneficio' });
+      const juli = await screen.findByRole('checkbox', { name: 'Juli' }) as HTMLInputElement;
+      await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Caro' }) as HTMLInputElement).checked).toBe(true));
+      expect(screen.queryByRole('checkbox', { name: /Soporte/ })).toBeNull();
+      expect(juli.checked).toBe(false);
+
+      // Cambiar solo el nombre no manda profesionales
+      fireEvent.change(campo('Nombre'), { target: { value: 'Volvé con 20 %' } });
+      await waitFor(() => expect(guardar().disabled).toBe(false));
+      fireEvent.click(guardar());
+      await waitFor(() => expect(editar).toHaveBeenCalledWith('ben-1', { nombre: 'Volvé con 20 %' }));
+    });
+
+    it('D14: al tildar a otro, viajan solo los profesionales válidos del checklist', async () => {
+      listar.mockResolvedValue([{ ...SERVICIOS, profesionales: [{ id: 'u-caro', nombre: 'Caro' }, { id: 'u-super', nombre: 'Soporte' }] }, PRODUCTOS]);
+      editar.mockResolvedValue(SERVICIOS);
+      renderPage();
+      await screen.findByText('20 % en tu próximo servicio');
+      fireEvent.click(screen.getByRole('button', { name: 'Editar 20 % en tu próximo servicio' }));
+      const juli = await screen.findByRole('checkbox', { name: 'Juli' });
+      await waitFor(() => expect((screen.getByRole('checkbox', { name: 'Caro' }) as HTMLInputElement).checked).toBe(true));
+      fireEvent.click(juli);
+      await waitFor(() => expect(guardar().disabled).toBe(false));
+      fireEvent.click(guardar());
+      await waitFor(() => expect(editar).toHaveBeenCalledTimes(1));
+      expect([...editar.mock.calls[0][1].profesional_ids].sort()).toEqual(['u-caro', 'u-juli']);
+    });
+
+    it('un beneficio con `profesionales: []` dice "Ningún profesional activo" en la lista', async () => {
+      listar.mockResolvedValue([{ ...SERVICIOS, profesionales: [] }]);
+      renderPage();
+      const fila = (await screen.findByText('20 % en tu próximo servicio')).closest('tr')!;
+      expect(within(fila).getByText('Ningún profesional activo')).toBeTruthy();
+    });
+
+    it('al editar marca los del beneficio; con códigos se puede cambiar y avisa que los turnos reservados no cambian (D16)', async () => {
+      editar.mockResolvedValue({ ...SERVICIOS, profesionales: [{ id: 'u-caro', nombre: 'Caro' }] });
+      renderPage();
+      await screen.findByText('20 % en tu próximo servicio');
+      fireEvent.click(screen.getByRole('button', { name: 'Editar 20 % en tu próximo servicio' }));
+      await screen.findByRole('heading', { name: 'Editar beneficio' });
+
+      const juli = await screen.findByRole('checkbox', { name: 'Juli' }) as HTMLInputElement;
+      expect((screen.getByRole('checkbox', { name: 'Caro' }) as HTMLInputElement).checked).toBe(true);
+      expect(juli.checked).toBe(true);
+      expect(juli.disabled).toBe(false);
+      expect(screen.getByTestId('nota-turnos-reservados').textContent).toBe(TEXTO_TURNOS_NO_CAMBIAN);
+
+      fireEvent.click(juli);
+      await waitFor(() => expect(guardar().disabled).toBe(false));
+      fireEvent.click(guardar());
+      await waitFor(() => expect(editar).toHaveBeenCalledWith('ben-1', { profesional_ids: ['u-caro'] }));
     });
   });
 
@@ -342,6 +488,7 @@ describe('BeneficiosPage', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'Editar 20 % en tu próximo servicio' }));
       expect(await screen.findByRole('heading', { name: 'Editar beneficio' })).toBeTruthy();
+      await screen.findByRole('checkbox', { name: 'Caro' });
 
       expect(screen.getByText(TEXTO_BLOQUEO)).toBeTruthy();
       expect((screen.getByRole('radio', { name: /Descuento en %/ }) as HTMLInputElement).disabled).toBe(true);
@@ -519,7 +666,10 @@ describe('BeneficiosPage', () => {
 });
 
 describe('beneficioSchema y armarEditar', () => {
-  const BASE = { tipo: 'descuento' as const, nombre: 'Bienvenida', porcentaje: '20', aplica_servicio: true, aplica_productos: false, vigencia_dias: '30' };
+  const BASE = {
+    tipo: 'descuento' as const, nombre: 'Bienvenida', porcentaje: '20', aplica_servicio: true, aplica_productos: false, vigencia_dias: '30',
+    profesional_ids: ['u-caro'],
+  };
   const OTRO = { ...BASE, tipo: 'otro' as const, nombre: 'Ampolla de regalo', porcentaje: '' };
 
   it('acepta el default y rechaza fuera de rango', () => {
@@ -531,6 +681,8 @@ describe('beneficioSchema y armarEditar', () => {
     expect(beneficioSchema.safeParse({ ...BASE, nombre: 'A' }).success).toBe(false);
     expect(beneficioSchema.safeParse({ ...BASE, aplica_servicio: false }).success).toBe(false);
     expect(beneficioSchema.safeParse({ ...BASE, aplica_servicio: false, aplica_productos: true }).success).toBe(true);
+    // D1: al menos un profesional
+    expect(beneficioSchema.safeParse({ ...BASE, profesional_ids: [] }).success).toBe(false);
   });
 
   it('con "otro" no exige porcentaje ni "aplica"', () => {
@@ -540,14 +692,23 @@ describe('beneficioSchema y armarEditar', () => {
   });
 
   it('armarCrear: con "otro" no manda porcentaje ni "aplica"', () => {
-    expect(armarCrear(OTRO)).toEqual({ nombre: 'Ampolla de regalo', tipo: 'otro', vigencia_dias: 30 });
-    expect(armarCrear(BASE)).toEqual({ nombre: 'Bienvenida', tipo: 'descuento', porcentaje: 20, aplica_servicio: true, aplica_productos: false, vigencia_dias: 30 });
+    expect(armarCrear(OTRO)).toEqual({ nombre: 'Ampolla de regalo', tipo: 'otro', vigencia_dias: 30, profesional_ids: ['u-caro'] });
+    expect(armarCrear(BASE)).toEqual({
+      nombre: 'Bienvenida', tipo: 'descuento', porcentaje: 20, aplica_servicio: true, aplica_productos: false, vigencia_dias: 30,
+      profesional_ids: ['u-caro'],
+    });
   });
 
   it('armarEditar manda solo lo que cambió y, bloqueado, nunca el porcentaje ni "aplica"', () => {
     expect(armarEditar({ ...BASE, nombre: 'Otro', porcentaje: '30' }, BASE, true)).toEqual({ nombre: 'Otro' });
     expect(armarEditar({ ...BASE, porcentaje: '30', aplica_productos: true }, BASE, false)).toEqual({ porcentaje: 30, aplica_productos: true });
     expect(armarEditar(BASE, BASE, false)).toEqual({});
+  });
+
+  it('armarEditar: los profesionales viajan si cambiaron (el orden no importa), aunque tenga códigos (D16)', () => {
+    const DOS = { ...BASE, profesional_ids: ['u-caro', 'u-juli'] };
+    expect(armarEditar({ ...DOS, profesional_ids: ['u-juli', 'u-caro'] }, DOS, true)).toEqual({});
+    expect(armarEditar({ ...DOS, profesional_ids: ['u-juli'] }, DOS, true)).toEqual({ profesional_ids: ['u-juli'] });
   });
 
   it('armarEditar entre tipos: a "otro" solo el tipo; a "descuento" el tipo con porcentaje y "aplica"', () => {
@@ -566,6 +727,10 @@ describe('beneficioSchema y armarEditar', () => {
 describe('mensajeConfirmacion (D13)', () => {
   const A = { id: 'a', nombre: 'Viejo' };
   const B = { id: 'b', nombre: 'Nuevo' };
+  it('poner uno sin otro en la campaña: lo dice, y con la campaña prendida avisa qué va a ofrecer', () => {
+    expect(mensajeConfirmacion({ tipo: 'activar', beneficio: B, anterior: null }, false)).toBe('«Nuevo» va a ser el beneficio de la campaña de mails.');
+    expect(mensajeConfirmacion({ tipo: 'activar', beneficio: B, anterior: null }, true)).toContain('va a ofrecer «Nuevo»');
+  });
   it('reemplazo: siempre el texto de reemplazo; con la campaña prendida, que va a ofrecer el nuevo', () => {
     expect(mensajeConfirmacion({ tipo: 'activar', beneficio: B, anterior: A }, false)).toBe(textoReemplazo('Viejo'));
     expect(mensajeConfirmacion({ tipo: 'activar', beneficio: B, anterior: A }, true)).toContain('va a ofrecer «Nuevo»');

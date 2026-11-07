@@ -54,11 +54,16 @@ export interface ClienteBeneficioCodigo {
   estado: 'emitido'
   vence_at: string
   beneficio: {
+    // Para saber con qué profesionales vale (lista-vieja-cierre D1). Si el
+    // backend no los manda, el panel lo busca en la lista de beneficios por id;
+    // sin ninguno de los dos se asume que vale con todos.
+    id?: string
     nombre: string
     tipo: BeneficioTipo
     porcentaje: number | null
     aplica_servicio: boolean
     aplica_productos: boolean
+    profesionales?: { id: string; nombre: string }[]
   }
 }
 

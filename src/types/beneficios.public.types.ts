@@ -3,7 +3,7 @@
 // backend/docs/beneficio-con-turno-plan.md §5 (el beneficio del mail se consigue
 // reservando un turno: `?m=` en la landing y `beneficio_m` en la reserva).
 
-import type { BeneficioTipo } from './beneficios.types';
+import type { BeneficioTipo, ProfesionalDeBeneficio } from './beneficios.types';
 
 // Lo que el beneficio da: "15 % en servicios", "10 % en servicios y productos"
 // (tipo 'descuento') o lo que dice `nombre` (tipo 'otro', p. ej. "Ampolla de
@@ -14,6 +14,9 @@ export interface BeneficioPublico {
   porcentaje: number | null;   // null con 'otro'
   aplica_servicio: boolean;
   aplica_productos: boolean;
+  // Con quiénes vale (lista-vieja-cierre D1/D3). Sin la lista (backend anterior,
+  // sessionStorage de antes del cambio) vale con todos.
+  profesionales?: ProfesionalDeBeneficio[];
 }
 
 // ---------------------------------------------------------------------------
@@ -50,6 +53,8 @@ export interface ContextoBeneficio {
   vence_el?: string | null;
   precarga?: PrecargaBeneficio | null;
   turno?: TurnoConBeneficio | null;
+  // Con quiénes vale el beneficio (si el backend lo manda afuera de `beneficio`)
+  profesionales?: ProfesionalDeBeneficio[];
 }
 
 // El beneficio del link `?m=` que acompaña la visita (sessionStorage) y el
@@ -82,6 +87,8 @@ export interface ValidacionCodigoBeneficio {
   origen?: 'cupon' | 'codigo';
   estado?: EstadoBeneficioLink;
   turno?: TurnoConBeneficio | null;
+  // Con quiénes vale el beneficio (si el backend lo manda afuera de `beneficio`)
+  profesionales?: ProfesionalDeBeneficio[];
 }
 
 // Código ya validado que acompaña la visita (sessionStorage, `?b=`) y el
