@@ -186,7 +186,7 @@ describe('DashboardTurnoModal — selector de beneficio (A5)', () => {
   );
 
   async function elegirClienteYServicio() {
-    fireEvent.change(screen.getByPlaceholderText('Buscar por nombre o email...'), { target: { value: 'Ana' } });
+    fireEvent.change(screen.getByPlaceholderText('Buscar por nombre, email o teléfono...'), { target: { value: 'Ana' } });
     fireEvent.click(await screen.findByText('Ana Pérez'));
     fireEvent.click(await screen.findByText('Corte'));
   }

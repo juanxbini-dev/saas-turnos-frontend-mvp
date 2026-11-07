@@ -3,7 +3,10 @@ import { Tabs, Button, ConfirmModal, Modal } from '../components/ui';
 import { ClientesCatalogo } from '../components/clientes/ClientesCatalogo';
 import { ClienteModal } from '../components/clientes/ClienteModal';
 import { ClientePerfilDrawer } from '../components/clientes/ClientePerfilDrawer';
+import { PosiblesDuplicados } from '../components/clientes/PosiblesDuplicados';
+import { UnificacionesRealizadas } from '../components/clientes/UnificacionesRealizadas';
 import { MisClientesList } from '../components/clientes/MisClientesList';
+import { EdicionesPendientes } from '../components/clientes/EdicionesPendientes';
 import { clienteService } from '../services/cliente.service';
 import { disponibilidadService } from '../services/disponibilidad.service';
 import { useFetch } from '../hooks/useFetch';
@@ -119,7 +122,10 @@ function ClientesPage() {
     { id: 'clientes', label: 'Clientes' },
     isSuperAdmin
       ? { id: 'mis-clientes', label: 'Clientes por profesional' }
-      : { id: 'mis-clientes', label: 'Mis clientes' }
+      : { id: 'mis-clientes', label: 'Mis clientes' },
+    // Solo súper admin: lista las coincidencias para unificar o descartar (clientes-unificar-spec)
+    ...(isSuperAdmin ? [{ id: 'duplicados', label: 'Posibles duplicados' }] : []),
+    ...(isSuperAdmin ? [{ id: 'unificaciones', label: 'Unificaciones realizadas' }] : [])
   ];
 
   return (
@@ -132,6 +138,8 @@ function ClientesPage() {
               Gestiona los clientes de tu negocio
             </p>
           </div>
+
+          {(isAdmin || isSuperAdmin) && <EdicionesPendientes onResuelto={revalidate} />}
 
           <Tabs 
             tabs={tabs} 
@@ -168,6 +176,14 @@ function ClientesPage() {
                 onBusquedaChange={handleBusquedaChange}
               />
             </div>
+          )}
+
+          {activeTab === 'duplicados' && isSuperAdmin && (
+            <PosiblesDuplicados onCambio={revalidate} />
+          )}
+
+          {activeTab === 'unificaciones' && isSuperAdmin && (
+            <UnificacionesRealizadas onCambio={revalidate} />
           )}
 
           {activeTab === 'mis-clientes' && (

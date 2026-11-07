@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Input } from '../ui';
 import { Cliente, CreateClienteData, UpdateClienteData } from '../../types/cliente.types';
-import { clienteService, getClienteDuplicado } from '../../services/cliente.service';
+import { ClienteDuplicado, clienteService, getClienteDuplicado } from '../../services/cliente.service';
 import { ClienteDuplicadoModal } from './ClienteDuplicadoModal';
+import { AvisoTelefono } from './AvisoTelefono';
+import { errorDeMail } from '../../utils/email.utils';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../context/AuthContext';
 import { cacheService } from '../../cache/cache.service';
@@ -30,11 +32,7 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
   });
   // Solo en el alta: el cliente autorizó de palabra las novedades por WhatsApp
   const [autorizoNovedades, setAutorizoNovedades] = useState(false);
-  const [duplicado, setDuplicado] = useState<{ isOpen: boolean; cliente: Cliente | null; mensaje: string }>({
-    isOpen: false,
-    cliente: null,
-    mensaje: ''
-  });
+  const [duplicado, setDuplicado] = useState<ClienteDuplicado | null>(null);
   const { state: authState } = useAuth();
   const toast = useToast();
 
@@ -55,7 +53,9 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
         telefono: ''
       });
     }
-  }, [cliente, isEditing]);
+    setDuplicado(null);
+    // isOpen: en altas seguidas "cliente" no cambia, y el formulario traería los datos de la anterior
+  }, [cliente, isEditing, isOpen]);
 
   // El tilde nunca se hereda de un alta anterior: quedaría registrado un
   // permiso que esta persona no dio.
@@ -65,9 +65,26 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    await guardar();
+  };
+
+  const guardar = async (esOtraPersona = false) => {
     if (!formData.nombre.trim()) {
       toast.error('El nombre es requerido');
+      return;
+    }
+
+    const mailSinCambios = isEditing && (formData.email.trim() === (cliente?.email ?? '').trim());
+    const errorMail = mailSinCambios ? null : errorDeMail(formData.email);
+    if (errorMail) {
+      toast.error(errorMail);
+      return;
+    }
+
+    // Una ficha vieja sin teléfono se puede seguir corrigiendo sin agregarlo
+    const telefonoOpcional = isEditing && !(cliente?.telefono ?? '').trim();
+    if (!telefonoOpcional && !formData.telefono.trim()) {
+      toast.error('El teléfono es obligatorio');
       return;
     }
 
@@ -77,7 +94,8 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
         const updateData: UpdateClienteData = {
           nombre: formData.nombre,
           email: formData.email.trim() || null,
-          telefono: formData.telefono || null
+          telefono: formData.telefono || null,
+          es_otra_persona: esOtraPersona || undefined
         };
         await clienteService.updateCliente(cliente.id, updateData);
         toast.success('Cliente actualizado');
@@ -88,7 +106,8 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
           telefono: formData.telefono || undefined,
           // Solo viaja si lo tildaron: sin tilde no se afirma nada sobre la
           // persona (ni permiso ni baja).
-          marketing_consentimiento: autorizoNovedades ? true : undefined
+          marketing_consentimiento: autorizoNovedades ? true : undefined,
+          es_otra_persona: esOtraPersona || undefined
         };
         await clienteService.createCliente(createData);
         toast.success('Cliente creado');
@@ -104,7 +123,7 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
     } catch (error: any) {
       const dup = getClienteDuplicado(error);
       if (dup) {
-        setDuplicado({ isOpen: true, cliente: dup.cliente, mensaje: dup.mensaje });
+        setDuplicado(dup);
       } else {
         toast.error(error.response?.data?.message || error.message || 'Error inesperado');
       }
@@ -126,8 +145,10 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={title}
+      closeOnEscape={!duplicado}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      {/* noValidate: el navegador frenaría una ficha vieja con un mail raro aunque no se toque */}
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Nombre *
@@ -144,20 +165,20 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email
+            Email{isEditing && !cliente?.email ? '' : ' *'}
           </label>
           <Input
             type="email"
             value={formData.email}
             onChange={(e) => handleInputChange('email', e.target.value)}
-            placeholder="email@ejemplo.com (opcional)"
+            placeholder={isEditing && !cliente?.email ? 'Esta ficha todavía no tiene mail' : 'email@ejemplo.com'}
             disabled={loading}
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Teléfono
+            Teléfono{isEditing && !cliente?.telefono ? '' : ' *'}
           </label>
           <Input
             type="tel"
@@ -166,6 +187,7 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
             placeholder="+54 9 11 1234-5678"
             disabled={loading}
           />
+          <AvisoTelefono telefono={formData.telefono} />
         </div>
 
         {!isEditing && (
@@ -201,10 +223,13 @@ export const ClienteModal: React.FC<ClienteModalProps> = ({
     </Modal>
 
     <ClienteDuplicadoModal
-      isOpen={duplicado.isOpen}
-      mensaje={duplicado.mensaje}
-      cliente={duplicado.cliente}
-      onClose={() => setDuplicado({ isOpen: false, cliente: null, mensaje: '' })}
+      isOpen={!!duplicado}
+      mensaje={duplicado?.mensaje ?? ''}
+      cliente={duplicado?.cliente ?? null}
+      motivo={duplicado?.motivo}
+      onClose={() => setDuplicado(null)}
+      onCrearIgual={duplicado?.permiteCrearIgual ? () => { setDuplicado(null); guardar(true); } : undefined}
+      textoCrearIgual={isEditing ? 'Es otra persona, guardar igual' : undefined}
     />
     </>
   );

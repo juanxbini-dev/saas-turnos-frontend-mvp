@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Calendar, Clock, DollarSign, User, Mail, Phone, TrendingUp, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
 import { Modal, Avatar, TurnoEstadoBadge, Spinner } from '../ui';
 import { clienteService } from '../../services/cliente.service';
-import { ClientePerfil, TurnoResumen, ProductoComprado, Cliente } from '../../types/cliente.types';
+import { CambioFicha, ClientePerfil, TurnoResumen, ProductoComprado, Cliente } from '../../types/cliente.types';
+import { formatFechaHoraAR } from '../../utils/fechasAR.utils';
 import { ClienteMarketingRow } from './ClienteMarketingRow';
 
 interface ClientePerfilDrawerProps {
@@ -11,7 +12,33 @@ interface ClientePerfilDrawerProps {
   onClose: () => void;
 }
 
-type ActiveSection = 'turnos' | 'productos' | null;
+type SeccionId = 'turnos' | 'productos' | 'cambios';
+type ActiveSection = SeccionId | null;
+
+const CAMPO_FICHA: Record<CambioFicha['campo'], string> = { nombre: 'Nombre', email: 'Mail', telefono: 'Teléfono' };
+
+function estadoCambioFicha(cambio: CambioFicha): string | null {
+  const quien = cambio.resuelto_por_nombre ? ` por ${cambio.resuelto_por_nombre}` : '';
+  if (cambio.estado === 'pendiente') return 'Espera la aprobación del salón.';
+  if (cambio.estado === 'rechazado') return `Rechazado${quien}. La ficha no cambió.`;
+  if (cambio.estado === 'aplicado') return quien ? `Aprobado${quien}.` : null;
+  if (cambio.motivo_no_aplicado === 'reemplazado') return 'No se cambió: después pidió otro cambio.';
+  if (cambio.motivo_no_aplicado === 'telefono_invalido') return 'No se cambió: el número no es válido.';
+  return `No se cambió: ${cambio.campo === 'telefono' ? 'ese número' : 'ese mail'} ya lo tiene otra ficha.`;
+}
+
+// Lo que pidió la persona al reservar por la web. El valor anterior queda para poder corregirlo a mano.
+const CambioFichaRow: React.FC<{ cambio: CambioFicha }> = ({ cambio }) => (
+  <li className="px-4 py-3 text-sm">
+    <p className="text-xs text-gray-400">{formatFechaHoraAR(cambio.creado_at)} · Desde la web, al sacar un turno</p>
+    <p className="text-gray-800 break-words">
+      {CAMPO_FICHA[cambio.campo]}: {cambio.valor_anterior || 'sin dato'} → {cambio.valor_nuevo || 'sin dato'}
+    </p>
+    {estadoCambioFicha(cambio) && (
+      <p className={`text-xs ${cambio.estado === 'aplicado' ? 'text-gray-500' : 'text-amber-700'}`}>{estadoCambioFicha(cambio)}</p>
+    )}
+  </li>
+);
 
 function formatFecha(fecha: string): string {
   const [y, m, d] = fecha.split('-');
@@ -107,12 +134,12 @@ const ProductoRow: React.FC<{ producto: ProductoComprado }> = ({ producto }) => 
 );
 
 interface AccordionSectionProps {
-  id: 'turnos' | 'productos';
+  id: SeccionId;
   label: string;
   count: number;
   icon: React.ReactNode;
   active: boolean;
-  onToggle: (id: 'turnos' | 'productos') => void;
+  onToggle: (id: SeccionId) => void;
   children: React.ReactNode;
 }
 
@@ -159,7 +186,7 @@ export const ClientePerfilDrawer: React.FC<ClientePerfilDrawerProps> = ({ client
       .finally(() => setLoading(false));
   }, [isOpen, cliente?.id]);
 
-  const handleToggleSection = (id: 'turnos' | 'productos') => {
+  const handleToggleSection = (id: SeccionId) => {
     setActiveSection(prev => prev === id ? null : id);
   };
 
@@ -331,6 +358,24 @@ export const ClientePerfilDrawer: React.FC<ClientePerfilDrawerProps> = ({ client
               </div>
             )}
           </AccordionSection>
+
+          {/* Acordeón: Cambios en la ficha (solo si hubo) */}
+          {!!perfil.cambios_ficha?.length && (
+            <AccordionSection
+              id="cambios"
+              label="Cambios en la ficha"
+              count={perfil.cambios_ficha.length}
+              icon={<User size={15} />}
+              active={activeSection === 'cambios'}
+              onToggle={handleToggleSection}
+            >
+              <ul className="divide-y divide-gray-100">
+                {perfil.cambios_ficha.map(cambio => (
+                  <CambioFichaRow key={cambio.id} cambio={cambio} />
+                ))}
+              </ul>
+            </AccordionSection>
+          )}
 
         </div>
       )}

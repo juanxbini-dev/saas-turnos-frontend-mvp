@@ -35,12 +35,15 @@ export interface CreateClienteData {
   telefono?: string
   // Solo en el alta: "Me autorizó a enviarle novedades por WhatsApp"
   marketing_consentimiento?: boolean
+  // "Es otra persona, crear igual": saltea el aviso de teléfono y nombre, nunca el de mail
+  es_otra_persona?: boolean
 }
 
 export interface UpdateClienteData {
   nombre?: string
   email?: string | null
   telefono?: string | null
+  es_otra_persona?: boolean
 }
 
 // GET /api/clientes/:id/beneficios — códigos de beneficio emitidos y vigentes
@@ -91,9 +94,41 @@ export interface ProductoComprado {
   fecha: string
 }
 
+// Cambio de ficha pedido al reservar por la web ("Editar datos")
+export interface CambioFicha {
+  id: string
+  turno_id: string | null
+  campo: 'nombre' | 'email' | 'telefono'
+  valor_anterior: string | null
+  valor_nuevo: string | null
+  /** pendiente: espera al salón. aplicado: está en la ficha. rechazado: el salón dijo que no */
+  estado: 'pendiente' | 'aplicado' | 'rechazado' | 'no_aplicado'
+  motivo_no_aplicado: 'email_de_otra_ficha' | 'telefono_invalido' | 'telefono_de_otra_ficha' | 'reemplazado' | null
+  origen: 'reserva_web'
+  creado_at: string
+  resuelto_at?: string | null
+  /** Vacío si nadie del salón intervino */
+  resuelto_por_nombre?: string | null
+}
+
+export interface EdicionPendiente {
+  cliente: { id: string; nombre: string; email: string | null; telefono: string | null }
+  cambios: CambioFicha[]
+}
+
+export type DecisionEdicion = 'aprobar' | 'rechazar'
+
+export interface ResultadoEdicion {
+  aplicados: CambioFicha['campo'][]
+  rechazados: CambioFicha['campo'][]
+  no_aplicados: { campo: CambioFicha['campo']; motivo: CambioFicha['motivo_no_aplicado'] }[]
+}
+
 export interface ClientePerfil {
   cliente: Cliente
   stats: ClientePerfilStats
   turnos_recientes: TurnoResumen[]
   productos_comprados: ProductoComprado[]
+  /** Ausente en respuestas de un backend anterior */
+  cambios_ficha?: CambioFicha[]
 }

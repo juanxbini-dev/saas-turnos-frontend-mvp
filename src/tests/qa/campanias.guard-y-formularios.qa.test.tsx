@@ -142,6 +142,8 @@ describe('L9 · tilde de novedades en el alta de cliente', () => {
     expect(tilde.checked).toBe(false);
 
     fireEvent.change(screen.getByPlaceholderText('Nombre del cliente'), { target: { value: 'Juan Pérez' } });
+    fireEvent.change(screen.getByPlaceholderText('email@ejemplo.com'), { target: { value: 'juan@x.com' } });
+    fireEvent.change(screen.getByPlaceholderText('+54 9 11 1234-5678'), { target: { value: '2915000000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Crear' }));
 
     await waitFor(() => expect(createCliente).toHaveBeenCalledTimes(1));
@@ -152,6 +154,8 @@ describe('L9 · tilde de novedades en el alta de cliente', () => {
     render(<ClienteModal cliente={null} isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
 
     fireEvent.change(screen.getByPlaceholderText('Nombre del cliente'), { target: { value: 'Juan Pérez' } });
+    fireEvent.change(screen.getByPlaceholderText('email@ejemplo.com'), { target: { value: 'juan@x.com' } });
+    fireEvent.change(screen.getByPlaceholderText('+54 9 11 1234-5678'), { target: { value: '2915000000' } });
     fireEvent.click(screen.getByLabelText(TEXTO));
     fireEvent.click(screen.getByRole('button', { name: 'Crear' }));
 
