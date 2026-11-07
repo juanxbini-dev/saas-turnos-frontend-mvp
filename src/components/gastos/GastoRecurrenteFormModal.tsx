@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button, Input, Modal, Select } from '../ui';
 import { gastosService } from '../../services/gastos.service';
 import { toastService } from '../../services/toast.service';
-import { etiquetaPeriodo, sumarMeses } from './gastos.utils';
-import type { GastoCategoria, GastoRecurrente } from '../../types/gastos.types';
+import { etiquetaPeriodo, filtrarPorTipo, sumarMeses, TEXTOS_MODO } from './gastos.utils';
+import type { GastoCategoria, GastoRecurrente, GastoTipo } from '../../types/gastos.types';
 
 interface GastoRecurrenteFormModalProps {
   isOpen: boolean;
@@ -13,6 +13,8 @@ interface GastoRecurrenteFormModalProps {
   periodo: string;                // mes abierto en el panel: default de periodo_desde
   categorias: GastoCategoria[];
   recurrente?: GastoRecurrente | null;   // si viene es edición
+  // 'ingreso': un ingreso fijo (solo categorías de ingreso). Default: gasto.
+  modo?: GastoTipo;
 }
 
 interface FormState {
@@ -48,10 +50,13 @@ const desdeRecurrente = (r: GastoRecurrente): FormState => ({
   descripcion: r.descripcion ?? '',
 });
 
-// Alta y edición de un gasto recurrente (la plantilla, no un mes puntual).
+// Alta y edición de un gasto (o ingreso) recurrente: la plantilla, no un mes puntual.
 export function GastoRecurrenteFormModal({
-  isOpen, onClose, onGuardado, periodo, categorias, recurrente,
+  isOpen, onClose, onGuardado, periodo, categorias: todasLasCategorias, recurrente, modo = 'gasto',
 }: GastoRecurrenteFormModalProps) {
+  const tx = TEXTOS_MODO[modo];
+  // Solo las del tipo del formulario (también para el default de "vacio")
+  const categorias = useMemo(() => filtrarPorTipo(todasLasCategorias, modo), [todasLasCategorias, modo]);
   const [form, setForm] = useState<FormState>(() => vacio(periodo, categorias));
   const [modoMonto, setModoMonto] = useState<ModoMonto>('todos');
   const [desdeCambio, setDesdeCambio] = useState(periodo);
@@ -109,7 +114,7 @@ export function GastoRecurrenteFormModal({
 
       if (!esEdicion) {
         await gastosService.crearRecurrente({ ...base, monto_default: monto });
-        toastService.success('Gasto fijo creado');
+        toastService.success(`${tx.Singular} fijo creado`);
       } else if (montoCambio && modoMonto === 'desde') {
         // Primero se guardan los demás campos en la plantilla actual, después se
         // cierra y se abre la nueva con el monto nuevo.
@@ -118,7 +123,7 @@ export function GastoRecurrenteFormModal({
         toastService.success(`Monto actualizado desde ${etiquetaPeriodo(desdeCambio)}`);
       } else {
         await gastosService.actualizarRecurrente(recurrente!.id, { ...base, monto_default: monto });
-        toastService.success('Gasto fijo actualizado');
+        toastService.success(`${tx.Singular} fijo actualizado`);
       }
       onGuardado();
       onClose();
@@ -134,13 +139,18 @@ export function GastoRecurrenteFormModal({
     .map((c) => ({ value: c.id, label: c.nombre }));
 
   const opcionesDesde = Array.from({ length: 6 }, (_, i) => sumarMeses(periodo, i))
-    .filter((p) => !esEdicion || p > recurrente!.periodo_desde);
+    // Desde el mes siguiente al inicio y, si la plantilla tiene fin, hasta ese
+    // fin: después no hay nada que cerrar (el backend lo rechaza con 400).
+    .filter((p) => !esEdicion || (
+      p > recurrente!.periodo_desde
+      && (!recurrente!.periodo_hasta || p <= recurrente!.periodo_hasta)
+    ));
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={esEdicion ? 'Editar gasto fijo' : 'Nuevo gasto fijo'}
+      title={esEdicion ? tx.fijoEditar : tx.fijoNuevo}
       size="md"
       footer={
         <div className="flex justify-end gap-2">
@@ -157,7 +167,7 @@ export function GastoRecurrenteFormModal({
           value={form.nombre}
           onChange={(e) => set('nombre', e.target.value)}
           error={errores.nombre}
-          placeholder="Alquiler, luz, internet, contadora…"
+          placeholder={modo === 'ingreso' ? 'Juli — sillón' : 'Alquiler, luz, internet, contadora…'}
           autoFocus
         />
 
@@ -170,7 +180,7 @@ export function GastoRecurrenteFormModal({
             error={errores.categoria_id}
           />
           <Input
-            label="Monto mensual"
+            label={modo === 'ingreso' ? 'Cuánto entra por mes' : 'Monto mensual'}
             type="number"
             min={0}
             step="0.01"
@@ -194,8 +204,18 @@ export function GastoRecurrenteFormModal({
                 quedan como están, el resto (pasados y futuros) toma el monto nuevo.
               </span>
             </label>
+            {opcionesDesde.length > 0 && (
             <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
-              <input type="radio" checked={modoMonto === 'desde'} onChange={() => setModoMonto('desde')} className="mt-0.5" />
+              <input
+                type="radio"
+                checked={modoMonto === 'desde'}
+                onChange={() => {
+                  setModoMonto('desde');
+                  // El mes por defecto (el que se está mirando) puede no ser válido
+                  if (!opcionesDesde.includes(desdeCambio)) setDesdeCambio(opcionesDesde[0]!);
+                }}
+                className="mt-0.5"
+              />
               <span className="flex-1">
                 <strong>A partir de un mes</strong> — los anteriores conservan el monto viejo.
                 {modoMonto === 'desde' && (
@@ -209,12 +229,13 @@ export function GastoRecurrenteFormModal({
                 )}
               </span>
             </label>
+            )}
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Input
-            label="Vence el día"
+            label={tx.diaLabel}
             type="number"
             min={1}
             max={31}

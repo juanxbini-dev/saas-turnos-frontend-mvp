@@ -25,13 +25,23 @@ import { GastosRecurrentesModal } from '../components/gastos/GastosRecurrentesMo
 import { GastoRecurrenteFormModal } from '../components/gastos/GastoRecurrenteFormModal';
 import { GastosCategoriasModal } from '../components/gastos/GastosCategoriasModal';
 import type { GastoFormPreset } from '../components/gastos/GastoFormInline';
-import { formatMoneda, limpiarPorCategoria, periodoActual, sumarMeses } from '../components/gastos/gastos.utils';
-import type { GastoMesItem, GastoRecurrente } from '../types/gastos.types';
+import { filtrarPorTipo, formatMoneda, limpiarPorCategoria, periodoActual, sumarMeses, TEXTOS_MODO, tipoDeFijo } from '../components/gastos/gastos.utils';
+import type { GastoMesItem, GastoRecurrente, GastoTipo } from '../types/gastos.types';
 
 // Diseño: backend/docs/gastos-superadmin-v3.md
 // Pantalla "estilo planilla": todo el mes a la vista agrupado por rubro, tilde
 // por fila y por rubro, alta en un panel inline y doble clic para editar en la
 // fila. Los gráficos del año viven en su propia pestaña. Nada se cachea en disco.
+// Ingresos (gastos-ingresos-plan): una segunda tabla con los mismos componentes
+// en modo 'ingreso' (fijos + únicos cargados a mano en categorías de ingreso).
+
+// Estado del panel inline de alta de una de las dos tablas
+interface PanelAlta {
+  abierto: boolean;
+  preset: GastoFormPreset | null;
+  nonce: number;
+}
+const PANEL_CERRADO: PanelAlta = { abierto: false, preset: null, nonce: 0 };
 type Pestania = 'mes' | 'analisis';
 const PESTANIAS = [{ id: 'mes', label: 'Mes' }, { id: 'analisis', label: 'Análisis' }];
 
@@ -40,16 +50,16 @@ function GastosContenido() {
   const [periodo, setPeriodo] = useState(periodoActual);
   const [pestania, setPestania] = useState<Pestania>('mes');
 
-  // Panel inline de alta: abierto/cerrado + preset (chips, "＋" de fijos). El
-  // preset se limpia al cerrar: si no, al reabrir con "＋ Nuevo gasto" el form
-  // se montaría de nuevo con el último chip puesto y se duplicaría el fijo.
-  const [panelAbierto, setPanelAbierto] = useState(false);
-  const [preset, setPreset] = useState<{ valor: GastoFormPreset | null; nonce: number }>({ valor: null, nonce: 0 });
+  // Panel inline de alta, uno por tabla (gastos e ingresos): abierto/cerrado +
+  // preset (chips, "＋" de fijos). El preset se limpia al cerrar: si no, al
+  // reabrir con "＋ Nuevo gasto" el form se montaría de nuevo con el último chip
+  // puesto y se duplicaría el fijo.
+  const [paneles, setPaneles] = useState<Record<GastoTipo, PanelAlta>>({ gasto: PANEL_CERRADO, ingreso: PANEL_CERRADO });
 
-  const [editando, setEditando] = useState<{ item: GastoMesItem; esRecurrente: boolean } | null>(null);
-  const [aEliminar, setAEliminar] = useState<GastoMesItem | null>(null);
+  const [editando, setEditando] = useState<{ item: GastoMesItem; esRecurrente: boolean; modo: GastoTipo } | null>(null);
+  const [aEliminar, setAEliminar] = useState<{ item: GastoMesItem; modo: GastoTipo } | null>(null);
   const [eliminando, setEliminando] = useState(false);
-  const [recurrentesAbierto, setRecurrentesAbierto] = useState(false);
+  const [recurrentesAbierto, setRecurrentesAbierto] = useState<GastoTipo | null>(null);
   const [plantilla, setPlantilla] = useState<GastoRecurrente | null>(null);
   const [categoriasAbierto, setCategoriasAbierto] = useState(false);
 
@@ -74,6 +84,9 @@ function GastosContenido() {
   // Sin mercadería y con el rubro automático renombrado, para la barra por
   // rubro, el donut y la comparativa (gastos-ganancias-spec §4.6)
   const rubros = useMemo(() => limpiarPorCategoria(porCategoria ?? []), [porCategoria]);
+  // GET /recurrentes trae los fijos de los dos tipos: cada tarjeta, los suyos
+  const fijosGasto = useMemo(() => filtrarPorTipo(recurrentes ?? [], 'gasto'), [recurrentes]);
+  const fijosIngreso = useMemo(() => filtrarPorTipo(recurrentes ?? [], 'ingreso'), [recurrentes]);
 
   const refrescarTodo = useCallback(() => {
     invalidarCacheGastos();
@@ -94,23 +107,21 @@ function GastosContenido() {
     if (tokenVencido) bloquear();
   }, [tokenVencido, bloquear]);
 
-  const abrirPanel = (valor?: GastoFormPreset) => {
+  const abrirPanel = (modo: GastoTipo, valor?: GastoFormPreset) => {
     setPestania('mes');
-    setPanelAbierto(true);
-    setPreset((p) => ({ valor: valor ?? null, nonce: p.nonce + 1 }));
+    setPaneles((ps) => ({ ...ps, [modo]: { abierto: true, preset: valor ?? null, nonce: ps[modo].nonce + 1 } }));
   };
 
-  const cerrarPanel = () => {
-    setPanelAbierto(false);
-    setPreset((p) => ({ valor: null, nonce: p.nonce }));
+  const cerrarPanel = (modo: GastoTipo) => {
+    setPaneles((ps) => ({ ...ps, [modo]: { ...ps[modo], abierto: false, preset: null } }));
   };
 
   const confirmarEliminar = async () => {
     if (!aEliminar || eliminando) return;
     setEliminando(true);
     try {
-      await gastosService.eliminarGasto(aEliminar.id);
-      toastService.success('Gasto eliminado');
+      await gastosService.eliminarGasto(aEliminar.item.id);
+      toastService.success(`${TEXTOS_MODO[aEliminar.modo].Singular} eliminado`);
       setAEliminar(null);
       refrescarTodo();
     } catch (error: any) {
@@ -148,33 +159,49 @@ function GastosContenido() {
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
-            <section className="min-w-0" aria-label="Gastos del mes">
-              <GastosTablaMes
-                mes={mes ?? null}
-                periodo={periodo}
-                categorias={categorias ?? []}
-                categoriasCargando={loadingCategorias}
-                isLoading={loadingMes}
-                panelAbierto={panelAbierto}
-                onTogglePanel={() => (panelAbierto ? cerrarPanel() : abrirPanel())}
-                onAbrirPanel={abrirPanel}
-                preset={preset.valor}
-                presetNonce={preset.nonce}
-                onEditar={(item, esRecurrente) => setEditando({ item, esRecurrente })}
-                onEliminarUnico={setAEliminar}
-                onCambio={refrescarTodo}
-              />
-            </section>
+            <div className="min-w-0 space-y-4">
+              {(['gasto', 'ingreso'] as const).map((modo) => (
+                <section key={modo} className="min-w-0" aria-label={`${TEXTOS_MODO[modo].Plural} del mes`}>
+                  <GastosTablaMes
+                    modo={modo}
+                    mes={mes ?? null}
+                    periodo={periodo}
+                    categorias={categorias ?? []}
+                    categoriasCargando={loadingCategorias}
+                    isLoading={loadingMes}
+                    panelAbierto={paneles[modo].abierto}
+                    onTogglePanel={() => (paneles[modo].abierto ? cerrarPanel(modo) : abrirPanel(modo))}
+                    onAbrirPanel={(valor) => abrirPanel(modo, valor)}
+                    preset={paneles[modo].preset}
+                    presetNonce={paneles[modo].nonce}
+                    onEditar={(item, esRecurrente) => setEditando({ item, esRecurrente, modo })}
+                    onEliminarUnico={(item) => setAEliminar({ item, modo })}
+                    onCambio={refrescarTodo}
+                  />
+                </section>
+              ))}
+            </div>
             <aside className="min-w-0 space-y-4">
               <GastosPorRubro porCategoria={rubros} isLoading={loadingPorCategoria} />
               <GastosQueEntro detalle={detalle ?? null} isLoading={loadingDetalle} />
               <GastosFijosCard
-                recurrentes={recurrentes ?? []}
+                recurrentes={fijosGasto}
                 isLoading={loadingRecurrentes}
-                onNuevo={() => abrirPanel({ repite: true, foco: 'nombre' })}
+                onNuevo={() => abrirPanel('gasto', { repite: true, foco: 'nombre' })}
                 onEditar={setPlantilla}
-                onVerTodos={() => setRecurrentesAbierto(true)}
+                onVerTodos={() => setRecurrentesAbierto('gasto')}
               />
+              {/* Solo si hay alguno: los ingresos fijos se dan de alta desde la tabla de Ingresos */}
+              {fijosIngreso.length > 0 && (
+                <GastosFijosCard
+                  modo="ingreso"
+                  recurrentes={fijosIngreso}
+                  isLoading={loadingRecurrentes}
+                  onNuevo={() => abrirPanel('ingreso', { repite: true, foco: 'nombre' })}
+                  onEditar={setPlantilla}
+                  onVerTodos={() => setRecurrentesAbierto('ingreso')}
+                />
+              )}
               <GastosCategoriasCard
                 categorias={categorias ?? []}
                 isLoading={loadingCategorias}
@@ -220,15 +247,17 @@ function GastosContenido() {
         categorias={categorias ?? []}
         item={editando?.item ?? null}
         esRecurrente={editando?.esRecurrente ?? false}
+        modo={editando?.modo ?? 'gasto'}
       />
       <GastosRecurrentesModal
-        isOpen={recurrentesAbierto}
-        onClose={() => setRecurrentesAbierto(false)}
-        recurrentes={recurrentes ?? []}
+        isOpen={recurrentesAbierto !== null}
+        onClose={() => setRecurrentesAbierto(null)}
+        modo={recurrentesAbierto ?? 'gasto'}
+        recurrentes={recurrentesAbierto === 'ingreso' ? fijosIngreso : fijosGasto}
         periodo={periodo}
-        onEditar={(r) => { setRecurrentesAbierto(false); setPlantilla(r); }}
-        onNuevo={() => { setRecurrentesAbierto(false); abrirPanel({ repite: true, foco: 'nombre' }); }}
-        onCategorias={() => { setRecurrentesAbierto(false); setCategoriasAbierto(true); }}
+        onEditar={(r) => { setRecurrentesAbierto(null); setPlantilla(r); }}
+        onNuevo={() => { const modo = recurrentesAbierto ?? 'gasto'; setRecurrentesAbierto(null); abrirPanel(modo, { repite: true, foco: 'nombre' }); }}
+        onCategorias={() => { setRecurrentesAbierto(null); setCategoriasAbierto(true); }}
         onCambio={refrescarTodo}
       />
       <GastoRecurrenteFormModal
@@ -238,6 +267,7 @@ function GastosContenido() {
         periodo={periodo}
         categorias={categorias ?? []}
         recurrente={plantilla}
+        modo={plantilla ? tipoDeFijo(plantilla) : 'gasto'}
       />
       <GastosCategoriasModal
         isOpen={categoriasAbierto}
@@ -250,8 +280,8 @@ function GastosContenido() {
         onClose={() => setAEliminar(null)}
         onConfirm={confirmarEliminar}
         loading={eliminando}
-        title="Eliminar gasto"
-        message={`¿Eliminar "${aEliminar?.nombre}"? No se puede deshacer.`}
+        title={`Eliminar ${TEXTOS_MODO[aEliminar?.modo ?? 'gasto'].singular}`}
+        message={`¿Eliminar "${aEliminar?.item.nombre}"? No se puede deshacer.`}
         confirmText="Eliminar"
       />
     </div>

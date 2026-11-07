@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Select } from '../ui';
 import { gastosService } from '../../services/gastos.service';
 import { toastService } from '../../services/toast.service';
-import { nombreMes, periodoActual } from './gastos.utils';
-import type { GastoCategoria } from '../../types/gastos.types';
+import { filtrarPorTipo, nombreMes, periodoActual, TEXTOS_MODO } from './gastos.utils';
+import type { GastoCategoria, GastoTipo } from '../../types/gastos.types';
 
 // Cómo se abre el panel: desde un chip viene nombre y categoría resueltos y el
 // foco va al monto; desde "＋" de Mis gastos fijos viene solo `repite: true`.
@@ -28,6 +28,9 @@ interface GastoFormInlineProps {
   preset: GastoFormPreset | null;
   presetNonce: number;
   onGuardado: () => void;
+  // 'ingreso' = alta de ingresos (gastos-ingresos-plan): mismos endpoints, solo
+  // con categorías de ingreso y los textos de cobro. Default: gasto.
+  modo?: GastoTipo;
 }
 
 const hoyISO = () => {
@@ -43,7 +46,8 @@ const fechaPorDefecto = (periodo: string) => (periodo === periodoActual() ? hoyI
 // varios gastos seguidos es el caso común, así que después de guardar queda
 // abierto, con Gasto/Monto limpios y el foco en "Gasto"; Sí/No, categoría y
 // día de vencimiento se conservan para el siguiente.
-export function GastoFormInline({ abierto, periodo, categorias, categoriasCargando = false, preset, presetNonce, onGuardado }: GastoFormInlineProps) {
+export function GastoFormInline({ abierto, periodo, categorias, categoriasCargando = false, preset, presetNonce, onGuardado, modo = 'gasto' }: GastoFormInlineProps) {
+  const tx = TEXTOS_MODO[modo];
   const [nombre, setNombre] = useState('');
   const [monto, setMonto] = useState('');
   const [categoriaId, setCategoriaId] = useState('');
@@ -59,14 +63,18 @@ export function GastoFormInline({ abierto, periodo, categorias, categoriasCargan
   // Último nonce cuyo preset ya se aplicó: evita reaplicarlo al reabrir el panel
   const nonceAplicado = useRef<number | null>(null);
 
-  const activas = categorias.filter((c) => c.activa);
-  const otros = activas.find((c) => c.nombre === 'Otros') ?? activas[0];
+  // Solo las categorías del tipo del formulario: un ingreso nunca cae en una
+  // categoría de gasto ni al revés
+  const activas = filtrarPorTipo(categorias, modo).filter((c) => c.activa);
+  const otros = (modo === 'gasto' ? activas.find((c) => c.nombre === 'Otros') : undefined) ?? activas[0];
   const otrosId = otros?.id ?? '';
 
-  // Categoría por defecto en cuanto llegan las categorías
+  // Categoría por defecto en cuanto llegan las categorías (o si la elegida dejó
+  // de estar entre las de este tipo, por ejemplo porque se desactivó)
   useEffect(() => {
-    if (!categoriaId && otrosId) setCategoriaId(otrosId);
-  }, [categoriaId, otrosId]);
+    if (otrosId && (!categoriaId || !activas.some((c) => c.id === categoriaId))) setCategoriaId(otrosId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriaId, otrosId, categorias, modo]);
 
   // Al cambiar de mes, la fecha del único se acomoda al mes abierto
   useEffect(() => {
@@ -110,9 +118,12 @@ export function GastoFormInline({ abierto, periodo, categorias, categoriasCargan
     e.preventDefault();
     if (guardando || categoriasCargando) return;
     const montoNum = Number(monto);
-    if (!nombre.trim()) { setError('Escribí qué gasto es'); nombreRef.current?.focus(); return; }
+    if (!nombre.trim()) { setError(`Escribí qué ${tx.singular} es`); nombreRef.current?.focus(); return; }
     if (monto === '' || Number.isNaN(montoNum) || montoNum < 0) { setError('Ingresá cuánto'); montoRef.current?.focus(); return; }
-    if (!categoriaId) { setError('No hay categorías cargadas'); return; }
+    if (!categoriaId) {
+      setError(modo === 'ingreso' ? 'No hay categorías de ingreso: creá una en Categorías' : 'No hay categorías cargadas');
+      return;
+    }
     const diaNum = dia ? Number(dia) : null;
     if (repite && diaNum !== null && (!Number.isInteger(diaNum) || diaNum < 1 || diaNum > 31)) {
       setError('El día tiene que estar entre 1 y 31'); return;
@@ -131,7 +142,7 @@ export function GastoFormInline({ abierto, periodo, categorias, categoriasCargan
           periodo, categoria_id: categoriaId, nombre: nombre.trim(), monto: montoNum,
           fecha: fecha || null, estado: yaPagado ? 'pagado' : 'pendiente',
         });
-        toastService.success('Gasto agregado');
+        toastService.success(`${tx.Singular} agregado`);
       }
       onGuardado();
       limpiar();
@@ -153,16 +164,16 @@ export function GastoFormInline({ abierto, periodo, categorias, categoriasCargan
       // mensajes los da `guardar` en el panel, iguales a los del modal.
       noValidate
       className="bg-gray-50 border border-dashed border-gray-300 rounded-lg p-3 sm:p-4 space-y-3"
-      data-testid="gasto-form-inline"
+      data-testid={modo === 'ingreso' ? 'ingreso-form-inline' : 'gasto-form-inline'}
     >
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="col-span-2 sm:col-span-3 lg:col-span-2">
           <Input
             ref={nombreRef}
-            label="Gasto"
+            label={tx.Singular}
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            placeholder={repite ? 'Alquiler del local' : 'Arreglo del aire'}
+            placeholder={repite ? tx.placeholderFijo : tx.placeholderUnico}
             autoComplete="off"
           />
         </div>
@@ -198,7 +209,7 @@ export function GastoFormInline({ abierto, periodo, categorias, categoriasCargan
         </div>
         {repite ? (
           <Input
-            label="Vence el día"
+            label={tx.diaLabel}
             type="number" min={1} max={31} inputMode="numeric"
             value={dia}
             onChange={(e) => setDia(e.target.value)}
@@ -217,14 +228,14 @@ export function GastoFormInline({ abierto, periodo, categorias, categoriasCargan
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
         <p className="text-xs text-gray-500 flex-1">
           {repite
-            ? <>Se repite solo desde {mes} en adelante. Después lo podés cambiar desde <strong>Mis gastos fijos</strong>.</>
-            : <>Un gasto de {mes} nada más.</>}
+            ? <>Se repite solo desde {mes} en adelante. Después lo podés cambiar desde <strong>{tx.fijos}</strong>.</>
+            : <>Un {tx.singular} de {mes} nada más.</>}
         </p>
         <div className="flex items-center justify-between sm:justify-end gap-4">
           {!repite && (
             <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
               <input type="checkbox" checked={yaPagado} onChange={(e) => setYaPagado(e.target.checked)} />
-              Ya lo pagué
+              {tx.yaLoPague}
             </label>
           )}
           <Button type="submit" loading={guardando} disabled={categoriasCargando}>Agregar</Button>

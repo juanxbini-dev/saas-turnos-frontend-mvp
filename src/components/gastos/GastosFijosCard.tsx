@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pencil, Plus } from 'lucide-react';
-import { etiquetaPeriodo, formatMoneda } from './gastos.utils';
-import type { GastoRecurrente } from '../../types/gastos.types';
+import { etiquetaPeriodo, formatMoneda, TEXTOS_MODO } from './gastos.utils';
+import type { GastoRecurrente, GastoTipo } from '../../types/gastos.types';
 
 interface GastosFijosCardProps {
   recurrentes: GastoRecurrente[];
@@ -9,27 +9,30 @@ interface GastosFijosCardProps {
   onNuevo: () => void;
   onEditar: (r: GastoRecurrente) => void;
   onVerTodos: () => void;
+  // 'ingreso' = "Mis ingresos fijos". Los recurrentes ya vienen filtrados por tipo.
+  modo?: GastoTipo;
 }
 
 const MAX_VISIBLES = 6;
 
 // Los gastos fijos vigentes, los más grandes primero. Desde acá se edita el
 // gasto "para todos los meses"; lo de un mes puntual se toca en la tabla.
-export const GastosFijosCard: React.FC<GastosFijosCardProps> = ({ recurrentes, isLoading, onNuevo, onEditar, onVerTodos }) => {
+export const GastosFijosCard: React.FC<GastosFijosCardProps> = ({ recurrentes, isLoading, onNuevo, onEditar, onVerTodos, modo = 'gasto' }) => {
+  const tx = TEXTOS_MODO[modo];
   const activos = recurrentes.filter((r) => r.activo).sort((a, b) => b.monto_default - a.monto_default);
   const visibles = activos.slice(0, MAX_VISIBLES);
   const restantes = activos.length - visibles.length;
 
   return (
-    <section className="bg-white border border-gray-200 rounded-xl overflow-hidden" data-testid="gastos-fijos-card">
+    <section className="bg-white border border-gray-200 rounded-xl overflow-hidden" data-testid={modo === 'ingreso' ? 'ingresos-fijos-card' : 'gastos-fijos-card'}>
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">Mis gastos fijos</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{tx.fijos}</h3>
         <button
           type="button"
           onClick={onNuevo}
           className="p-1 rounded text-blue-600 hover:bg-blue-50"
-          aria-label="Nuevo gasto fijo"
-          title="Nuevo gasto fijo"
+          aria-label={tx.fijoNuevo}
+          title={tx.fijoNuevo}
         >
           <Plus size={18} />
         </button>
@@ -40,7 +43,7 @@ export const GastosFijosCard: React.FC<GastosFijosCardProps> = ({ recurrentes, i
           {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-8 bg-gray-100 rounded animate-pulse" />)}
         </div>
       ) : activos.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-gray-500 text-center">Todavía no cargaste gastos fijos.</p>
+        <p className="px-4 py-4 text-sm text-gray-500 text-center">{tx.sinFijos}</p>
       ) : (
         <ul className="divide-y divide-gray-100">
           {visibles.map((r) => (
@@ -50,7 +53,7 @@ export const GastosFijosCard: React.FC<GastosFijosCardProps> = ({ recurrentes, i
                 <div className="text-sm text-gray-900 truncate">{r.nombre}</div>
                 <div className="text-xs text-gray-500 truncate">
                   {r.categoria?.nombre ?? 'Sin categoría'}
-                  {r.dia_vencimiento && ` · vence el ${r.dia_vencimiento}`}
+                  {r.dia_vencimiento && ` · ${modo === 'ingreso' ? 'se cobra' : 'vence'} el ${r.dia_vencimiento}`}
                   {' · '}desde {etiquetaPeriodo(r.periodo_desde)}
                 </div>
               </div>
@@ -77,7 +80,7 @@ export const GastosFijosCard: React.FC<GastosFijosCardProps> = ({ recurrentes, i
           Ver todos, incluidos los cerrados
         </button>
         <p className="text-xs text-gray-400">
-          Acá se cambia el gasto para todos los meses. Para un mes puntual, editalo en la tabla.
+          Acá se cambia el {tx.singular} para todos los meses. Para un mes puntual, editalo en la tabla.
         </p>
       </div>
     </section>

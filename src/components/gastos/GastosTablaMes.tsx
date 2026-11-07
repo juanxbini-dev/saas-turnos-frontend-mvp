@@ -4,10 +4,10 @@ import { Button } from '../ui';
 import { gastosService } from '../../services/gastos.service';
 import { toastService } from '../../services/toast.service';
 import { alcanceMontoFijoPorDefecto, aplicarCambioMontoFijo, ALCANCES_MONTO_FIJO, mensajeCambioMontoFijo, type AlcanceMontoFijo } from '../../hooks/useCambioMontoFijo';
-import { estaVencido, formatDiaMes, formatMoneda, itemPagado, nombreMes, NOMBRE_RUBRO_PROFESIONALES } from './gastos.utils';
+import { estaVencido, formatDiaMes, formatMoneda, itemPagado, nombreMes, NOMBRE_RUBRO_PROFESIONALES, TEXTOS_MODO } from './gastos.utils';
 import { ArranqueGuiado } from './ArranqueGuiado';
 import { GastoFormInline, type GastoFormPreset } from './GastoFormInline';
-import type { GastoCategoria, GastoDerivado, GastoEstado, GastoMesItem, GastosMes } from '../../types/gastos.types';
+import type { GastoCategoria, GastoDerivado, GastoEstado, GastoMesItem, GastosMes, GastoTipo } from '../../types/gastos.types';
 
 interface GastosTablaMesProps {
   mes: GastosMes | null;
@@ -23,6 +23,10 @@ interface GastosTablaMesProps {
   onEditar: (item: GastoMesItem, esFijo: boolean) => void;
   onEliminarUnico: (item: GastoMesItem) => void;
   onCambio: () => void;
+  // 'ingreso' = la sección Ingresos (gastos-ingresos-plan): filas de
+  // ingresos_fijos/ingresos_unicos, la tilde se lee "cobrado", sin el rubro
+  // automático de profesionales ni el arranque guiado. Default: gasto.
+  modo?: GastoTipo;
 }
 
 // ---------------------------------------------------------------- Agrupación
@@ -85,13 +89,22 @@ export function filasQueCambian(rubro: Rubro, estado: GastoEstado): FilaGasto[] 
   return rubro.filas.filter((f) => (estado === 'pagado' ? f.pendiente : f.item.estado === 'pagado' && !f.item.omitido));
 }
 
-export function agruparPorRubro(mes: GastosMes, periodo: string): Rubro[] {
+// Fijos y únicos del modo: gastos (recurrentes/unicos) o ingresos
+// (ingresos_fijos/ingresos_unicos). Nunca se mezclan en la misma tabla.
+export function filasDelModo(mes: GastosMes, modo: GastoTipo = 'gasto'): { fijos: GastoMesItem[]; unicos: GastoMesItem[] } {
+  return modo === 'ingreso'
+    ? { fijos: mes.ingresos_fijos ?? [], unicos: mes.ingresos_unicos ?? [] }
+    : { fijos: mes.recurrentes, unicos: mes.unicos };
+}
+
+export function agruparPorRubro(mes: GastosMes, periodo: string, modo: GastoTipo = 'gasto'): Rubro[] {
+  const { fijos, unicos } = filasDelModo(mes, modo);
   const filas: FilaGasto[] = [
-    ...mes.recurrentes.map((item) => {
+    ...fijos.map((item) => {
       const pendiente = item.estado !== 'pagado' && !item.omitido;
       return { item, esFijo: true, pendiente, vencido: pendiente && estaVencido(periodo, item.dia_vencimiento) };
     }),
-    ...mes.unicos.map((item) => ({
+    ...unicos.map((item) => ({
       item, esFijo: false, pendiente: item.estado !== 'pagado' && !item.omitido, vencido: false,
     })),
   ];
@@ -216,7 +229,7 @@ const CeldaEditable: React.FC<CeldaEditableProps> = ({ valor, tipo, editable, bl
 
 // ------------------------------------------------------------------- Rubro
 
-const CheckboxRubro: React.FC<{ rubro: Rubro; disabled: boolean; onChange: (estado: GastoEstado) => void }> = ({ rubro, disabled, onChange }) => {
+const CheckboxRubro: React.FC<{ rubro: Rubro; disabled: boolean; pagado: string; onChange: (estado: GastoEstado) => void }> = ({ rubro, disabled, pagado, onChange }) => {
   const ref = useRef<HTMLInputElement>(null);
   const todas = rubro.contables > 0 && rubro.pagadas === rubro.contables;
   const algunas = rubro.pagadas > 0 && rubro.pagadas < rubro.contables;
@@ -233,7 +246,7 @@ const CheckboxRubro: React.FC<{ rubro: Rubro; disabled: boolean; onChange: (esta
       disabled={disabled || rubro.contables === 0}
       onChange={() => onChange(todas ? 'pendiente' : 'pagado')}
       className="w-4 h-4 accent-blue-600 cursor-pointer disabled:cursor-not-allowed"
-      aria-label={`Marcar todo ${rubro.nombre} como ${todas ? 'pendiente' : 'pagado'}`}
+      aria-label={`Marcar todo ${rubro.nombre} como ${todas ? 'pendiente' : pagado}`}
       data-testid="rubro-checkbox"
     />
   );
@@ -245,8 +258,10 @@ const badgeBase = 'inline-flex items-center rounded px-1.5 py-0.5 text-[11px] fo
 
 export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
   mes, periodo, categorias, categoriasCargando = false, isLoading, panelAbierto, onTogglePanel, onAbrirPanel,
-  preset, presetNonce, onEditar, onEliminarUnico, onCambio,
+  preset, presetNonce, onEditar, onEliminarUnico, onCambio, modo = 'gasto',
 }) => {
+  const tx = TEXTOS_MODO[modo];
+  const esIngreso = modo === 'ingreso';
   const [ocupado, setOcupado] = useState(false);
   const [alcancePendiente, setAlcancePendiente] = useState<{ item: GastoMesItem; monto: number } | null>(null);
 
@@ -328,7 +343,7 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
 
   // ------------------------------------------------------------- Render
 
-  const titulo = `Gastos de ${nombreMes(periodo)}`;
+  const titulo = `${tx.Plural} de ${nombreMes(periodo)}`;
 
   if (isLoading || !mes) {
     return (
@@ -339,23 +354,29 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
     );
   }
 
-  const rubros = agruparPorRubro(mes, periodo);
+  const rubros = agruparPorRubro(mes, periodo, modo);
+  const { fijos, unicos } = filasDelModo(mes, modo);
   // Un solo rubro automático: lo que hay que pagarles a los profesionales (sin el
   // dueño). La mercadería vendida ya no es gasto (gastos-ganancias-spec §4.5): si
   // un backend viejo la manda, se ignora. El detalle por persona vive en la tabla
   // "Por profesional" (P9), no en un desplegable acá.
-  const automaticos = mes.derivados.filter((d) => d.clave === 'comisiones' && d.monto > 0);
-  const vacio = mes.recurrentes.length === 0 && mes.unicos.length === 0;
-  const mostrarPanel = panelAbierto || vacio;
+  // En ingresos no hay rubro automático: lo facturado ya está en "Entró".
+  const automaticos = esIngreso ? [] : mes.derivados.filter((d) => d.clave === 'comisiones' && d.monto > 0);
+  const vacio = fijos.length === 0 && unicos.length === 0;
+  // Un mes sin gastos abre el panel solo (arranque guiado). Sin ingresos no:
+  // la mayoría de los meses no tiene, y el formulario abierto molestaría.
+  const abrePorVacio = vacio && !esIngreso;
+  const mostrarPanel = panelAbierto || abrePorVacio;
+  const totalMes = esIngreso ? mes.totales.ingresos : mes.totales.total;
   const alcanceDefault = alcanceMontoFijoPorDefecto(periodo);
 
   const renderMeta = (f: FilaGasto) => {
     const { item } = f;
     const pagado = item.estado === 'pagado';
     let texto: React.ReactNode = null;
-    if (pagado && item.fecha_pago) texto = `pagado el ${formatDiaMes(item.fecha_pago)}`;
-    else if (f.vencido) texto = <span className="text-red-600 font-medium">venció el {item.dia_vencimiento}</span>;
-    else if (item.dia_vencimiento) texto = `vence el ${item.dia_vencimiento}`;
+    if (pagado && item.fecha_pago) texto = `${tx.pagado} el ${formatDiaMes(item.fecha_pago)}`;
+    else if (f.vencido) texto = <span className="text-red-600 font-medium">{esIngreso ? 'se cobraba el' : 'venció el'} {item.dia_vencimiento}</span>;
+    else if (item.dia_vencimiento) texto = `${esIngreso ? 'se cobra el' : 'vence el'} ${item.dia_vencimiento}`;
     else if (!f.esFijo && item.fecha) texto = formatDiaMes(item.fecha);
     if (!texto && !item.notas) return null;
     return (
@@ -386,7 +407,7 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
             disabled={ocupado || item.omitido}
             onChange={() => marcar(pagado ? 'pendiente' : 'pagado', [f])}
             className="w-4 h-4 accent-blue-600 cursor-pointer disabled:cursor-not-allowed shrink-0"
-            aria-label={`${item.nombre}: ${pagado ? 'marcar pendiente' : 'marcar pagado'}`}
+            aria-label={`${item.nombre}: ${pagado ? 'marcar pendiente' : `marcar ${tx.pagado}`}`}
             data-testid="fila-checkbox"
           />
 
@@ -406,7 +427,7 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
               {distinto && !item.omitido && (
                 <span className={`${badgeBase} bg-amber-50 text-amber-800`}>este mes distinto · normalmente {formatMoneda(item.monto_default!)}</span>
               )}
-              {item.omitido && <span className={`${badgeBase} bg-gray-100 text-gray-600`}>este mes no se paga</span>}
+              {item.omitido && <span className={`${badgeBase} bg-gray-100 text-gray-600`}>{tx.omitido}</span>}
             </div>
             {meta && <div className="sm:hidden text-xs text-gray-500 truncate">{meta}</div>}
           </div>
@@ -477,11 +498,11 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
   const renderRubro = (r: Rubro) => (
     <div key={r.id} className="border-t border-gray-100" data-testid={`rubro-${r.id}`}>
       <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/80">
-        <CheckboxRubro rubro={r} disabled={ocupado} onChange={(estado) => marcar(estado, filasQueCambian(r, estado))} />
+        <CheckboxRubro rubro={r} disabled={ocupado} pagado={tx.pagado} onChange={(estado) => marcar(estado, filasQueCambian(r, estado))} />
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
         <span className="text-sm font-semibold text-gray-800 truncate">{r.nombre}</span>
         <span className={`text-xs ${r.vencidas > 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-          · {r.pagadas}/{r.contables} pagados
+          · {r.pagadas}/{r.contables} {tx.pagados}
         </span>
       </div>
       <div className="divide-y divide-gray-50">{r.filas.map(renderFila)}</div>
@@ -514,10 +535,10 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
   };
 
   return (
-    <section className="bg-white border border-gray-200 rounded-xl overflow-hidden" data-testid="gastos-tabla-mes">
+    <section className="bg-white border border-gray-200 rounded-xl overflow-hidden" data-testid={esIngreso ? 'ingresos-tabla-mes' : 'gastos-tabla-mes'}>
       <div className="flex items-center justify-between gap-3 px-3 sm:px-4 py-3">
         <h2 className="text-base font-semibold text-gray-900 truncate">{titulo}</h2>
-        {!vacio && (
+        {!abrePorVacio && (
           <Button
             size="sm"
             variant={mostrarPanel ? 'secondary' : 'primary'}
@@ -525,14 +546,21 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
             onClick={onTogglePanel}
             aria-expanded={mostrarPanel}
           >
-            {mostrarPanel ? 'Cerrar' : 'Nuevo gasto'}
+            {mostrarPanel ? 'Cerrar' : tx.nuevo}
           </Button>
         )}
       </div>
 
-      {(vacio || mostrarPanel) && (
+      {esIngreso && vacio && !mostrarPanel && (
+        <p className="px-3 sm:px-4 pb-3 text-sm text-gray-500" data-testid="ingresos-vacio">
+          No hay ingresos cargados en {nombreMes(periodo)}. Acá van los que no salen de un turno ni de una venta,
+          por ejemplo lo que te paga alguien por usar un sillón.
+        </p>
+      )}
+
+      {mostrarPanel && (
         <div className="px-3 sm:px-4 pb-3 space-y-3">
-          {vacio && <ArranqueGuiado onElegir={(s) => onAbrirPanel(s ? { repite: true, nombre: s.nombre, categoria: s.categoria, dia: s.dia, foco: 'monto' } : { foco: 'nombre' })} />}
+          {abrePorVacio && <ArranqueGuiado onElegir={(s) => onAbrirPanel(s ? { repite: true, nombre: s.nombre, categoria: s.categoria, dia: s.dia, foco: 'monto' } : { foco: 'nombre' })} />}
           <GastoFormInline
             abierto={mostrarPanel}
             periodo={periodo}
@@ -540,10 +568,11 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
             categoriasCargando={categoriasCargando}
             preset={preset}
             presetNonce={presetNonce}
+            modo={modo}
             // En un mes vacío el panel está abierto por `vacio`, no por el padre.
             // Al guardar el primero, `vacio` pasa a false: se le pide al padre
             // que lo deje abierto (sin preset) para seguir cargando (spec 3.4).
-            onGuardado={() => { if (vacio) onAbrirPanel(); onCambio(); }}
+            onGuardado={() => { if (abrePorVacio) onAbrirPanel(); onCambio(); }}
           />
         </div>
       )}
@@ -554,7 +583,7 @@ export const GastosTablaMes: React.FC<GastosTablaMesProps> = ({
       {(!vacio || automaticos.length > 0) && (
         <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-t-2 border-gray-200 bg-gray-50" data-testid="total-mes">
           <span className="text-sm font-semibold text-gray-900 pl-6">Total del mes</span>
-          <span className="text-sm font-bold tabular-nums text-gray-900 mr-14">{formatMoneda(mes.totales.total)}</span>
+          <span className="text-sm font-bold tabular-nums text-gray-900 mr-14">{formatMoneda(totalMes)}</span>
         </div>
       )}
 

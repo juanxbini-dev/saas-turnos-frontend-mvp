@@ -15,6 +15,9 @@ interface GastosPorProfesionalProps {
 // Una fila por persona: cuánto facturó, cuánto hay que pagarle y cuánto le queda
 // al salón (facturó = pagarle + salón). El dueño va primero, no se le "paga":
 // todo lo suyo queda en el salón. En celular, cards en lugar de tabla.
+// gastos-ingresos-plan P2: quien no cuenta en Gastos (cuenta_en_gastos = false)
+// sigue en la lista con sus números, en gris y con la etiqueta "No cuenta"; los
+// totales ya vienen sin esas filas del backend.
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
@@ -29,9 +32,12 @@ export function detalleProfesional(p: GastosProfesionalMes): string {
   return partes.join(' · ');
 }
 
-// Ganancia negativa (un % mal cargado) se muestra tal cual, en rojo, sin truncar
-const Monto: React.FC<{ valor: number; fuerte?: boolean }> = ({ valor, fuerte = false }) => (
-  <span className={`tabular-nums ${valor < 0 ? 'text-red-700' : 'text-gray-900'} ${fuerte ? 'font-semibold' : ''}`}>
+const noCuenta = (p: GastosProfesionalMes) => p.cuenta_en_gastos === false;
+
+// Ganancia negativa (un % mal cargado) se muestra tal cual, en rojo, sin truncar.
+// `apagado`: fila de alguien que no cuenta en Gastos, en gris.
+const Monto: React.FC<{ valor: number; fuerte?: boolean; apagado?: boolean }> = ({ valor, fuerte = false, apagado = false }) => (
+  <span className={`tabular-nums ${apagado ? 'text-gray-400' : valor < 0 ? 'text-red-700' : 'text-gray-900'} ${fuerte ? 'font-semibold' : ''}`}>
     {valor < 0 ? '−' : ''}{formatMoneda(Math.abs(valor))}
   </span>
 );
@@ -48,13 +54,24 @@ const ChipBaja = () => (
   </span>
 );
 
+const ChipNoCuenta = () => (
+  <span
+    className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium leading-none bg-gray-200 text-gray-700 shrink-0"
+    title="Lo que facturó no entra en Entró y lo que hay que pagarle no entra en Salió. Se cambia en Usuarios."
+    data-testid="chip-no-cuenta"
+  >
+    No cuenta
+  </span>
+);
+
 const Persona: React.FC<{ p: GastosProfesionalMes }> = ({ p }) => (
   <div className="flex items-center gap-2 min-w-0">
-    <Avatar src={p.avatar_url ?? undefined} name={p.nombre} size="sm" className="!w-7 !h-7 !text-[11px] shrink-0" />
+    <Avatar src={p.avatar_url ?? undefined} name={p.nombre} size="sm" className={`!w-7 !h-7 !text-[11px] shrink-0 ${noCuenta(p) ? 'grayscale' : ''}`} />
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-sm font-medium text-gray-900 truncate">{p.nombre}</span>
+        <span className={`text-sm font-medium truncate ${noCuenta(p) ? 'text-gray-500' : 'text-gray-900'}`}>{p.nombre}</span>
         {p.es_duenio && <ChipDuenio />}
+        {noCuenta(p) && <ChipNoCuenta />}
         {!p.activo && <ChipBaja />}
       </div>
       <div className="text-xs text-gray-500" data-testid="prof-detalle">{detalleProfesional(p)}</div>
@@ -109,6 +126,8 @@ export const GastosPorProfesional: React.FC<GastosPorProfesionalProps> = ({ deta
   // normalizarDetalle sumando las filas en centavos
   const tot = detalle.totales;
   const clave = (p: GastosProfesionalMes) => p.profesional_id ?? 'sin-asignar';
+  const hayExcluidos = filas.some(noCuenta);
+  const fondoFila = (p: GastosProfesionalMes) => (noCuenta(p) ? 'bg-gray-50' : p.es_duenio ? 'bg-indigo-50/30' : '');
   const th = 'px-4 py-2 text-xs font-medium text-gray-500 uppercase';
 
   return (
@@ -128,11 +147,11 @@ export const GastosPorProfesional: React.FC<GastosPorProfesionalProps> = ({ deta
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filas.map((p) => (
-              <tr key={clave(p)} data-testid={`prof-fila-${clave(p)}`} className={p.es_duenio ? 'bg-indigo-50/30' : ''}>
+              <tr key={clave(p)} data-testid={`prof-fila-${clave(p)}`} data-cuenta={noCuenta(p) ? 'no' : 'si'} className={fondoFila(p)}>
                 <td className="px-4 py-2"><Persona p={p} /></td>
-                <td className="px-4 py-2 text-right" data-testid="col-facturo"><Monto valor={p.facturado} /></td>
-                <td className="px-4 py-2 text-right" data-testid="col-pagarle">{p.es_duenio ? <SinPagar /> : <Monto valor={p.a_pagar} />}</td>
-                <td className="px-4 py-2 text-right" data-testid="col-salon"><Monto valor={p.ganancia_salon} /></td>
+                <td className="px-4 py-2 text-right" data-testid="col-facturo"><Monto valor={p.facturado} apagado={noCuenta(p)} /></td>
+                <td className="px-4 py-2 text-right" data-testid="col-pagarle">{p.es_duenio ? <SinPagar /> : <Monto valor={p.a_pagar} apagado={noCuenta(p)} />}</td>
+                <td className="px-4 py-2 text-right" data-testid="col-salon"><Monto valor={p.ganancia_salon} apagado={noCuenta(p)} /></td>
               </tr>
             ))}
           </tbody>
@@ -153,20 +172,20 @@ export const GastosPorProfesional: React.FC<GastosPorProfesionalProps> = ({ deta
       {/* Celular: cards */}
       <div className="md:hidden divide-y divide-gray-100" data-testid="por-profesional-cards">
         {filas.map((p) => (
-          <div key={clave(p)} className={`px-4 py-3 space-y-2 ${p.es_duenio ? 'bg-indigo-50/30' : ''}`} data-testid={`prof-card-${clave(p)}`}>
+          <div key={clave(p)} className={`px-4 py-3 space-y-2 ${fondoFila(p)}`} data-testid={`prof-card-${clave(p)}`} data-cuenta={noCuenta(p) ? 'no' : 'si'}>
             <Persona p={p} />
             <dl className="grid grid-cols-3 gap-2 text-xs">
               <div>
                 <dt className="text-gray-500">Facturó</dt>
-                <dd className="text-sm" data-testid="col-facturo"><Monto valor={p.facturado} /></dd>
+                <dd className="text-sm" data-testid="col-facturo"><Monto valor={p.facturado} apagado={noCuenta(p)} /></dd>
               </div>
               <div>
                 <dt className="text-gray-500">Hay que pagarle</dt>
-                <dd className="text-sm" data-testid="col-pagarle">{p.es_duenio ? <SinPagar /> : <Monto valor={p.a_pagar} />}</dd>
+                <dd className="text-sm" data-testid="col-pagarle">{p.es_duenio ? <SinPagar /> : <Monto valor={p.a_pagar} apagado={noCuenta(p)} />}</dd>
               </div>
               <div>
                 <dt className="text-gray-500">Le queda al salón</dt>
-                <dd className="text-sm" data-testid="col-salon"><Monto valor={p.ganancia_salon} /></dd>
+                <dd className="text-sm" data-testid="col-salon"><Monto valor={p.ganancia_salon} apagado={noCuenta(p)} /></dd>
               </div>
             </dl>
           </div>
@@ -190,6 +209,12 @@ export const GastosPorProfesional: React.FC<GastosPorProfesionalProps> = ({ deta
           {tot.facturado_duenio > 0 && <LineaDuenio monto={tot.facturado_duenio} />}
         </div>
       </div>
+
+      {hayExcluidos && (
+        <p className="px-4 py-2 border-t border-gray-100 text-xs text-gray-500" data-testid="prof-nota-no-cuenta">
+          Las filas en gris no cuentan en Gastos: no suman al total ni a "Entró" y "Salió". Se cambia en Usuarios.
+        </p>
+      )}
     </section>
   );
 };
