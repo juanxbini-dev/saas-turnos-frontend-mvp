@@ -449,3 +449,100 @@ describe('DebSalonLandingPage — link recordado en el navegador (D25)', () => {
     expect(recordado()).not.toBeNull();
   });
 });
+
+// lista-vieja-cierre D3: el beneficio vale con algunos profesionales. Se ven
+// todos; los que no están dicen "Sin el beneficio" (sin precio tachado) y la
+// reserva con ellos va sin beneficio y sin consumir el link.
+describe('DebSalonLandingPage — beneficio por profesional (D3)', () => {
+  const DOS = [
+    { id: 'prof-1', nombre: 'Dani', username: 'dani', email: '', roles: [], activo: true },
+    { id: 'prof-2', nombre: 'Caro', username: 'caro', email: '', roles: [], activo: true },
+  ];
+  const CON_CARO = { ...BENEFICIO, profesionales: [{ id: 'prof-2', nombre: 'Caro' }] };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.sessionStorage.clear();
+    window.localStorage.clear();
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    Element.prototype.scrollIntoView = vi.fn();
+    (globalThis as unknown as { IntersectionObserver: unknown }).IntersectionObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    window.history.replaceState({}, '', `/?m=${M}`);
+    get.mockImplementation((url: string) => {
+      if (url === '/public/beneficios/contexto') return Promise.resolve(contexto({ beneficio: CON_CARO }));
+      if (url.includes('/profesionales') && url.includes('/public/empresas/')) return Promise.resolve({ data: { data: DOS } });
+      if (url.startsWith('/public/profesionales/')) return Promise.resolve({ data: { data: SERVICIOS } });
+      return Promise.reject(new Error(`GET sin mock: ${url}`));
+    });
+    post.mockImplementation((url: string) => {
+      if (url === '/public/clientes/validate') return Promise.resolve({ data: { data: { exists: false } } });
+      if (url === '/public/turnos') return Promise.resolve(ok({ id: 'tur-1', beneficio: null }));
+      return Promise.reject(new Error(`POST sin mock: ${url}`));
+    });
+  });
+
+  const tarjeta = (nombre: string) => screen.getByRole('heading', { name: nombre }).parentElement as HTMLElement;
+
+  it('"Sin el beneficio" solo en la tarjeta de quien no está, y el cartel dice con quién vale', async () => {
+    renderLanding();
+    await landingCargada();
+    await waitFor(() => expect(carteles()).toHaveLength(1));
+
+    expect(within(tarjeta('Dani')).getByTestId('staff-sin-beneficio')).toHaveTextContent('Sin el beneficio');
+    expect(within(tarjeta('Caro')).queryByTestId('staff-sin-beneficio')).toBeNull();
+    expect(carteles()[0]).toHaveTextContent('Tu 20 % ya está aplicado · reservá hasta el 12/11 · Vale con Caro');
+  });
+
+  it('con `profesionales: []` (nadie del beneficio sigue activo): todas las tarjetas dicen "Sin el beneficio" y el cartel no nombra a nadie', async () => {
+    get.mockImplementation((url: string) => {
+      if (url === '/public/beneficios/contexto') return Promise.resolve(contexto({ beneficio: { ...BENEFICIO, profesionales: [] } }));
+      if (url.includes('/profesionales') && url.includes('/public/empresas/')) return Promise.resolve({ data: { data: DOS } });
+      if (url.startsWith('/public/profesionales/')) return Promise.resolve({ data: { data: SERVICIOS } });
+      return Promise.reject(new Error(`GET sin mock: ${url}`));
+    });
+    renderLanding();
+    await landingCargada();
+    await waitFor(() => expect(carteles()).toHaveLength(1));
+    expect(within(tarjeta('Dani')).getByTestId('staff-sin-beneficio')).toBeTruthy();
+    expect(within(tarjeta('Caro')).getByTestId('staff-sin-beneficio')).toBeTruthy();
+    expect(carteles()[0].textContent).not.toContain('Vale con');
+  });
+
+  it('"Servicios" de quien no está: sin precio tachado y con el aviso; de quien está, tachado', async () => {
+    renderLanding();
+    await landingCargada();
+    await waitFor(() => expect(carteles()).toHaveLength(1));
+
+    fireEvent.click(within(tarjeta('Dani')).getByRole('button', { name: 'Servicios' }));
+    expect(await screen.findByTestId('servicios-sin-beneficio')).toHaveTextContent('Este beneficio solo es apto para usar con Caro.');
+    await screen.findAllByText('Corte');
+    expect(screen.queryByTestId('precio-tachado')).toBeNull();
+  });
+
+  it('reservar con quien no está: aviso antes de confirmar, sin beneficio_m, y el link sigue disponible y recordado', async () => {
+    renderLanding();
+    await landingCargada();
+    await waitFor(() => expect(carteles()).toHaveLength(1));
+
+    fireEvent.click(within(tarjeta('Dani')).getByRole('button', { name: 'Servicios' }));
+    const reservar = await screen.findAllByRole('button', { name: 'Reservar turno' });
+    fireEvent.click(reservar[reservar.length - 1]);
+    await screen.findByText('Elegí tu servicio');
+    expect(screen.getByTestId('aviso-beneficio-no-aplica')).toHaveTextContent('Este beneficio solo es apto para usar con Caro.El turno se reserva sin el beneficio.');
+
+    await llegarAlPaso3YConfirmar();
+    await waitFor(() => expect(llamadasAReservar()).toHaveLength(1));
+    const body = llamadasAReservar()[0][1];
+    expect(body).not.toHaveProperty('beneficio_m');
+    expect(body).not.toHaveProperty('beneficio_codigo');
+    expect(await screen.findByText('Turno confirmado')).toBeTruthy();
+
+    expect(guardado()).toMatchObject({ m: M, estado: 'disponible' });
+    expect(window.localStorage.getItem('debsalon:beneficio:link-recordado')).toContain(M);
+  });
+});

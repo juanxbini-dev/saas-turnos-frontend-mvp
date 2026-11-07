@@ -20,7 +20,9 @@ export const TEXTO_SIN_BAJA = 'Falta configurar el link de baja de los mails: ho
 
 export const MOTIVO_TEXTO_LISTA_VIEJA: Record<keyof ListaViejaMotivos, string> = {
   apagada: 'La campaña está apagada: hoy no sale ningún mail.',
-  sin_beneficio: 'No hay beneficio activo: hoy no sale ningún mail.',
+  sin_beneficio: 'No hay beneficio elegido para el mail: hoy no sale ningún mail.',
+  // lista-vieja-cierre D9: el mail nombra a los profesionales del beneficio
+  sin_profesionales: 'Ningún profesional del beneficio está activo: hoy no sale ningún mail.',
   fuera_de_horario: 'Fuera del horario de envío: los mails salen a las 11:00.',
   sin_baja: TEXTO_SIN_BAJA,
 };

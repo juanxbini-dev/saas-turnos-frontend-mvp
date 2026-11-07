@@ -1,4 +1,4 @@
-import type { BeneficioTipo } from '../types/beneficios.types';
+import type { BeneficioTipo, ProfesionalDeBeneficio } from '../types/beneficios.types';
 
 // Ruta pública /beneficio. Desde beneficio-con-turno (D1/D5) ya no tiene
 // formulario: con `?m=` redirige a la landing (`/?m=`, donde el beneficio se
@@ -178,4 +178,71 @@ export function textoConfirmacionBeneficio(beneficio: BeneficioDescribible, fech
   const soloServicios = !!beneficio.aplica_servicio && !beneficio.aplica_productos;
   const alcance = soloServicios ? '' : ` en ${textoAplicaBeneficio(beneficio)}`;
   return `${turno} tiene ${formatearPorcentaje(beneficio.porcentaje)} de descuento${alcance}`;
+}
+
+// ---------------------------------------------------------------------------
+// Beneficio por profesional (lista-vieja-cierre D1 y D3). Cada beneficio vale
+// con algunos profesionales.
+//   - sin el campo `profesionales` (backend anterior, sessionStorage de antes
+//     del cambio): vale con todos; el backend igual lo controla (400
+//     BENEFICIO_PROFESIONAL)
+//   - con `[]` (ningún profesional del beneficio sigue activo): no vale con nadie
+// ---------------------------------------------------------------------------
+
+export type ProfesionalDelBeneficio = ProfesionalDeBeneficio;
+
+// La lista (puede ser `[]`) o undefined si no vino (= no se sabe, vale con todos)
+export function profesionalesDelBeneficio(valor: unknown): ProfesionalDelBeneficio[] | undefined {
+  if (!Array.isArray(valor)) return undefined;
+  const lista = valor.filter(
+    (p): p is ProfesionalDelBeneficio => !!p && typeof p === 'object'
+      && typeof (p as ProfesionalDelBeneficio).id === 'string'
+      && typeof (p as ProfesionalDelBeneficio).nombre === 'string'
+  );
+  return lista.map((p) => ({ id: p.id, nombre: p.nombre }));
+}
+
+export function beneficioValeCon(
+  beneficio: { profesionales?: ProfesionalDelBeneficio[] | null } | null | undefined,
+  profesionalId: string | null | undefined
+): boolean {
+  if (!beneficio || !profesionalId) return true;
+  const lista = beneficio.profesionales;
+  // No vino el campo: vale con todos. Vino `[]`: no vale con nadie.
+  if (!Array.isArray(lista)) return true;
+  return lista.some((p) => p.id === profesionalId);
+}
+
+// Nombre de pila (la primera palabra), como lo dicen el backend y el mail:
+// "Carolina Gómez" → "Carolina"
+export function nombreDePila(nombre: string | null | undefined): string {
+  return (nombre ?? '').trim().split(/\s+/)[0] ?? '';
+}
+
+// "Caro" / "Caro o Juli" / "Caro, Juli o Meli" (con `y` para enumerar)
+export function unirNombres(nombres: string[], conjuncion: 'o' | 'y' = 'o'): string {
+  const limpios = nombres.map((n) => n.trim()).filter(Boolean);
+  if (limpios.length <= 1) return limpios[0] ?? '';
+  return `${limpios.slice(0, -1).join(', ')} ${conjuncion} ${limpios[limpios.length - 1]}`;
+}
+
+// D3 (texto de Juan, 7 nov): el mismo aviso en la landing, la reserva y el panel.
+//   con la lista → "Este beneficio solo es apto para usar con Caro, Juli o Meli."
+//   con `[]`     → nadie del beneficio sigue activo
+//   sin la lista → no se sabe con quién vale (solo pasa ante un 400 del backend)
+// Siempre con nombres de pila.
+export const TEXTO_TURNO_SIN_BENEFICIO = 'El turno se reserva sin el beneficio.';
+
+export function textoBeneficioNoAplicaCon(
+  profesionales: ProfesionalDelBeneficio[] | null | undefined,
+  profesionalNombre?: string | null
+): string {
+  if (Array.isArray(profesionales)) {
+    const nombres = profesionales.map((p) => nombreDePila(p.nombre)).filter(Boolean);
+    return nombres.length > 0
+      ? `Este beneficio solo es apto para usar con ${unirNombres(nombres, 'o')}.`
+      : 'Este beneficio no se puede usar con ningún profesional por ahora.';
+  }
+  const pila = nombreDePila(profesionalNombre);
+  return pila ? `Este beneficio no es apto para usar con ${pila}.` : 'Este beneficio no es apto para usar con este profesional.';
 }

@@ -58,9 +58,18 @@ export function ListaViejaPanel() {
     revalidate();
   }, [revalidate]);
 
+  // Cambió el beneficio que ofrece el mail: se vuelven a pedir la config (sus
+  // avisos) y la vista previa (el motivo "sin beneficio"). El servicio ya tiró
+  // las dos claves de cache.
+  const handleBeneficioCambiado = useCallback(() => {
+    setErrorBeneficio(null);
+    setRefresco((n) => n + 1);
+    revalidate();
+  }, [revalidate]);
+
   const handleFalloCambio = useCallback((err: unknown) => {
     if (codigoDeError(err) === 'BENEFICIO_REQUERIDO') {
-      setErrorBeneficio(mensajeDeError(err, 'No hay beneficio activo: activá uno en Beneficios para poder prender la campaña.'));
+      setErrorBeneficio(mensajeDeError(err, 'No hay beneficio elegido: elegí el beneficio que ofrece el mail para poder prender la campaña.'));
     }
     // Sin link de baja no sale marketing (A2): se dice lo mismo que en la vista previa
     if (codigoDeError(err) === 'SIN_BAJA') setErrorBeneficio(TEXTO_SIN_BAJA);
@@ -111,6 +120,7 @@ export function ListaViejaPanel() {
           onReintentar={revalidate}
           onGuardado={handleCambio}
           errorBeneficio={errorBeneficio}
+          onBeneficioCambiado={handleBeneficioCambiado}
         />
       </div>
 

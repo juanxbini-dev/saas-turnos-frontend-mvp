@@ -2,20 +2,19 @@ import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, Ticket } from 'lucide-react';
 import { Button, Input } from '../../ui';
 import { SeccionCard, SeccionError } from '../CampaniaSeccion';
 import { useCampaniasGate } from '../CampaniasGate';
 import { campaniasService, esFalloTokenCampanias, mensajeDeError } from '../../../services/campanias.service';
 import { toastService } from '../../../services/toast.service';
-import { describirBeneficioConNombre } from '../../../config/beneficio';
+import { SelectorBeneficioCampania } from './SelectorBeneficioCampania';
 import type { Campania, CampaniaListaVieja, CampaniaPatchListaVieja } from '../../../types/campanias.types';
 
 // Configuración de "Lista vieja (mail)" (mails-beneficios-plan §4.3, ajustado por
 // beneficios-tipos-plan §3.5 y §3.7): tope diario y días para el recordatorio.
-// El beneficio NO se elige acá: la campaña ofrece el beneficio activo, que se
-// cambia en la pantalla Beneficios. Tope y recordatorio se editan siempre (D16).
+// El beneficio que ofrece el mail se elige acá con su propio selector
+// (lista-vieja-cierre D6), que no pasa por el PATCH de la campaña: usa
+// activar/desactivar del beneficio. Tope y recordatorio se editan siempre (D16).
 // Mismo criterio que los otros formularios: números como texto, validados como
 // texto y convertidos recién al armar el PATCH.
 
@@ -27,6 +26,8 @@ interface CampaniaConfigListaViejaProps {
   onGuardado: (campania: Campania) => void;
   // Mensaje del backend al intentar prender sin beneficio activo (400 BENEFICIO_REQUERIDO)
   errorBeneficio?: string | null;
+  // Se cambió el beneficio que ofrece el mail (config y vista previa quedan viejas)
+  onBeneficioCambiado?: () => void;
 }
 
 const esEnteroEntre = (valor: string, min: number, max: number): boolean => {
@@ -69,10 +70,10 @@ export function armarPatchListaVieja(
 
 const VALORES_VACIOS: ConfigListaViejaValores = { tope_diario: '', dias_recordatorio: '' };
 
-export const AVISO_SIN_BENEFICIO = 'No hay beneficio activo: la campaña no puede salir.';
+export { AVISO_SIN_BENEFICIO } from './SelectorBeneficioCampania';
 
 export function CampaniaConfigListaVieja({
-  campania, loading, error, onReintentar, onGuardado, errorBeneficio,
+  campania, loading, error, onReintentar, onGuardado, errorBeneficio, onBeneficioCambiado,
 }: CampaniaConfigListaViejaProps) {
   const { bloquear } = useCampaniasGate();
 
@@ -141,29 +142,12 @@ export function CampaniaConfigListaVieja({
   return (
     <SeccionCard titulo="Configuración">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-        {/* El beneficio que ofrece: el activo, se cambia en Beneficios */}
-        {beneficio ? (
-          <p className="flex items-start gap-2 text-sm text-gray-700" data-testid="lista-vieja-ofrece">
-            <Ticket size={16} className="mt-0.5 shrink-0 text-gray-400" aria-hidden="true" />
-            <span>
-              Ofrece: <span className="font-medium text-gray-900">{describirBeneficioConNombre(beneficio)}</span>
-              {' · '}
-              <Link to="/beneficios" className="font-medium underline hover:text-gray-900">Se cambia en Beneficios</Link>
-            </span>
-          </p>
-        ) : (
-          <div
-            className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg px-3 py-2 text-sm"
-            role="status"
-            data-testid="lista-vieja-sin-beneficio"
-          >
-            <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <p>
-              {AVISO_SIN_BENEFICIO}{' '}
-              <Link to="/beneficios" className="font-medium underline hover:text-yellow-900">Activá uno en Beneficios</Link>.
-            </p>
-          </div>
-        )}
+        {/* El beneficio que ofrece el mail (D6): se elige acá */}
+        <SelectorBeneficioCampania
+          beneficioActual={beneficio}
+          campaniaPrendida={campania.activa}
+          onCambiado={() => onBeneficioCambiado?.()}
+        />
         {errorBeneficio && (
           <p className="text-sm text-red-600" role="alert">{errorBeneficio}</p>
         )}

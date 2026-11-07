@@ -150,7 +150,7 @@ export interface BeneficioResumen {
 // Avisos propios del canal mail (plan mails-beneficios §4.3 y beneficios-tipos §3.5)
 export interface CampaniaAvisosListaVieja extends CampaniaAvisos {
   canal: 'email';
-  // El beneficio activo (el que ofrece la campaña), o null si no hay ninguno
+  // El beneficio de la campaña de mails (`activo`), o null si no hay ninguno
   beneficio: BeneficioResumen | null;
   contactos_pendientes: number;
   // Ya no queda nada por mandar (ni primeros mails ni recordatorios por venir)
@@ -442,6 +442,8 @@ export type ListaViejaTipoMail = 'primero' | 'recordatorio';
 export interface ListaViejaMotivos {
   apagada?: true;
   sin_beneficio?: true;
+  // Ninguno de los profesionales del beneficio está activo (lista-vieja-cierre D9)
+  sin_profesionales?: true;
   fuera_de_horario?: true;
   // Sin link de baja (falta PUBLIC_API_URL o el secreto): no sale marketing (A2)
   sin_baja?: true;
