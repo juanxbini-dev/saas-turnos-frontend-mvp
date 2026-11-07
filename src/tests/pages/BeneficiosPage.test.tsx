@@ -141,10 +141,10 @@ describe('BeneficiosPage', () => {
 
     expect(await screen.findByText('20 % en tu próximo servicio')).toBeTruthy();
     expect(screen.getByTestId('texto-solo-uno').textContent).toBe(TEXTO_SOLO_UNO);
-    const filas = screen.getAllByRole('row').slice(1);
+    const filas = within(screen.getByRole('list', { name: 'Beneficios' })).getAllByRole('listitem');
     expect(within(filas[0]).getByText('20 % en tu próximo servicio')).toBeTruthy();
 
-    const filaServicios = screen.getByText('20 % en tu próximo servicio').closest('tr')!;
+    const filaServicios = screen.getByText('20 % en tu próximo servicio').closest('li')!;
     expect(within(filaServicios).getByText('20 %')).toBeTruthy();
     expect(within(filaServicios).getByText('Servicios')).toBeTruthy();
     expect(within(filaServicios).getByText('30 días')).toBeTruthy();
@@ -154,14 +154,15 @@ describe('BeneficiosPage', () => {
     expect(within(filaServicios).getByRole('button', { name: 'Sacar 20 % en tu próximo servicio de la campaña' }).textContent).toBe('Sacar de la campaña');
     expect(within(filaServicios).queryByRole('button', { name: /^Usar/ })).toBeNull();
     expect(screen.queryByText('Activo')).toBeNull();
-    expect(screen.getByRole('columnheader', { name: 'Vale con' })).toBeTruthy();
-    expect(screen.getByRole('columnheader', { name: 'Campaña de mails' })).toBeTruthy();
+    // Lista de tarjetas: cada una rotula sus datos (ya no hay encabezados de tabla)
+    expect(within(filaServicios).getByText('Vale con')).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
     expect(screen.queryByText('En la landing')).toBeNull();
     expect(within(filaServicios).getByText('12 emitidos')).toBeTruthy();
     expect(within(filaServicios).getByText('3 reservados')).toBeTruthy();
     expect(within(filaServicios).getByText('5 usados')).toBeTruthy();
 
-    const filaProductos = screen.getByText('10 % en productos').closest('tr')!;
+    const filaProductos = screen.getByText('10 % en productos').closest('li')!;
     expect(within(filaProductos).getByText('Productos')).toBeTruthy();
     expect(within(filaProductos).getByText('Caro')).toBeTruthy();
     expect(within(filaProductos).queryByText('En la campaña de mails')).toBeNull();
@@ -182,7 +183,7 @@ describe('BeneficiosPage', () => {
   it('un beneficio "otro" muestra "Otro beneficio" y no dice a qué aplica', async () => {
     listar.mockResolvedValue([SERVICIOS, REGALO]);
     renderPage();
-    const fila = (await screen.findByText('Ampolla de tratamiento de regalo')).closest('tr')!;
+    const fila = (await screen.findByText('Ampolla de tratamiento de regalo')).closest('li')!;
     expect(within(fila).getByText('Otro beneficio')).toBeTruthy();
     expect(within(fila).getByText('—')).toBeTruthy();
     // Sin `profesionales` (backend anterior a la 026): vale con todos
@@ -456,7 +457,7 @@ describe('BeneficiosPage', () => {
     it('un beneficio con `profesionales: []` dice "Ningún profesional activo" en la lista', async () => {
       listar.mockResolvedValue([{ ...SERVICIOS, profesionales: [] }]);
       renderPage();
-      const fila = (await screen.findByText('20 % en tu próximo servicio')).closest('tr')!;
+      const fila = (await screen.findByText('20 % en tu próximo servicio')).closest('li')!;
       expect(within(fila).getByText('Ningún profesional activo')).toBeTruthy();
     });
 

@@ -140,56 +140,36 @@ function BeneficiosPage() {
             action={{ label: 'Nuevo beneficio', onClick: () => setModal({ abierto: true, beneficio: null }) }}
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div>
             <p className="text-sm text-gray-600 mb-3" data-testid="texto-solo-uno">{TEXTO_SOLO_UNO}</p>
-            <table className="w-full text-left min-w-[960px]">
-              <thead>
-                <tr className="bg-gray-50">
-                  {['Beneficio', 'Qué da', 'Aplica a', 'Vale con', 'Vigencia', 'Códigos', 'Campaña de mails', ''].map((h, i) => (
-                    <th key={i} className="py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
+            {/* Lista de tarjetas (no tabla): entra entera en cualquier ancho, sin scroll horizontal */}
+            <ul className="space-y-3" aria-label="Beneficios">
                 {beneficios.map((b) => {
                   const esElegido = b.id === elegidoId;
                   return (
-                    <tr
+                    <li
                       key={b.id}
-                      className={`transition-colors ${esElegido ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                      className={`rounded-lg border p-4 transition-colors ${esElegido ? 'bg-blue-50 border-blue-200' : 'border-gray-200 hover:bg-gray-50'}`}
                     >
-                      <td className="py-2.5 px-4 text-sm">
-                        <div className="font-medium text-gray-900">{b.nombre}</div>
-                      </td>
-                      <td className="py-2.5 px-4 text-sm text-gray-900 tabular-nums whitespace-nowrap">{textoQueDa(b)}</td>
-                      <td className="py-2.5 px-4 text-sm text-gray-600">{textoAplica(b)}</td>
-                      <td className="py-2.5 px-4 text-sm text-gray-600" data-testid={`vale-con-${b.id}`}>{textoValeCon(b.profesionales, profesionalesPanel)}</td>
-                      <td className="py-2.5 px-4 text-sm text-gray-600 whitespace-nowrap">{textoVigencia(b.vigencia_dias)}</td>
-                      <td className="py-2.5 px-4 text-sm text-gray-600 whitespace-nowrap tabular-nums">
-                        <span title="Emitidos">{fmtNumero.format(b.codigos?.emitidos ?? 0)} emitidos</span>
-                        {' · '}
-                        <span title="Reservados">{fmtNumero.format(b.codigos?.reservados ?? 0)} reservados</span>
-                        {' · '}
-                        <span title="Usados">{fmtNumero.format(b.codigos?.usados ?? 0)} usados</span>
-                      </td>
-                      <td className="py-2.5 px-4 text-sm">
-                        {b.activo ? (
-                          <Badge variant="green" size="sm" dot>{TEXTO_EN_CAMPANIA}</Badge>
-                        ) : (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            leftIcon={CheckCircle2}
-                            loading={cambiandoId === b.id}
-                            disabled={!!cambiandoId}
-                            onClick={() => pedirActivar(b)}
-                            aria-label={`Usar ${b.nombre} en la campaña de mails`}
-                          >
-                            Usar en la campaña de mails
-                          </Button>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-4 text-sm text-right whitespace-nowrap">
+                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                          <h3 className="font-semibold text-gray-900">{b.nombre}</h3>
+                          {b.activo && <Badge variant="green" size="sm" dot>{TEXTO_EN_CAMPANIA}</Badge>}
+                        </div>
+                        <div className="flex flex-wrap gap-1 lg:justify-end shrink-0">
+                          {!b.activo && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              leftIcon={CheckCircle2}
+                              loading={cambiandoId === b.id}
+                              disabled={!!cambiandoId}
+                              onClick={() => pedirActivar(b)}
+                              aria-label={`Usar ${b.nombre} en la campaña de mails`}
+                            >
+                              Usar en la campaña de mails
+                            </Button>
+                          )}
                         <Button
                           variant={esElegido ? 'secondary' : 'ghost'}
                           size="sm"
@@ -222,12 +202,40 @@ function BeneficiosPage() {
                             Sacar de la campaña
                           </Button>
                         )}
-                      </td>
-                    </tr>
+                        </div>
+                      </div>
+                      <dl className="mt-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-x-6 gap-y-3 text-sm">
+                        <div>
+                          <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Qué da</dt>
+                          <dd className="text-gray-900 tabular-nums">{textoQueDa(b)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Aplica a</dt>
+                          <dd className="text-gray-700">{textoAplica(b)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vigencia</dt>
+                          <dd className="text-gray-700">{textoVigencia(b.vigencia_dias)}</dd>
+                        </div>
+                        <div className="col-span-2 sm:col-span-3 xl:col-span-1">
+                          <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Códigos</dt>
+                          <dd className="text-gray-700 tabular-nums">
+                            <span title="Emitidos">{fmtNumero.format(b.codigos?.emitidos ?? 0)} emitidos</span>
+                            {' · '}
+                            <span title="Reservados">{fmtNumero.format(b.codigos?.reservados ?? 0)} reservados</span>
+                            {' · '}
+                            <span title="Usados">{fmtNumero.format(b.codigos?.usados ?? 0)} usados</span>
+                          </dd>
+                        </div>
+                        <div className="col-span-2 sm:col-span-3 xl:col-span-1">
+                          <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vale con</dt>
+                          <dd className="text-gray-700" data-testid={`vale-con-${b.id}`}>{textoValeCon(b.profesionales, profesionalesPanel)}</dd>
+                        </div>
+                      </dl>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
+            </ul>
             <p className="text-xs text-gray-500 mt-3">Tocá «Ver códigos» para ver los códigos de un beneficio.</p>
           </div>
         )}
