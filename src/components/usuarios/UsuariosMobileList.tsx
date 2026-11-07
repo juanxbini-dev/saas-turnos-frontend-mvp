@@ -11,6 +11,8 @@ interface UsuariosMobileListProps {
   onEliminar: (usuario: Usuario) => void;
   onResetPassword?: (usuario: Usuario) => void;
   onMetricas?: (usuario: Usuario) => void;
+  // Campo "Cuenta en Gastos": solo lo pasa la página cuando el logueado es super admin
+  renderCuentaGastos?: (usuario: Usuario) => React.ReactNode;
 }
 
 export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
@@ -21,7 +23,8 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
   onCambiarRol,
   onEliminar,
   onResetPassword,
-  onMetricas
+  onMetricas,
+  renderCuentaGastos
 }) => {
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set());
 
@@ -100,6 +103,13 @@ export const UsuariosMobileList: React.FC<UsuariosMobileListProps> = ({
                 })
               : 'Nunca'}
           </div>
+
+          {renderCuentaGastos && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="text-xs font-medium text-gray-500 mb-1">Cuenta en Gastos</div>
+              {renderCuentaGastos(usuario)}
+            </div>
+          )}
 
           {/* Ver acciones */}
           <div className="mt-3 pt-3 border-t border-gray-100">

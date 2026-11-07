@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Button, Input, Modal, Select, Textarea } from '../ui';
 import { gastosService } from '../../services/gastos.service';
 import { toastService } from '../../services/toast.service';
-import { etiquetaPeriodo, formatMoneda } from './gastos.utils';
+import { etiquetaPeriodo, filtrarPorTipo, formatMoneda, TEXTOS_MODO } from './gastos.utils';
 import { useCambioMontoFijo, type AlcanceMontoFijo } from '../../hooks/useCambioMontoFijo';
-import { METODOS_PAGO_GASTO, type GastoCategoria, type GastoMesItem, type GastoMetodoPago, type OverrideRecurrenteInput } from '../../types/gastos.types';
+import { METODOS_PAGO_GASTO, type GastoCategoria, type GastoMesItem, type GastoMetodoPago, type GastoTipo, type OverrideRecurrenteInput } from '../../types/gastos.types';
 
 interface EditarGastoModalProps {
   isOpen: boolean;
@@ -14,11 +14,14 @@ interface EditarGastoModalProps {
   categorias: GastoCategoria[];
   item: GastoMesItem | null;
   esRecurrente: boolean;
+  // 'ingreso': textos de cobro y solo categorías de ingreso. Default: gasto.
+  modo?: GastoTipo;
 }
 
 // Para un fijo, "¿desde cuándo vale el monto nuevo?" decide qué se toca. La
 // regla y las llamadas viven en useCambioMontoFijo (compartido con la tabla).
-export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categorias, item, esRecurrente }: EditarGastoModalProps) {
+export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categorias, item, esRecurrente, modo = 'gasto' }: EditarGastoModalProps) {
+  const tx = TEXTOS_MODO[modo];
   const [nombre, setNombre] = useState('');
   const [monto, setMonto] = useState('');
   const { alcance, setAlcance, reset: resetAlcance, aplicar: aplicarCambioMonto, mensajeExito } = useCambioMontoFijo(periodo);
@@ -63,7 +66,7 @@ export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categor
           nombre: nombre.trim(), monto: montoNum, categoria_id: categoriaId,
           estado: pagado ? 'pagado' : 'pendiente', metodo_pago: metodo || null, notas: notas.trim() || null,
         });
-        toastService.success('Gasto actualizado');
+        toastService.success(`${tx.Singular} actualizado`);
       } else {
         const recId = item.recurrente_id!;
         if (nombre.trim() !== item.nombre) {
@@ -111,13 +114,15 @@ export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categor
     }
   };
 
-  const opcionesCategoria = categorias.filter((c) => c.activa || c.id === categoriaId).map((c) => ({ value: c.id, label: c.nombre }));
+  const opcionesCategoria = filtrarPorTipo(categorias, modo)
+    .filter((c) => c.activa || c.id === categoriaId)
+    .map((c) => ({ value: c.id, label: c.nombre }));
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={esRecurrente ? `${item.nombre} · ${etiquetaPeriodo(periodo)}` : 'Editar gasto'}
+      title={esRecurrente ? `${item.nombre} · ${etiquetaPeriodo(periodo)}` : `Editar ${tx.singular}`}
       size="sm"
       footer={
         <div className="flex justify-between items-center gap-2">
@@ -165,12 +170,12 @@ export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categor
         <div className="grid grid-cols-2 gap-3">
           <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer border border-gray-200 rounded-lg px-3 py-2">
             <input type="checkbox" checked={pagado} onChange={(e) => setPagado(e.target.checked)} disabled={noAplica} />
-            Ya está pagado
+            {tx.yaEsta}
           </label>
           <Select
             value={metodo}
             onChange={(e) => setMetodo(e.target.value as GastoMetodoPago | '')}
-            options={[{ value: '', label: '¿Cómo se pagó?' }, ...METODOS_PAGO_GASTO]}
+            options={[{ value: '', label: tx.comoSePago }, ...METODOS_PAGO_GASTO]}
             disabled={noAplica}
           />
         </div>
@@ -178,7 +183,9 @@ export function EditarGastoModal({ isOpen, onClose, onGuardado, periodo, categor
         {esRecurrente && (
           <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
             <input type="checkbox" checked={noAplica} onChange={(e) => setNoAplica(e.target.checked)} className="mt-0.5" />
-            <span>Este mes <strong>no se paga</strong> (bonificado, suspendido…). No suma al total.</span>
+            {modo === 'ingreso'
+              ? <span>Este mes <strong>no entra</strong> (no lo pagó, se suspendió…). No suma al total.</span>
+              : <span>Este mes <strong>no se paga</strong> (bonificado, suspendido…). No suma al total.</span>}
           </label>
         )}
 

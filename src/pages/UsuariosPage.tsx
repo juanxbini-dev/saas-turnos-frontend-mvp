@@ -10,6 +10,12 @@ import { EditarUsuarioModal } from '../components/usuarios/EditarUsuarioModal';
 import { CambiarRolModal } from '../components/usuarios/CambiarRolModal';
 import { ResetPasswordModal } from '../components/usuarios/ResetPasswordModal';
 import { UsuarioMetricasModal } from '../components/usuarios/UsuarioMetricasModal';
+import { CuentaEnGastosCampo } from '../components/usuarios/CuentaEnGastosCampo';
+import { CuentaEnGastosModal } from '../components/usuarios/CuentaEnGastosModal';
+import { useUsuariosCuentaGastos } from '../hooks/useUsuariosCuentaGastos';
+import { mensajeCambioCuenta } from '../components/gastos/cuentaGastos.utils';
+import { toastService } from '../services/toast.service';
+import type { AlcanceCuentaGastos, GastosUsuarioCuenta } from '../types/gastos.types';
 import { Button, Modal, ConfirmModal } from '../components/ui';
 import { Usuario } from '../types/usuario.types';
 import { cacheService } from '../cache/cache.service';
@@ -35,6 +41,27 @@ function UsuariosPage() {
   });
   const [showDeshabilitados, setShowDeshabilitados] = useState(false);
   const [reactivandoId, setReactivandoId] = useState<string | null>(null);
+
+  // "Cuenta en Gastos" (gastos-ingresos-plan P4): solo el super admin lo ve y
+  // lo pide; para admins y staff el hook no hace nada.
+  const cuentaGastos = useUsuariosCuentaGastos(isSuperAdmin);
+  const [cuentaTarget, setCuentaTarget] = useState<GastosUsuarioCuenta | null>(null);
+
+  const confirmarCuentaGastos = async (cuenta: boolean, alcance: AlcanceCuentaGastos, periodo: string) => {
+    if (!cuentaTarget) return;
+    await cuentaGastos.cambiar(cuentaTarget.usuario_id, cuenta, alcance, periodo);
+    toastService.success(mensajeCambioCuenta(cuentaTarget.nombre, cuenta, alcance, periodo));
+  };
+
+  const renderCuentaGastos = isSuperAdmin
+    ? (usuario: Usuario) => (
+        <CuentaEnGastosCampo
+          item={cuentaGastos.porUsuario.get(usuario.id)}
+          loading={cuentaGastos.loading}
+          onCambiar={setCuentaTarget}
+        />
+      )
+    : undefined;
 
   // Obtener usuarios con caché
   const {
@@ -158,6 +185,15 @@ function UsuariosPage() {
             </Button>
           </div>
 
+          {isSuperAdmin && cuentaGastos.error && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800" role="alert">
+              <span>No se pudo cargar quién cuenta en Gastos.</span>
+              <button type="button" onClick={() => cuentaGastos.revalidate()} className="font-medium underline">
+                Reintentar
+              </button>
+            </div>
+          )}
+
           {/* Tabla de usuarios - Desktop */}
           <div className="hidden lg:block">
             <UsuariosTabla
@@ -169,6 +205,7 @@ function UsuariosPage() {
               onEliminar={handleEliminar}
               onResetPassword={handleResetPassword}
               onMetricas={handleVerMetricas}
+              renderCuentaGastos={renderCuentaGastos}
             />
           </div>
 
@@ -183,6 +220,7 @@ function UsuariosPage() {
               onEliminar={handleEliminar}
               onResetPassword={handleResetPassword}
               onMetricas={handleVerMetricas}
+              renderCuentaGastos={renderCuentaGastos}
             />
           </div>
 
@@ -277,6 +315,16 @@ function UsuariosPage() {
               setMetricasTarget(null);
             }}
           />
+
+          {isSuperAdmin && (
+            <CuentaEnGastosModal
+              isOpen={!!cuentaTarget}
+              onClose={() => setCuentaTarget(null)}
+              item={cuentaTarget}
+              periodoActual={cuentaGastos.periodoActual}
+              onConfirmar={confirmarCuentaGastos}
+            />
+          )}
 
           {/* Modal de confirmación para deshabilitar usuario */}
           <ConfirmModal

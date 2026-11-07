@@ -89,7 +89,12 @@ const MES: GastosMes = {
   derivados: [COMISIONES, MERCADERIA_LEGADO],
   recurrentes: [ALQUILER, LUZ, GAS, AGUA, MONOTRIBUTO],
   unicos: [AIRE, SILLA],
-  totales: { derivados: 385000, recurrentes: 870000, unicos: 125000, total: 1380000, pagado: 225000, pendiente: 770000 },
+  ingresos_fijos: [],
+  ingresos_unicos: [],
+  totales: {
+    derivados: 385000, recurrentes: 870000, unicos: 125000, total: 1380000, pagado: 225000, pendiente: 770000,
+    ingresos_fijos: 0, ingresos_unicos: 0, ingresos: 0, cobrado: 0, por_cobrar: 0,
+  },
 };
 
 // ------------------------------------------------------------ Helpers
@@ -645,7 +650,7 @@ describe('doble clic (edición inline)', () => {
 describe('mes vacío', () => {
   const VACIO: GastosMes = {
     ...MES, recurrentes: [], unicos: [],
-    totales: { derivados: 385000, recurrentes: 0, unicos: 0, total: 385000, pagado: 0, pendiente: 0 },
+    totales: { ...MES.totales, derivados: 385000, recurrentes: 0, unicos: 0, total: 385000, pagado: 0, pendiente: 0 },
   };
 
   it('B29 (Q8): sin fijos ni únicos aparece el arranque guiado con el panel abierto, más los rubros automáticos y el total', () => {

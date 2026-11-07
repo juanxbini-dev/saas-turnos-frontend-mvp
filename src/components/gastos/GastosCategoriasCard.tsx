@@ -3,7 +3,8 @@ import { Plus, X } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { gastosService } from '../../services/gastos.service';
 import { toastService } from '../../services/toast.service';
-import type { GastoCategoria } from '../../types/gastos.types';
+import { filtrarPorTipo } from './gastos.utils';
+import type { GastoCategoria, GastoTipo } from '../../types/gastos.types';
 
 interface GastosCategoriasCardProps {
   categorias: GastoCategoria[];
@@ -12,10 +13,16 @@ interface GastosCategoriasCardProps {
   onAbrirModal: () => void;
 }
 
-// Alta rápida y borrado de categorías sin uso. Colores y renombres van al
-// modal existente ("Colores y nombres").
+// Alta rápida y borrado de categorías sin uso, en dos grupos: de gastos y de
+// ingresos. Colores y renombres van al modal ("Colores y nombres").
+const GRUPOS: { tipo: GastoTipo; titulo: string }[] = [
+  { tipo: 'gasto', titulo: 'Gastos' },
+  { tipo: 'ingreso', titulo: 'Ingresos' },
+];
+
 export const GastosCategoriasCard: React.FC<GastosCategoriasCardProps> = ({ categorias, isLoading, onCambio, onAbrirModal }) => {
   const [nombre, setNombre] = useState('');
+  const [tipo, setTipo] = useState<GastoTipo>('gasto');
   const [creando, setCreando] = useState(false);
   const [aBorrar, setABorrar] = useState<GastoCategoria | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -27,7 +34,7 @@ export const GastosCategoriasCard: React.FC<GastosCategoriasCardProps> = ({ cate
     if (!nombre.trim() || creando) return;
     setCreando(true);
     try {
-      await gastosService.crearCategoria({ nombre: nombre.trim() });
+      await gastosService.crearCategoria({ nombre: nombre.trim(), tipo });
       setNombre('');
       toastService.success('Categoría creada');
       onCambio();
@@ -64,32 +71,55 @@ export const GastosCategoriasCard: React.FC<GastosCategoriasCardProps> = ({ cate
           {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-5 w-20 bg-gray-100 rounded animate-pulse" />)}
         </div>
       ) : (
-        <ul className="px-4 py-2 flex flex-wrap gap-x-4 gap-y-1">
-          {activas.map((c) => (
-          <li key={c.id} className="inline-flex items-center gap-1.5 text-sm text-gray-800">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-            {c.nombre}
-            {!c.en_uso && (
-              <button
-                type="button"
-                onClick={() => setABorrar(c)}
-                className="p-0.5 rounded text-gray-300 hover:text-red-600 hover:bg-red-50"
-                aria-label={`Eliminar categoría ${c.nombre}`}
-                title="Eliminar (no tiene gastos)"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </li>
-        ))}
-        </ul>
+        <div className="px-4 py-2 space-y-2">
+          {GRUPOS.map((g) => {
+            const delGrupo = filtrarPorTipo(activas, g.tipo);
+            return (
+              <div key={g.tipo} data-testid={`categorias-card-${g.tipo}`}>
+                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{g.titulo}</div>
+                {delGrupo.length === 0 ? (
+                  <p className="text-xs text-gray-400">Ninguna todavía.</p>
+                ) : (
+                  <ul className="flex flex-wrap gap-x-4 gap-y-1">
+                    {delGrupo.map((c) => (
+                      <li key={c.id} className="inline-flex items-center gap-1.5 text-sm text-gray-800">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                        {c.nombre}
+                        {!c.en_uso && (
+                          <button
+                            type="button"
+                            onClick={() => setABorrar(c)}
+                            className="p-0.5 rounded text-gray-300 hover:text-red-600 hover:bg-red-50"
+                            aria-label={`Eliminar categoría ${c.nombre}`}
+                            title="Eliminar (no tiene nada cargado)"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <form onSubmit={crear} className="px-4 pb-3 flex items-center gap-2">
+        <select
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value as GastoTipo)}
+          aria-label="Tipo de la nueva categoría"
+          className="shrink-0 text-sm border border-gray-300 rounded-lg px-1.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="gasto">Gasto</option>
+          <option value="ingreso">Ingreso</option>
+        </select>
         <input
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          placeholder="Nueva categoría"
+          placeholder={tipo === 'ingreso' ? 'Nueva categoría de ingreso' : 'Nueva categoría'}
           aria-label="Nueva categoría"
           className="flex-1 min-w-0 text-sm border border-gray-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         />
@@ -115,7 +145,7 @@ export const GastosCategoriasCard: React.FC<GastosCategoriasCardProps> = ({ cate
         onConfirm={confirmarBorrado}
         loading={borrando}
         title="Eliminar categoría"
-        message={`¿Eliminar la categoría "${aBorrar?.nombre}"? No tiene gastos asociados.`}
+        message={`¿Eliminar la categoría "${aBorrar?.nombre}"? No tiene nada cargado.`}
         confirmText="Eliminar"
       />
     </section>
