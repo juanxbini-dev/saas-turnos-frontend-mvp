@@ -21,6 +21,12 @@ export interface GastosAccesoFallo {
 
 // --- Dominio ---
 
+// Diseño: backend/docs/gastos-ingresos-plan.md. El tipo vive en la categoría:
+// un gasto o un fijo es ingreso si su categoría es de ingreso. No se cambia
+// después de creada. El backend lo manda siempre desde la migración 027; si
+// falta (backend viejo), se toma como gasto (ver tipoDeCategoria).
+export type GastoTipo = 'gasto' | 'ingreso';
+
 export interface GastoCategoria {
   id: string;
   nombre: string;
@@ -28,12 +34,14 @@ export interface GastoCategoria {
   orden: number;
   activa: boolean;
   en_uso?: boolean;
+  tipo?: GastoTipo;
 }
 
 export interface GastoCategoriaRef {
   id: string;
   nombre: string;
   color: string;
+  tipo?: GastoTipo;
 }
 
 export type GastoEstado = 'pendiente' | 'pagado';
@@ -50,6 +58,7 @@ export interface GastoRecurrente {
   periodo_desde: string;        // 'YYYY-MM'
   periodo_hasta: string | null;
   activo: boolean;
+  tipo?: GastoTipo;             // el de su categoría
 }
 
 // Un renglón del mes: fila real o proyección de un recurrente sin override
@@ -84,6 +93,8 @@ export interface GastoDerivado {
   color: string;
 }
 
+// derivados..pendiente son solo de gastos; lo de ingresos va aparte y nunca
+// se mezcla (los omitidos no suman).
 export interface GastosMesTotales {
   derivados: number;
   recurrentes: number;
@@ -91,14 +102,33 @@ export interface GastosMesTotales {
   total: number;
   pagado: number;
   pendiente: number;
+  ingresos_fijos: number;
+  ingresos_unicos: number;
+  ingresos: number;       // = ingresos_fijos + ingresos_unicos
+  cobrado: number;        // ingresos con estado 'pagado'
+  por_cobrar: number;     // ingresos pendientes
 }
 
+// recurrentes/unicos: solo gastos. ingresos_fijos/ingresos_unicos: lo cargado a
+// mano en categorías de ingreso. gastosService.getMes completa lo que falte si
+// el backend todavía no manda los campos de ingresos.
 export interface GastosMes {
   periodo: string;
   derivados: GastoDerivado[];
   recurrentes: GastoMesItem[];
   unicos: GastoMesItem[];
+  ingresos_fijos: GastoMesItem[];
+  ingresos_unicos: GastoMesItem[];
   totales: GastosMesTotales;
+}
+
+// Lo que responde GET /api/gastos (los campos de ingresos pueden faltar en un
+// backend anterior a la 027)
+export interface GastosMesApi extends Omit<GastosMes, 'ingresos_fijos' | 'ingresos_unicos' | 'totales'> {
+  ingresos_fijos?: GastoMesItem[];
+  ingresos_unicos?: GastoMesItem[];
+  totales: Omit<GastosMesTotales, 'ingresos_fijos' | 'ingresos_unicos' | 'ingresos' | 'cobrado' | 'por_cobrar'>
+    & Partial<Pick<GastosMesTotales, 'ingresos_fijos' | 'ingresos_unicos' | 'ingresos' | 'cobrado' | 'por_cobrar'>>;
 }
 
 export interface GastosResumenPeriodo {
@@ -113,7 +143,11 @@ export interface GastosResumenPeriodo {
   a_profesionales?: number;   // Σ a pagar sin el dueño (= derivados)
   gastos_salon?: number;      // fijos + únicos
   ganancia_salon?: number;    // Σ facturado − Σ a pagar
-  facturado_duenio?: number;  // lo que facturó el dueño (ya incluido en ganancia_salon)
+  facturado_duenio?: number;  // lo que facturó el dueño (ya incluido en ganancia_salon), solo si cuenta
+  // gastos-ingresos-plan: "Entró" (ingresos) = ingresos_facturado + ingresos_cargados
+  ingresos_facturado?: number;  // turnos + productos de los usuarios que cuentan
+  ingresos_cargados?: number;   // ingresos cargados a mano (fijos + únicos, sin omitidos)
+  facturado_excluido?: number;  // lo facturado por quienes no cuentan: dato, no suma a nada
 }
 
 export interface GastosResumen extends GastosResumenPeriodo {
@@ -154,6 +188,10 @@ export interface GastosProfesionalMes {
   canjes: number;              // servicios + unidades entregadas en canje
   unidades_vendidas: number;
   pendiente_cobro: number;     // hecho sin cobrar, no suma a nada
+  // false = no cuenta en Gastos este mes (se elige en Usuarios): sigue en la
+  // tabla con sus números, en gris, pero no suma a los totales. normalizarDetalle
+  // lo completa con true si el backend no lo manda.
+  cuenta_en_gastos?: boolean;
 }
 
 export interface GastosIngresosDetalle {
@@ -163,6 +201,9 @@ export interface GastosIngresosDetalle {
   turnos_cobrados: number;
   productos_vendidos: number;
   pendiente_cobro: number;
+  // Ingresos cargados a mano del mes. `total` sigue siendo servicios + productos:
+  // "Entró" del resumen = total + cargados.
+  cargados?: number;
 }
 
 // Totales de la tabla por profesional
@@ -171,6 +212,7 @@ export interface GastosProfesionalesTotales {
   a_pagar: number;
   ganancia_salon: number;
   facturado_duenio: number;     // "de eso, $X lo atendiste vos" (P2)
+  facturado_excluido?: number;  // lo facturado por quienes no cuentan (no está en los otros)
 }
 
 // Costo de lo vendido y de lo entregado en canje: solo referencia, no se resta.
@@ -257,6 +299,41 @@ export interface OverrideRecurrenteInput {
 export interface CrearCategoriaInput {
   nombre: string;
   color?: string;
+  tipo?: GastoTipo;     // default 'gasto' en el backend; no se cambia después
+}
+
+// --- Usuarios que cuentan en Gastos (solo super admin, sin contraseña de sección) ---
+
+// Un tramo es un cambio: (cuenta, desde, hasta). Para un usuario y un mes manda
+// el tramo más nuevo que cubre ese mes; sin tramo, cuenta.
+//   "desde X" = (X, null) · "solo X" = (X, X) · "todos los meses" = (null, null)
+export interface GastosUsuarioCuentaTramo {
+  id: string;
+  cuenta: boolean;
+  periodo_desde: string | null;   // 'YYYY-MM'
+  periodo_hasta: string | null;
+  created_at: string;
+}
+
+export interface GastosUsuarioCuenta {
+  usuario_id: string;
+  nombre: string;
+  cuenta_este_mes: boolean;
+  tramos: GastosUsuarioCuentaTramo[];   // más nuevo primero
+}
+
+export interface GastosUsuariosCuentaResponse {
+  periodo_actual: string;
+  usuarios: GastosUsuarioCuenta[];
+}
+
+export type AlcanceCuentaGastos = 'desde' | 'solo' | 'siempre';
+
+// Body de POST /api/gastos/usuarios-cuenta/:usuarioId (lo arma armarPedidoCuenta)
+export interface CambiarCuentaGastosInput {
+  cuenta: boolean;
+  alcance: AlcanceCuentaGastos;
+  periodo?: string;     // obligatorio para 'desde' y 'solo'
 }
 
 // --- Pagado en lote (tilde por rubro) ---

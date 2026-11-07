@@ -1,5 +1,5 @@
 // Helpers de período y formato de la sección de gastos.
-import type { GastoMesItem, GastosPorCategoriaItem, MarcarPagadoItem } from '../../types/gastos.types';
+import type { GastoMesItem, GastoTipo, GastosPorCategoriaItem, MarcarPagadoItem } from '../../types/gastos.types';
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -23,6 +23,13 @@ export function sumarMeses(periodo: string, meses: number): string {
 export function etiquetaPeriodo(periodo: string): string {
   const [anio, mes] = periodo.split('-').map(Number);
   return `${MESES[mes - 1]} ${anio}`;
+}
+
+// 'noviembre 2026': siempre con año, en minúscula. Para frases donde el mes
+// puede ser de otro año sin que se note ("No cuenta desde noviembre 2026").
+export function mesConAnio(periodo: string): string {
+  const [anio, mes] = periodo.split('-').map(Number);
+  return `${(MESES[mes - 1] ?? periodo).toLowerCase()} ${anio}`;
 }
 
 // 'Ago' | 'Ago 26' cuando el año no coincide con el de referencia
@@ -124,4 +131,72 @@ export function limpiarPorCategoria(items: GastosPorCategoriaItem[]): GastosPorC
   return items
     .filter((c) => c.categoria_id !== ID_DERIVADO_MERCADERIA)
     .map((c) => (c.categoria_id === ID_DERIVADO_COMISIONES ? { ...c, nombre: NOMBRE_RUBRO_PROFESIONALES } : c));
+}
+
+// ------------------------------------------------------- Gastos e ingresos
+// gastos-ingresos-plan: el tipo vive en la categoría. Sin tipo (backend viejo)
+// es gasto, así nada de lo que ya existía cambia de lado.
+
+export function tipoDeCategoria(c: { tipo?: GastoTipo } | null | undefined): GastoTipo {
+  return c?.tipo === 'ingreso' ? 'ingreso' : 'gasto';
+}
+
+// Categorías (o fijos) de un tipo: los formularios de gastos solo ofrecen
+// categorías de gasto y los de ingresos solo de ingreso. Un fijo sin `tipo`
+// propio toma el de su categoría.
+export function filtrarPorTipo<T extends { tipo?: GastoTipo; categoria?: { tipo?: GastoTipo } }>(items: T[], tipo: GastoTipo): T[] {
+  return items.filter((i) => tipoDeCategoria({ tipo: i.tipo ?? i.categoria?.tipo }) === tipo);
+}
+
+// Textos que cambian entre la sección de gastos y la de ingresos. En ingresos
+// el estado 'pagado' se lee "Cobrado". Los de gastos son los de siempre: no
+// cambiar sin revisar los tests de la tabla.
+export interface TextosModo {
+  singular: string;          // 'gasto'
+  Singular: string;          // 'Gasto'
+  plural: string;            // 'gastos'
+  Plural: string;            // 'Gastos'
+  nuevo: string;             // 'Nuevo gasto'
+  pagado: string;            // 'pagado'
+  pagados: string;           // 'pagados'
+  yaLoPague: string;         // 'Ya lo pagué'
+  yaEsta: string;            // 'Ya está pagado'
+  comoSePago: string;        // '¿Cómo se pagó?'
+  diaLabel: string;          // 'Vence el día'
+  omitido: string;           // 'este mes no se paga'
+  omitidoLargo: string;      // checkbox del modal de edición
+  fijos: string;             // 'Mis gastos fijos'
+  fijoNuevo: string;         // 'Nuevo gasto fijo'
+  fijoEditar: string;        // 'Editar gasto fijo'
+  sinFijos: string;
+  placeholderFijo: string;
+  placeholderUnico: string;
+}
+
+export const TEXTOS_MODO: Record<GastoTipo, TextosModo> = {
+  gasto: {
+    singular: 'gasto', Singular: 'Gasto', plural: 'gastos', Plural: 'Gastos',
+    nuevo: 'Nuevo gasto', pagado: 'pagado', pagados: 'pagados',
+    yaLoPague: 'Ya lo pagué', yaEsta: 'Ya está pagado', comoSePago: '¿Cómo se pagó?',
+    diaLabel: 'Vence el día', omitido: 'este mes no se paga',
+    omitidoLargo: 'Este mes no se paga (bonificado, suspendido…). No suma al total.',
+    fijos: 'Mis gastos fijos', fijoNuevo: 'Nuevo gasto fijo', fijoEditar: 'Editar gasto fijo',
+    sinFijos: 'Todavía no cargaste gastos fijos.',
+    placeholderFijo: 'Alquiler del local', placeholderUnico: 'Arreglo del aire',
+  },
+  ingreso: {
+    singular: 'ingreso', Singular: 'Ingreso', plural: 'ingresos', Plural: 'Ingresos',
+    nuevo: 'Nuevo ingreso', pagado: 'cobrado', pagados: 'cobrados',
+    yaLoPague: 'Ya lo cobré', yaEsta: 'Ya está cobrado', comoSePago: '¿Cómo se cobró?',
+    diaLabel: 'Se cobra el día', omitido: 'este mes no entra',
+    omitidoLargo: 'Este mes no entra (no lo pagó, se suspendió…). No suma al total.',
+    fijos: 'Mis ingresos fijos', fijoNuevo: 'Nuevo ingreso fijo', fijoEditar: 'Editar ingreso fijo',
+    sinFijos: 'Todavía no cargaste ingresos fijos.',
+    placeholderFijo: 'Juli — sillón', placeholderUnico: 'Alquiler del salón por un día',
+  },
+};
+
+// Tipo de un fijo: el suyo o, si no lo trae, el de su categoría
+export function tipoDeFijo(r: { tipo?: GastoTipo; categoria?: { tipo?: GastoTipo } }): GastoTipo {
+  return tipoDeCategoria({ tipo: r.tipo ?? r.categoria?.tipo });
 }

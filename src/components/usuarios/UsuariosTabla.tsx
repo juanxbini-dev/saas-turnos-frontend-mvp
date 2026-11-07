@@ -12,6 +12,8 @@ interface UsuariosTablaProps {
   onEliminar: (usuario: Usuario) => void;
   onResetPassword?: (usuario: Usuario) => void;
   onMetricas?: (usuario: Usuario) => void;
+  // Campo "Cuenta en Gastos": solo lo pasa la página cuando el logueado es super admin
+  renderCuentaGastos?: (usuario: Usuario) => React.ReactNode;
 }
 
 export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
@@ -22,7 +24,8 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
   onCambiarRol,
   onEliminar,
   onResetPassword,
-  onMetricas
+  onMetricas,
+  renderCuentaGastos
 }) => {
   const columns: Array<any> = [
     {
@@ -79,6 +82,12 @@ export const UsuariosTabla: React.FC<UsuariosTablaProps> = ({
         );
       }
     },
+    // La clave es solo para el key de React: la columna no muestra created_at
+    ...(renderCuentaGastos ? [{
+      key: 'created_at',
+      header: 'Cuenta en Gastos',
+      render: (_: string, usuario: Usuario) => (usuario ? renderCuentaGastos(usuario) : null),
+    }] : []),
     {
       key: 'last_login',
       header: 'Último Login',

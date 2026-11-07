@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { formatMoneda } from './gastos.utils';
+import { formatMoneda, sumarMontos } from './gastos.utils';
 import type { GastosDetalleMes } from '../../types/gastos.types';
 
 interface GastosQueEntroProps {
@@ -11,22 +11,26 @@ interface GastosQueEntroProps {
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
-// Lo que entró este mes, explicado: servicios cobrados y productos vendidos.
-// Nada de esto se carga a mano; el detalle vive en Finanzas. El costo de los
+// Lo que entró este mes, explicado: servicios cobrados y productos vendidos
+// (de quienes cuentan en Gastos; el detalle vive en Finanzas) y los ingresos
+// cargados a mano en la sección Ingresos (gastos-ingresos-plan). El total es el
+// mismo "Entró" del resumen: servicios + productos + cargados. El costo de los
 // productos vendidos es solo un dato: ya no se resta como gasto (gastos-ganancias-spec §4.5).
 export const GastosQueEntro: React.FC<GastosQueEntroProps> = ({ detalle, isLoading }) => {
   if (isLoading || !detalle) {
     return <div className="bg-white border border-gray-200 rounded-xl h-36 animate-pulse" />;
   }
   const { ingresos, productos } = detalle;
+  const cargados = ingresos.cargados ?? 0;
+  const total = sumarMontos([ingresos.total, cargados]);
 
   return (
     <section className="bg-white border border-gray-200 rounded-xl overflow-hidden" data-testid="gastos-que-entro">
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100">
         <h3 className="text-sm font-semibold text-gray-900">Qué entró</h3>
-        <span className="text-sm font-semibold text-gray-900 tabular-nums">{formatMoneda(ingresos.total)}</span>
+        <span className="text-sm font-semibold text-gray-900 tabular-nums">{formatMoneda(total)}</span>
       </div>
-      {ingresos.total === 0 && ingresos.pendiente_cobro === 0 ? (
+      {total === 0 && ingresos.pendiente_cobro === 0 ? (
         <p className="px-4 py-4 text-sm text-gray-500 text-center">Todavía no se cobró nada este mes.</p>
       ) : (
         <ul className="divide-y divide-gray-100 text-sm">
@@ -49,6 +53,15 @@ export const GastosQueEntro: React.FC<GastosQueEntroProps> = ({ detalle, isLoadi
             </div>
             <span className="text-gray-900 tabular-nums">{formatMoneda(ingresos.productos)}</span>
           </li>
+          {cargados > 0 && (
+            <li className="flex items-center gap-3 px-4 py-2" data-testid="ingresos-cargados">
+              <div className="flex-1 min-w-0">
+                <span className="text-gray-900">Ingresos cargados</span>
+                <span className="text-xs text-gray-500"> · los que cargaste en Ingresos</span>
+              </div>
+              <span className="text-gray-900 tabular-nums">{formatMoneda(cargados)}</span>
+            </li>
+          )}
           {ingresos.pendiente_cobro > 0 && (
             <li className="flex items-center gap-2 px-4 py-2 bg-amber-50/70">
               <Clock size={14} className="text-amber-600 shrink-0" />

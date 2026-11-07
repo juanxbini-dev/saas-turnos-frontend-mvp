@@ -29,7 +29,8 @@ describe('normalizarDetalle', () => {
     expect(d.productos).toEqual({ costo_vendido: 7, costo_canjes: 1, unidades: 3 });
     expect(d.a_pagar_total).toBe(40);
     // Sin totales del backend, se arman sumando las filas
-    expect(d.totales).toEqual({ facturado: 140, a_pagar: 0, ganancia_salon: 140, facturado_duenio: 10 });
+    // (gastos-ingresos: todos cuentan, nada excluido)
+    expect(d.totales).toEqual({ facturado: 140, a_pagar: 0, ganancia_salon: 140, facturado_duenio: 10, facturado_excluido: 0 });
   });
 
   it('si el backend manda totales, se respetan', () => {

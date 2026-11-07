@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowDownToLine, ArrowUpFromLine, Scale, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Info, Scale, TrendingUp, TrendingDown } from 'lucide-react';
 import { formatMoneda } from './gastos.utils';
 import type { GastosDetalleMes, GastosResumen } from '../../types/gastos.types';
 
@@ -25,6 +25,23 @@ const Delta: React.FC<{ actual: number; anterior?: number | null; invertir?: boo
     </span>
   );
 };
+
+// "Entró" desglosado (gastos-ingresos-plan): lo facturado por quienes cuentan
+// en Gastos y lo cargado a mano en Ingresos. El total ya viene sumado del
+// backend; acá solo se explica. Sin ingresos cargados se muestra la línea de
+// siempre (turnos y productos).
+export function desgloseEntro(resumen: GastosResumen, detalle: GastosDetalleMes | null): { facturado: number; cargados: number } | null {
+  const cargados = resumen.ingresos_cargados ?? detalle?.ingresos.cargados ?? 0;
+  if (cargados <= 0) return null;
+  const facturado = resumen.ingresos_facturado ?? detalle?.ingresos.total ?? Math.max(0, resumen.ingresos - cargados);
+  return { facturado, cargados };
+}
+
+// Lo facturado por quienes no cuentan en Gastos: no suma a nada, pero se avisa
+// para que no parezca que falta plata.
+export function facturadoExcluido(resumen: GastosResumen, detalle: GastosDetalleMes | null): number {
+  return resumen.facturado_excluido ?? detalle?.totales.facturado_excluido ?? 0;
+}
 
 // Tres números en el idioma del dueño: cuánto entró, cuánto salió y cuánto quedó.
 // Todo lo demás (fijos, variables, a profesionales) vive en la lista, no acá.
@@ -57,40 +74,52 @@ export const GastosResumenSimple: React.FC<GastosResumenSimpleProps> = ({ resume
   const turnosCobrados = ingresos
     ? `${ingresos.turnos_cobrados} ${ingresos.turnos_cobrados === 1 ? 'turno cobrado' : 'turnos cobrados'}`
     : '';
+  const desglose = desgloseEntro(resumen, detalle);
+  const excluido = facturadoExcluido(resumen, detalle);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex flex-col gap-1 min-w-0">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <ArrowDownToLine size={16} className="text-green-600" /> Entró
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex flex-col gap-1 min-w-0">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <ArrowDownToLine size={16} className="text-green-600" /> Entró
+          </div>
+          <div className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums truncate">{formatMoneda(resumen.ingresos)}</div>
+          {desglose
+            ? <span className="text-xs text-gray-500" data-testid="entro-desglose">{formatMoneda(desglose.facturado)} facturado + {formatMoneda(desglose.cargados)} de ingresos cargados</span>
+            : ingresos
+              ? <span className="text-xs text-gray-500">{turnosCobrados} · {formatMoneda(ingresos.productos)} en productos</span>
+              : <Delta actual={resumen.ingresos} anterior={ant?.ingresos} />}
         </div>
-        <div className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums truncate">{formatMoneda(resumen.ingresos)}</div>
-        {ingresos
-          ? <span className="text-xs text-gray-500">{turnosCobrados} · {formatMoneda(ingresos.productos)} en productos</span>
-          : <Delta actual={resumen.ingresos} anterior={ant?.ingresos} />}
-      </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex flex-col gap-1 min-w-0">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <ArrowUpFromLine size={16} className="text-orange-600" /> Salió
+        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex flex-col gap-1 min-w-0">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <ArrowUpFromLine size={16} className="text-orange-600" /> Salió
+          </div>
+          <div className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums truncate">{formatMoneda(resumen.total_gastos)}</div>
+          <span className={`text-xs ${resumen.pendiente > 0 ? 'text-amber-700' : 'text-gray-500'}`}>{salioDetalle}</span>
         </div>
-        <div className="text-xl sm:text-2xl font-bold text-gray-900 tabular-nums truncate">{formatMoneda(resumen.total_gastos)}</div>
-        <span className={`text-xs ${resumen.pendiente > 0 ? 'text-amber-700' : 'text-gray-500'}`}>{salioDetalle}</span>
-      </div>
 
-      <div className={`rounded-xl p-4 sm:p-5 flex flex-col gap-1 border col-span-2 md:col-span-1 ${positivo ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-        <div className={`flex items-center gap-2 text-sm ${positivo ? 'text-green-800' : 'text-red-800'}`}>
-          <Scale size={16} /> Te quedó
+        <div className={`rounded-xl p-4 sm:p-5 flex flex-col gap-1 border col-span-2 md:col-span-1 ${positivo ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+          <div className={`flex items-center gap-2 text-sm ${positivo ? 'text-green-800' : 'text-red-800'}`}>
+            <Scale size={16} /> Te quedó
+          </div>
+          <div className={`text-xl sm:text-2xl font-bold tabular-nums ${positivo ? 'text-green-800' : 'text-red-800'}`}>
+            {positivo ? '' : '−'}{formatMoneda(Math.abs(quedo))}
+          </div>
+          <span className={`text-xs ${positivo ? 'text-green-700' : 'text-red-700'}`}>
+            {resumen.ingresos > 0
+              ? `${Math.abs(resumen.margen_pct).toFixed(0)}% de lo que entró${positivo ? '' : ', en negativo'}`
+              : 'todavía no entró nada este mes'}
+          </span>
         </div>
-        <div className={`text-xl sm:text-2xl font-bold tabular-nums ${positivo ? 'text-green-800' : 'text-red-800'}`}>
-          {positivo ? '' : '−'}{formatMoneda(Math.abs(quedo))}
-        </div>
-        <span className={`text-xs ${positivo ? 'text-green-700' : 'text-red-700'}`}>
-          {resumen.ingresos > 0
-            ? `${Math.abs(resumen.margen_pct).toFixed(0)}% de lo que entró${positivo ? '' : ', en negativo'}`
-            : 'todavía no entró nada este mes'}
-        </span>
       </div>
+      {excluido > 0 && (
+        <p className="flex items-start gap-1.5 text-xs text-gray-500 px-1" data-testid="nota-excluido">
+          <Info size={13} className="shrink-0 mt-0.5 text-gray-400" aria-hidden="true" />
+          <span>No cuenta: {formatMoneda(excluido)} facturado por quienes no cuentan en Gastos (se cambia en Usuarios).</span>
+        </p>
+      )}
     </div>
   );
 };

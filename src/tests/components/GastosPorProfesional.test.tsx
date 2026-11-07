@@ -176,7 +176,8 @@ describe('funciones puras de la tabla', () => {
     const b = prof({ facturado: 0.2, a_pagar: 0.2, ganancia_salon: 0 });
     // Un dueño con a_pagar distinto de 0 (no debería venir así) igual no suma
     const d = prof({ es_duenio: true, facturado: 100, a_pagar: 50, ganancia_salon: 100 });
-    expect(totalesDeProfesionales([a, b, d])).toEqual({ facturado: 100.3, a_pagar: 0.3, ganancia_salon: 100, facturado_duenio: 100 });
+    // gastos-ingresos: todos cuentan, así que no hay nada excluido
+    expect(totalesDeProfesionales([a, b, d])).toEqual({ facturado: 100.3, a_pagar: 0.3, ganancia_salon: 100, facturado_duenio: 100, facturado_excluido: 0 });
   });
 
   it('detalleProfesional usa singular cuando corresponde', () => {

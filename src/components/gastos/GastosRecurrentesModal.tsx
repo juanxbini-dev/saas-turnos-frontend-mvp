@@ -4,8 +4,8 @@ import { Button, Modal, Badge } from '../ui';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { gastosService } from '../../services/gastos.service';
 import { toastService } from '../../services/toast.service';
-import { etiquetaPeriodo, formatMoneda } from './gastos.utils';
-import type { GastoRecurrente } from '../../types/gastos.types';
+import { etiquetaPeriodo, formatMoneda, TEXTOS_MODO } from './gastos.utils';
+import type { GastoRecurrente, GastoTipo } from '../../types/gastos.types';
 
 interface GastosRecurrentesModalProps {
   isOpen: boolean;
@@ -16,13 +16,16 @@ interface GastosRecurrentesModalProps {
   onNuevo: () => void;
   onCambio: () => void;
   onCategorias?: () => void;
+  // 'ingreso' = "Mis ingresos fijos". Los recurrentes ya vienen filtrados por tipo.
+  modo?: GastoTipo;
 }
 
 // Listado de plantillas (activas e históricas) con edición y baja.
 // La baja no borra: cierra la vigencia en el mes que elija el usuario.
 export function GastosRecurrentesModal({
-  isOpen, onClose, recurrentes, periodo, onEditar, onNuevo, onCambio, onCategorias,
+  isOpen, onClose, recurrentes, periodo, onEditar, onNuevo, onCambio, onCategorias, modo = 'gasto',
 }: GastosRecurrentesModalProps) {
+  const tx = TEXTOS_MODO[modo];
   const [aDarDeBaja, setADarDeBaja] = useState<GastoRecurrente | null>(null);
   const [procesando, setProcesando] = useState(false);
 
@@ -53,7 +56,7 @@ export function GastosRecurrentesModal({
         <div className="text-sm text-gray-800 truncate">{r.nombre}</div>
         <div className="text-xs text-gray-500">
           {r.categoria?.nombre ?? 'Sin categoría'}
-          {r.dia_vencimiento && ` · vence el ${r.dia_vencimiento}`}
+          {r.dia_vencimiento && ` · ${modo === 'ingreso' ? 'se cobra' : 'vence'} el ${r.dia_vencimiento}`}
           {' · '}desde {etiquetaPeriodo(r.periodo_desde)}
           {r.periodo_hasta && ` hasta ${etiquetaPeriodo(r.periodo_hasta)}`}
         </div>
@@ -80,12 +83,12 @@ export function GastosRecurrentesModal({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title="Mis gastos fijos"
+        title={tx.fijos}
         size="lg"
         footer={
           <div className="flex justify-between items-center">
             <p className="text-xs text-gray-500">
-              Acá se cambia el gasto para todos los meses. Para un mes puntual, usá el lápiz en la lista del mes.
+              Acá se cambia el {tx.singular} para todos los meses. Para un mes puntual, usá el lápiz en la lista del mes.
               {onCategorias && <> · <button type="button" onClick={onCategorias} className="text-blue-600 hover:underline">Categorías</button></>}
             </p>
             <Button size="sm" leftIcon={Plus} onClick={onNuevo}>Nuevo</Button>
@@ -93,7 +96,7 @@ export function GastosRecurrentesModal({
         }
       >
         {activos.length === 0 && historicos.length === 0 ? (
-          <p className="text-sm text-gray-500 py-6 text-center">Todavía no cargaste gastos fijos.</p>
+          <p className="text-sm text-gray-500 py-6 text-center">{tx.sinFijos}</p>
         ) : (
           <>
             <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Vigentes</h4>
@@ -119,7 +122,7 @@ export function GastosRecurrentesModal({
         onClose={() => setADarDeBaja(null)}
         onConfirm={confirmarBaja}
         loading={procesando}
-        title="Dejar de pagar este gasto"
+        title={modo === 'ingreso' ? 'Dejar de cobrar este ingreso' : 'Dejar de pagar este gasto'}
         message={`"${aDarDeBaja?.nombre}" deja de aplicar a partir de ${etiquetaPeriodo(periodo)} inclusive. Los meses anteriores conservan lo que ya tenían.`}
         confirmText="Dar de baja"
       />

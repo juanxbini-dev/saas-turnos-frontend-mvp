@@ -5,6 +5,7 @@ import { buildKey, ENTITIES } from '../cache/key.builder';
 import type {
   GastosAccesoFallo,
   GastosMes,
+  GastosMesApi,
   GastosResumen,
   GastosDetalleMes,
   GastosDetalleMesApi,
@@ -25,7 +26,11 @@ import type {
   MarcarPagadoItem,
   MarcarPagadosInput,
   MarcarPagadosResult,
+  GastosUsuarioCuenta,
+  GastosUsuariosCuentaResponse,
+  AlcanceCuentaGastos,
 } from '../types/gastos.types';
+import { armarPedidoCuenta } from '../components/gastos/cuentaGastos.utils';
 
 // El token de la sección vive en sessionStorage, no en localStorage: muere al
 // cerrar la pestaña y no queda en disco. Nunca se manda a otros endpoints: solo
@@ -86,6 +91,33 @@ export function invalidarCacheGastos(): void {
   cacheService.invalidateByPrefix(buildKey(ENTITIES.GASTOS));
 }
 
+// Completa los campos de ingresos del mes si el backend todavía no los manda
+// (anterior a la 027): sin ingresos cargados, todo en cero.
+export function normalizarMes(api: GastosMesApi): GastosMes {
+  const ingresos_fijos = api.ingresos_fijos ?? [];
+  const ingresos_unicos = api.ingresos_unicos ?? [];
+  const t = api.totales;
+  const contables = [...ingresos_fijos, ...ingresos_unicos].filter((i) => !i.omitido);
+  const fijos = t.ingresos_fijos ?? sumarMontos(ingresos_fijos.filter((i) => !i.omitido).map((i) => i.monto));
+  const unicos = t.ingresos_unicos ?? sumarMontos(ingresos_unicos.filter((i) => !i.omitido).map((i) => i.monto));
+  return {
+    ...api,
+    ingresos_fijos,
+    ingresos_unicos,
+    totales: {
+      ...t,
+      ingresos_fijos: fijos,
+      ingresos_unicos: unicos,
+      ingresos: t.ingresos ?? sumarMontos([fijos, unicos]),
+      cobrado: t.cobrado ?? sumarMontos(contables.filter((i) => i.estado === 'pagado').map((i) => i.monto)),
+      por_cobrar: t.por_cobrar ?? sumarMontos(contables.filter((i) => i.estado !== 'pagado').map((i) => i.monto)),
+    },
+  };
+}
+
+// ¿Esta fila cuenta en Gastos? Sin el campo (backend viejo), cuenta.
+export const cuentaEnGastos = (p: GastosProfesionalMes): boolean => p.cuenta_en_gastos !== false;
+
 // Dueño primero, después por facturado de mayor a menor (gastos-ganancias-spec
 // §4.4). El backend ya los manda así; se reordena por si acaso, sin mutar.
 export function ordenarProfesionales(filas: GastosProfesionalMes[]): GastosProfesionalMes[] {
@@ -96,13 +128,16 @@ export function ordenarProfesionales(filas: GastosProfesionalMes[]): GastosProfe
 }
 
 // Totales de la tabla por profesional calculados acá, solo si el backend no los
-// manda. Suma en centavos; al dueño nunca se le "paga".
-export function totalesDeProfesionales(filas: GastosProfesionalMes[]): GastosProfesionalesTotales {
+// manda. Suma en centavos; al dueño nunca se le "paga". Los que no cuentan en
+// Gastos quedan afuera de todo salvo de facturado_excluido.
+export function totalesDeProfesionales(todas: GastosProfesionalMes[]): GastosProfesionalesTotales {
+  const filas = todas.filter(cuentaEnGastos);
   return {
     facturado: sumarMontos(filas.map((f) => f.facturado)),
     a_pagar: sumarMontos(filas.map((f) => (f.es_duenio ? 0 : f.a_pagar))),
     ganancia_salon: sumarMontos(filas.map((f) => f.ganancia_salon)),
     facturado_duenio: sumarMontos(filas.filter((f) => f.es_duenio).map((f) => f.facturado)),
+    facturado_excluido: sumarMontos(todas.filter((f) => !cuentaEnGastos(f)).map((f) => f.facturado)),
   };
 }
 
@@ -110,12 +145,17 @@ export function totalesDeProfesionales(filas: GastosProfesionalMes[]): GastosPro
 // el contrato viejo (comisiones_total, mercaderia_costo/unidades) durante la
 // transición: si falta un campo nuevo, se usa su alias.
 export function normalizarDetalle(api: GastosDetalleMesApi): GastosDetalleMes {
-  const profesionales = ordenarProfesionales(api.profesionales ?? []);
+  const profesionales = ordenarProfesionales(
+    (api.profesionales ?? []).map((p) => ({ ...p, cuenta_en_gastos: cuentaEnGastos(p) }))
+  );
+  // Los totales del backend se respetan tal cual (facturado_excluido puede faltar
+  // en uno anterior a la 027: los componentes lo leen con ?? 0)
+  const totales = api.totales ?? totalesDeProfesionales(profesionales);
   return {
     periodo: api.periodo,
-    ingresos: api.ingresos,
+    ingresos: { ...api.ingresos, cargados: api.ingresos?.cargados ?? 0 },
     profesionales,
-    totales: api.totales ?? totalesDeProfesionales(profesionales),
+    totales,
     productos: api.productos ?? {
       costo_vendido: api.mercaderia_costo ?? 0,
       costo_canjes: 0,
@@ -156,7 +196,7 @@ export const gastosService = {
 
   async getMes(periodo: string): Promise<GastosMes> {
     const response = await axiosInstance.get(`${BASE}?periodo=${periodo}`, conToken());
-    return response.data.data;
+    return normalizarMes(response.data.data as GastosMesApi);
   },
 
   async getResumen(periodo: string): Promise<GastosResumen> {
@@ -183,6 +223,8 @@ export const gastosService = {
   },
 
   // -------------------------------------------------------------- Categorías
+  // crearCategoria acepta `tipo` ('gasto' | 'ingreso'); actualizarCategoria no
+  // lo cambia (el backend lo ignora).
 
   async getCategorias(): Promise<GastoCategoria[]> {
     const response = await axiosInstance.get(`${BASE}/categorias`, conToken());
@@ -288,6 +330,30 @@ export const gastosService = {
       input,
       conToken()
     );
+    invalidarCacheGastos();
+    return response.data.data;
+  },
+
+  // ------------------------------------------- Usuarios que cuentan en Gastos
+  // Solo super admin, SIN el token de la sección: se usan desde la pantalla de
+  // Usuarios, donde nunca se pidió la contraseña de Gastos. Por eso no llevan
+  // conToken(): el X-Gastos-Token no se manda aunque haya uno guardado.
+
+  async getUsuariosCuenta(): Promise<GastosUsuariosCuentaResponse> {
+    const response = await axiosInstance.get(`${BASE}/usuarios-cuenta`);
+    return response.data.data;
+  },
+
+  // Cambia desde qué mes (o en qué mes) cuenta un usuario. Cambia los números
+  // de Gastos de esos meses: se tira todo el cache de la sección.
+  async cambiarCuentaUsuario(
+    usuarioId: string,
+    cuenta: boolean,
+    alcance: AlcanceCuentaGastos,
+    periodo?: string | null
+  ): Promise<GastosUsuarioCuenta> {
+    const body = armarPedidoCuenta(cuenta, alcance, periodo);
+    const response = await axiosInstance.post(`${BASE}/usuarios-cuenta/${usuarioId}`, body);
     invalidarCacheGastos();
     return response.data.data;
   },
