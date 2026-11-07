@@ -134,7 +134,12 @@ export function GastoRecurrenteFormModal({
     .map((c) => ({ value: c.id, label: c.nombre }));
 
   const opcionesDesde = Array.from({ length: 6 }, (_, i) => sumarMeses(periodo, i))
-    .filter((p) => !esEdicion || p > recurrente!.periodo_desde);
+    // Desde el mes siguiente al inicio y, si la plantilla tiene fin, hasta ese
+    // fin: después no hay nada que cerrar (el backend lo rechaza con 400).
+    .filter((p) => !esEdicion || (
+      p > recurrente!.periodo_desde
+      && (!recurrente!.periodo_hasta || p <= recurrente!.periodo_hasta)
+    ));
 
   return (
     <Modal
@@ -194,8 +199,18 @@ export function GastoRecurrenteFormModal({
                 quedan como están, el resto (pasados y futuros) toma el monto nuevo.
               </span>
             </label>
+            {opcionesDesde.length > 0 && (
             <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
-              <input type="radio" checked={modoMonto === 'desde'} onChange={() => setModoMonto('desde')} className="mt-0.5" />
+              <input
+                type="radio"
+                checked={modoMonto === 'desde'}
+                onChange={() => {
+                  setModoMonto('desde');
+                  // El mes por defecto (el que se está mirando) puede no ser válido
+                  if (!opcionesDesde.includes(desdeCambio)) setDesdeCambio(opcionesDesde[0]!);
+                }}
+                className="mt-0.5"
+              />
               <span className="flex-1">
                 <strong>A partir de un mes</strong> — los anteriores conservan el monto viejo.
                 {modoMonto === 'desde' && (
@@ -209,6 +224,7 @@ export function GastoRecurrenteFormModal({
                 )}
               </span>
             </label>
+            )}
           </div>
         )}
 
