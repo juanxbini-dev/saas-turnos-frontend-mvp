@@ -94,7 +94,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
   const { state: authUser } = useAuth();
   const toast = useToast();
   const isAdmin = authUser?.roles.includes('admin');
-  const puedeVerBeneficioActivo = !!(isAdmin || authUser?.roles.includes('super_admin'));
+  const puedeAplicarBeneficio = !!(isAdmin || authUser?.roles.includes('super_admin'));
   const user = authUser?.authUser;
 
   // Hook de disponibilidad — sin servicioId (dashboard usa flujo inverso: slot primero, servicio después)
@@ -229,9 +229,12 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
 
   const filteredClientes = clientesResp?.items || [];
 
-  // Beneficio del turno: códigos vigentes del cliente o el beneficio activo
+  // Beneficio del turno: códigos vigentes del cliente o un beneficio para aplicar
   // (selector compartido con el Dashboard, useBeneficioTurno)
-  const beneficioTurno = useBeneficioTurno(selectedCliente?.id, { puedeVerBeneficioActivo });
+  const beneficioTurno = useBeneficioTurno(selectedCliente?.id, {
+    puedeAplicarBeneficio,
+    profesional: selectedProfesional ? { id: selectedProfesional.id, nombre: selectedProfesional.nombre } : null,
+  });
   const resumenBeneficio = resumenBeneficioTurno(beneficioTurno);
 
   // "Buscando" incluye la ventana de debounce (todavía no se consultó al backend)
@@ -293,7 +296,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
         fecha: selectedDate,
         hora: selectedSlot,
         notas,
-        // `beneficio_codigo_id` o `beneficio_activo` según lo elegido; sin
+        // `beneficio_codigo_id` o `beneficio_id` según lo elegido; sin
         // selección no viaja nada
         ...beneficioTurno.campos
       });
@@ -310,7 +313,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
       onClose();
       resetModal();
     } catch (error: any) {
-      setErrorModal(mensajeErrorBeneficioTurno(error) || error.response?.data?.message || error.message || 'Error al crear turno');
+      setErrorModal(mensajeErrorBeneficioTurno(error, { profesionales: beneficioTurno.profesionalesDeLaSeleccion, profesionalNombre: selectedProfesional?.nombre }) || error.response?.data?.message || error.message || 'Error al crear turno');
     } finally {
       setLoading(false);
     }
@@ -844,7 +847,7 @@ export const CreateTurnoModal: React.FC<CreateTurnoModalProps> = ({
             </div>
           )}
 
-          {/* Beneficio del cliente: sus códigos vigentes o el beneficio activo */}
+          {/* Beneficio del turno: códigos vigentes del cliente o un beneficio para aplicar */}
           {selectedCliente && <BeneficioTurnoSelector estado={beneficioTurno} />}
 
           <div>

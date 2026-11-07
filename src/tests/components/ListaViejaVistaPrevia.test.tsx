@@ -48,7 +48,7 @@ describe('ListaViejaVistaPrevia', () => {
     const motivos = screen.getByRole('list', { name: 'Por qué hoy no sale nada' });
     expect(within(motivos).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       'La campaña está apagada: hoy no sale ningún mail.',
-      'No hay beneficio activo: hoy no sale ningún mail.',
+      'No hay beneficio elegido para el mail: hoy no sale ningún mail.',
     ]);
 
     const fila1 = screen.getByText('Laura Díaz').closest('tr')!;
@@ -89,5 +89,7 @@ describe('motivosListaVieja', () => {
     expect(motivosListaVieja({ fuera_de_horario: true })).toEqual(['Fuera del horario de envío: los mails salen a las 11:00.']);
     // A2: sin link de baja no sale ningún mail de campaña
     expect(motivosListaVieja({ sin_baja: true })).toEqual(['Falta configurar el link de baja de los mails: hoy no sale ningún mail']);
+    // lista-vieja-cierre D9: ningún profesional del beneficio está activo
+    expect(motivosListaVieja({ sin_profesionales: true })).toEqual(['Ningún profesional del beneficio está activo: hoy no sale ningún mail.']);
   });
 });

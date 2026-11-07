@@ -34,7 +34,7 @@ const CODIGO_A = codigo('bc-a', 'DEB-AAAA2');
 const CODIGO_B = codigo('bc-b', 'DEB-BBBB3');
 
 function Harness({ clienteId }: { clienteId: string | null }) {
-  const estado = useBeneficioTurno(clienteId, { puedeVerBeneficioActivo: true });
+  const estado = useBeneficioTurno(clienteId, { puedeAplicarBeneficio: true, profesional: { id: 'u-caro', nombre: 'Caro' } });
   return (
     <div>
       <BeneficioTurnoSelector estado={estado} />
@@ -44,7 +44,7 @@ function Harness({ clienteId }: { clienteId: string | null }) {
 }
 
 const campos = () => JSON.parse(screen.getByTestId('campos').textContent || '{}');
-const selector = () => screen.getByLabelText('🎟 Aplicar código de beneficio') as HTMLSelectElement;
+const selector = () => screen.getByLabelText('🎟 Beneficio del turno') as HTMLSelectElement;
 
 describe('QA · selector de beneficio al cambiar de cliente (A5-2)', () => {
   beforeEach(() => {
@@ -59,7 +59,7 @@ describe('QA · selector de beneficio al cambiar de cliente (A5-2)', () => {
     getBeneficios.mockImplementation(async (id: string) => (id === 'cli-a' ? [CODIGO_A] : [CODIGO_B]));
     const { rerender } = render(<Harness clienteId="cli-a" />);
     await screen.findByText(/DEB-AAAA2/);
-    fireEvent.change(selector(), { target: { value: 'bc-a' } });
+    fireEvent.change(selector(), { target: { value: 'codigo:bc-a' } });
     expect(campos()).toEqual({ beneficio_codigo_id: 'bc-a' });
 
     rerender(<Harness clienteId="cli-b" />);
@@ -84,15 +84,15 @@ describe('QA · selector de beneficio al cambiar de cliente (A5-2)', () => {
     expect(screen.getByText(/DEB-BBBB3/)).toBeTruthy();
   });
 
-  it('elegido "aplicar el beneficio activo" para A, al pasar a B (que tiene códigos) la elección se borra', async () => {
+  it('elegido "aplicar un beneficio" para A, al pasar a B la elección se borra', async () => {
     getBeneficios.mockImplementation(async (id: string) => (id === 'cli-a' ? [] : [CODIGO_B]));
     listarBeneficios.mockResolvedValue([
       { id: 'ben-1', nombre: 'Te extrañamos', tipo: 'descuento', porcentaje: 20, aplica_servicio: true, aplica_productos: false, vigencia_dias: 30, activo: true, created_at: '', updated_at: '', codigos: {} },
     ]);
     const { rerender } = render(<Harness clienteId="cli-a" />);
-    const opcion = await screen.findByRole('option', { name: 'Aplicar el beneficio activo (20 %)' });
+    const opcion = await screen.findByRole('option', { name: 'Te extrañamos (20 %) · en la campaña de mails' });
     fireEvent.change(selector(), { target: { value: (opcion as HTMLOptionElement).value } });
-    expect(campos()).toEqual({ beneficio_activo: true });
+    expect(campos()).toEqual({ beneficio_id: 'ben-1' });
 
     rerender(<Harness clienteId="cli-b" />);
 

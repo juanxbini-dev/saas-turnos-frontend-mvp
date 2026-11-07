@@ -1,6 +1,6 @@
 import type { AxiosRequestConfig } from 'axios';
 import axiosInstance from '../../api/axiosInstance';
-import { formatearDiaMes, tipoDeBeneficio } from '../../config/beneficio';
+import { formatearDiaMes, profesionalesDelBeneficio, tipoDeBeneficio } from '../../config/beneficio';
 import { esCodigoDeEnlace } from './campaniaPublic.service';
 import type {
   BeneficioDeLink,
@@ -110,9 +110,14 @@ export function leerBeneficioDeVisita(): BeneficioDeVisita | null {
       olvidarBeneficioDeVisita();
       return null;
     }
+    const beneficio = beneficioValido(b);
+    if (!beneficio) {
+      olvidarBeneficioDeVisita();
+      return null;
+    }
     return {
       codigo: normalizarCodigoBeneficio(valor.codigo) as string,
-      beneficio: { ...(b as BeneficioPublico), tipo: tipoDeBeneficio(b as BeneficioPublico) },
+      beneficio,
       vence_el: typeof valor.vence_el === 'string' ? valor.vence_el : null,
     };
   } catch {
@@ -149,17 +154,21 @@ function precargaValida(p: unknown): PrecargaBeneficio | null {
   };
 }
 
-function beneficioValido(b: unknown): BeneficioPublico | null {
+// `profesionalesAfuera`: la lista si el backend la manda al lado de `beneficio`
+// y no adentro (lista-vieja-cierre §3). Sin lista, vale con todos.
+export function beneficioValido(b: unknown, profesionalesAfuera?: unknown): BeneficioPublico | null {
   if (!b || typeof b !== 'object') return null;
   const crudo = b as Partial<BeneficioPublico>;
   if (typeof crudo.nombre !== 'string') return null;
   if (crudo.tipo !== 'otro' && typeof crudo.porcentaje !== 'number') return null;
+  const profesionales = profesionalesDelBeneficio(crudo.profesionales) ?? profesionalesDelBeneficio(profesionalesAfuera);
   return {
     nombre: crudo.nombre,
     tipo: tipoDeBeneficio(crudo as BeneficioPublico),
     porcentaje: typeof crudo.porcentaje === 'number' ? crudo.porcentaje : null,
     aplica_servicio: !!crudo.aplica_servicio,
     aplica_productos: !!crudo.aplica_productos,
+    ...(profesionales ? { profesionales } : {}),
   };
 }
 
@@ -167,7 +176,7 @@ function beneficioValido(b: unknown): BeneficioPublico | null {
 // beneficio que mostrar (valido:false, sin estado conocido, respuesta rara).
 export function beneficioDeLinkDesdeContexto(m: string, contexto: ContextoBeneficio | null | undefined): BeneficioDeLink | null {
   if (!contexto?.valido || !contexto.estado || !ESTADOS_LINK.includes(contexto.estado)) return null;
-  const beneficio = beneficioValido(contexto.beneficio);
+  const beneficio = beneficioValido(contexto.beneficio, contexto.profesionales);
   if (!beneficio) return null;
   const turno = contexto.turno && typeof contexto.turno.fecha === 'string'
     ? { fecha: contexto.turno.fecha, hora: typeof contexto.turno.hora === 'string' ? contexto.turno.hora : '' }
@@ -307,6 +316,11 @@ export const beneficioPublicService = {
       const response = await axiosInstance.post('/public/beneficios/validar', { codigo: normalizado, empresa_id: empresaId }, SIN_REPORTE);
       const data = response.data?.data as ValidacionCodigoBeneficio | undefined;
       if (!data || typeof data.valido !== 'boolean') return null;
+      // Los profesionales del beneficio quedan siempre adentro de `beneficio`
+      if (data.valido && data.beneficio) {
+        const beneficio = beneficioValido(data.beneficio, data.profesionales);
+        if (beneficio) return { ...data, beneficio };
+      }
       return data;
     } catch {
       return null;

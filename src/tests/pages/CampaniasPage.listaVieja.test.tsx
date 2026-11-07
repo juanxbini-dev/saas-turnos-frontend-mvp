@@ -56,7 +56,10 @@ vi.mock('../../services/campanias.service', async () => {
 const listar = vi.fn();
 vi.mock('../../services/beneficios.service', async () => {
   const real = await vi.importActual<typeof import('../../services/beneficios.service')>('../../services/beneficios.service');
-  return { ...real, beneficiosService: { listar: (...a: unknown[]) => listar(...a) } };
+  return {
+    ...real,
+    beneficiosService: { listar: (...a: unknown[]) => listar(...a), activar: vi.fn(), desactivar: vi.fn() },
+  };
 });
 
 vi.mock('../../services/productos.service', () => ({
@@ -133,7 +136,16 @@ describe('CampaniasPage — pestaña "Lista vieja (mail)"', () => {
     getVistaPrevia.mockResolvedValue({ fecha: '2026-10-22', resumen: { sale_hoy: 0, en_espera: 0, no_recibe: 0, por_motivo: {} }, items: [], meta: { total: 0, pagina: 1, por_pagina: 20, total_paginas: 0 } });
     getEnvios.mockResolvedValue({ items: [], meta: { total: 0, pagina: 1, por_pagina: 20, total_paginas: 0 } });
     getMetricas.mockResolvedValue({ periodo: { fecha_desde: '2026-10-01', fecha_hasta: '2026-10-31' }, ventana_dias: 14, totales: { enviados: 0, entregados: 0, leidos: 0, fallidos: 0, bajas: 0, conversiones: 0, con_ventana_abierta: 0, tasa_entrega: null, tasa_lectura: null, tasa_conversion: null }, serie: [] });
-    listar.mockResolvedValue([]);
+    // La lista de beneficios acompaña a la config: si la campaña ofrece uno, ese
+    // está en la campaña de mails (activo)
+    listar.mockImplementation(async () => {
+      const c = await getCampania('lista_vieja');
+      const b = c?.avisos?.beneficio;
+      return b ? [{
+        ...b, activo: true, aplica_servicio: true, aplica_productos: false, vigencia_dias: 18, created_at: '', updated_at: '',
+        profesionales: [{ id: 'u-caro', nombre: 'Caro' }], codigos: { emitidos: 0, reservados: 0, usados: 0, vencidos: 0 },
+      }] : [];
+    });
   });
 
   it('la pestaña está al final y renderiza el panel por mail, no el de WhatsApp', async () => {
@@ -151,9 +163,9 @@ describe('CampaniasPage — pestaña "Lista vieja (mail)"', () => {
     expect(screen.getByLabelText('Máximo de mails por día')).toBeTruthy();
     // El formulario toma los valores del servidor apenas llegan
     await waitFor(() => expect((screen.getByLabelText('Días para el recordatorio') as HTMLInputElement).value).toBe('10'));
-    // Sin selector de beneficio: la pestaña ofrece el activo
-    expect(screen.queryByLabelText('Beneficio del mail')).toBeNull();
-    expect(listar).not.toHaveBeenCalled();
+    // lista-vieja-cierre D6: el beneficio que ofrece el mail se elige acá
+    expect(screen.getByLabelText('Beneficio que ofrece el mail')).toBeTruthy();
+    await waitFor(() => expect(listar).toHaveBeenCalled());
     expect(getCampania).toHaveBeenCalledWith('lista_vieja');
     expect(getCampania).not.toHaveBeenCalledWith('recencia');
 
@@ -184,7 +196,7 @@ describe('CampaniasPage — pestaña "Lista vieja (mail)"', () => {
 
     expect(await screen.findByText(AVISO_SIN_BENEFICIO, { exact: false })).toBeTruthy();
     expect(screen.getByTestId('prender-bloqueado').textContent).toContain(AVISO_PRENDER_SIN_BENEFICIO);
-    expect(screen.getByTestId('lista-vieja-resumen').textContent).toContain('Sin beneficio activo.');
+    expect(screen.getByTestId('lista-vieja-resumen').textContent).toContain('Sin beneficio elegido.');
     const sw = screen.getByRole('switch') as HTMLButtonElement;
     expect(sw.disabled).toBe(true);
     fireEvent.click(sw);
@@ -222,7 +234,7 @@ describe('CampaniasPage — pestaña "Lista vieja (mail)"', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('Falta configurar el link de baja de los mails: hoy no sale ningún mail');
   });
 
-  it('con beneficio activo: "Ofrece: …" y, si igual el backend dice BENEFICIO_REQUERIDO al prender, se ve en la configuración', async () => {
+  it('con beneficio en la campaña: el selector lo muestra elegido y, si igual el backend dice BENEFICIO_REQUERIDO al prender, se ve en la configuración', async () => {
     getCampania.mockImplementation(() => Promise.resolve(listaVieja({
       avisos: { ...AVISOS, canal: 'email', beneficio: ACTIVO, contactos_pendientes: 2610, resend_configurado: true },
     })));
@@ -232,7 +244,7 @@ describe('CampaniasPage — pestaña "Lista vieja (mail)"', () => {
     renderPage();
     await screen.findByRole('heading', { name: 'Lista vieja (mail)' });
 
-    expect((await screen.findByTestId('lista-vieja-ofrece')).textContent).toBe('Ofrece: Bienvenida (20 %) · Se cambia en Beneficios');
+    await waitFor(() => expect((screen.getByLabelText('Beneficio que ofrece el mail') as HTMLSelectElement).value).toBe(ACTIVO.id));
     expect(screen.queryByText(AVISO_SIN_BENEFICIO, { exact: false })).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
 

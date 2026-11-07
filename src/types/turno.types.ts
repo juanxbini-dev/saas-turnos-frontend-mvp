@@ -79,10 +79,11 @@ export interface CreateTurnoData {
   // Código de beneficio del cliente elegido en el panel (GET /api/clientes/:id/beneficios).
   // Sin código el campo no se manda.
   beneficio_codigo_id?: string;
-  // Aplicar el beneficio ACTIVO a un cliente sin códigos (beneficio-con-turno
-  // D22): el backend crea o reutiliza el código y lo reserva para el turno.
-  // Excluyente con `beneficio_codigo_id`. Sin elegirlo, no se manda.
-  beneficio_activo?: true;
+  // Aplicar un beneficio (lista-vieja-cierre D7, reemplaza a `beneficio_activo`):
+  // cualquiera que valga con el profesional del turno. El backend crea o
+  // reutiliza el código y lo reserva para el turno (400 BENEFICIO_PROFESIONAL si
+  // no vale con ese profesional). Excluyente con `beneficio_codigo_id`. Solo admin.
+  beneficio_id?: string;
 }
 
 export interface DisponibilidadSemanal {

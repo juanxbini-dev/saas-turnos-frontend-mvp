@@ -13,10 +13,13 @@ import type { BeneficioDeLink, BeneficioPublico } from '../../types/beneficios.p
 interface CartelBeneficioLinkProps {
   link: BeneficioDeLink;
   className?: string;
+  // Se agrega al final: "… · Vale con Caro o Juli" (lista-vieja-cierre D3)
+  detalle?: string | null;
 }
 
-export function CartelBeneficioLink({ link, className = '' }: CartelBeneficioLinkProps) {
-  const texto = textoCartelBeneficioLink(link);
+export function CartelBeneficioLink({ link, className = '', detalle = null }: CartelBeneficioLinkProps) {
+  const base = textoCartelBeneficioLink(link);
+  const texto = base && detalle ? `${base} · ${detalle}` : base;
   if (!texto) return null;
   const disponible = link.estado === 'disponible';
   return (

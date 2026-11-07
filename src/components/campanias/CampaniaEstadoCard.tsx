@@ -9,7 +9,8 @@ import { toastService } from '../../services/toast.service';
 import { describirBeneficioConNombre } from '../../config/beneficio';
 import type { Campania, CampaniaTipo } from '../../types/campanias.types';
 
-export const AVISO_PRENDER_SIN_BENEFICIO = 'Para prenderla, activá un beneficio.';
+// lista-vieja-cierre D6: el beneficio se elige en la configuración de la campaña
+export const AVISO_PRENDER_SIN_BENEFICIO = 'Para prenderla, elegí en Configuración el beneficio que ofrece el mail.';
 
 interface CampaniaEstadoCardProps {
   campania: Campania | null;
@@ -174,8 +175,7 @@ export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintenta
       </div>
       {prenderBloqueado && (
         <p className="text-xs text-yellow-800 mt-2" data-testid="prender-bloqueado">
-          {AVISO_PRENDER_SIN_BENEFICIO}{' '}
-          <Link to="/beneficios" className="font-medium underline hover:text-yellow-900">Ir a Beneficios</Link>
+          {AVISO_PRENDER_SIN_BENEFICIO}
         </p>
       )}
 
@@ -191,7 +191,7 @@ export function CampaniaEstadoCard({ campania, tipo, loading, error, onReintenta
         <p className="text-sm text-gray-600 mt-1" data-testid="lista-vieja-resumen">
           {campania.avisos.beneficio
             ? `Ofrece: ${describirBeneficioConNombre(campania.avisos.beneficio)}. `
-            : 'Sin beneficio activo. '}
+            : 'Sin beneficio elegido. '}
           {new Intl.NumberFormat('es-AR').format(campania.avisos.contactos_pendientes ?? 0)} contactos todavía no recibieron el mail.
         </p>
       )}

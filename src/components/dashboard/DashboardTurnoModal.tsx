@@ -34,9 +34,9 @@ interface DashboardTurnoModalProps {
   // Para slot ocupado
   turno?: TurnoConDetalle;
   onRefresh?: () => void;
-  // Admin / super_admin: puede ofrecer "Aplicar el beneficio activo" (D22/D24).
+  // Admin / super_admin: puede "Aplicar un beneficio" (lista-vieja-cierre D7, D24).
   // Lo decide quien abre el modal (lee la sesión) para no atarlo al AuthProvider.
-  puedeVerBeneficioActivo?: boolean;
+  puedeAplicarBeneficio?: boolean;
 }
 
 type ModalType = 'disponible' | 'ocupado';
@@ -55,7 +55,7 @@ export function DashboardTurnoModal({
   hora,
   turno,
   onRefresh,
-  puedeVerBeneficioActivo = false
+  puedeAplicarBeneficio = false
 }: DashboardTurnoModalProps) {
   const [loading, setLoading] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
@@ -73,8 +73,11 @@ export function DashboardTurnoModal({
 
   const toast = useToast();
   // Beneficio del turno nuevo: mismo selector que el alta de Turnos
-  // (códigos vigentes del cliente o el beneficio activo, solo para admin: D24)
-  const beneficioTurno = useBeneficioTurno(turno ? null : selectedCliente?.id, { puedeVerBeneficioActivo });
+  // (códigos vigentes del cliente o un beneficio para aplicar, solo para admin: D24)
+  const beneficioTurno = useBeneficioTurno(turno ? null : selectedCliente?.id, {
+    puedeAplicarBeneficio,
+    profesional: profesionalId ? { id: profesionalId, nombre: profesionalNombre ?? '' } : null,
+  });
   const resumenBeneficio = resumenBeneficioTurno(beneficioTurno);
 
   // Determinar tipo de modal
@@ -255,7 +258,7 @@ export function DashboardTurnoModal({
         fecha: format(fecha, 'yyyy-MM-dd'),
         hora: format(hora, 'HH:mm'),
         notas: '',
-        // Igual que CreateTurnoModal: `beneficio_codigo_id` o `beneficio_activo`
+        // Igual que CreateTurnoModal: `beneficio_codigo_id` o `beneficio_id`
         ...beneficioTurno.campos
       });
 
@@ -267,7 +270,7 @@ export function DashboardTurnoModal({
       handleClose();
     } catch (error: any) {
       setShowConfirmModal(false);
-      setErrorModal(mensajeErrorBeneficioTurno(error) || error.response?.data?.message || error.message || 'Error al crear turno');
+      setErrorModal(mensajeErrorBeneficioTurno(error, { profesionales: beneficioTurno.profesionalesDeLaSeleccion, profesionalNombre }) || error.response?.data?.message || error.message || 'Error al crear turno');
     } finally {
       setConfirmLoading(false);
     }
@@ -445,7 +448,7 @@ export function DashboardTurnoModal({
             </div>
           )}
 
-          {/* Beneficio del cliente: sus códigos vigentes o el beneficio activo */}
+          {/* Beneficio del turno: códigos vigentes del cliente o un beneficio para aplicar */}
           {selectedCliente && (
             <div className="border-t border-gray-100 pt-4">
               <BeneficioTurnoSelector estado={beneficioTurno} id="dashboard-beneficio-codigo-id" />
