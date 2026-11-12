@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { enlaceWhatsapp } from '../../components/paraContactar/avisos.utils';
+import { enlaceWhatsapp, textoMotivoAviso } from '../../components/paraContactar/avisos.utils';
 
 describe('enlaceWhatsapp', () => {
   it('deja como viene un número que ya trae el 549', () => {
@@ -14,5 +14,17 @@ describe('enlaceWhatsapp', () => {
   it('sin teléfono o muy corto, no hay link', () => {
     expect(enlaceWhatsapp(null)).toBeNull();
     expect(enlaceWhatsapp('1234')).toBeNull();
+  });
+});
+
+describe('textoMotivoAviso · producto_mas_o_menos', () => {
+  it('dice qué producto y qué opinó', () => {
+    expect(textoMotivoAviso({ motivo: 'producto_mas_o_menos', producto: { id: 'p1', nombre: 'Sérum' }, puntuacion: null })).toBe(
+      'Dijo «Más o menos» del Sérum'
+    );
+  });
+
+  it('sin producto (borrado), sigue diciendo qué opinó', () => {
+    expect(textoMotivoAviso({ motivo: 'producto_mas_o_menos', producto: null, puntuacion: null })).toBe('Dijo «Más o menos» de un producto');
   });
 });

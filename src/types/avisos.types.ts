@@ -18,6 +18,7 @@ export type ResultadoAviso = (typeof RESULTADOS_AVISO)[number];
 export type MotivoAviso =
   | 'pedido_producto'
   | 'producto_no_funciono'
+  | 'producto_mas_o_menos'
   | 'mala_experiencia'
   | 'consulta_producto'
   | 'consulta_turno'
