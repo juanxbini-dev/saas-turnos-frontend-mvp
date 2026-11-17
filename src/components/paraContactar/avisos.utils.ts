@@ -23,6 +23,8 @@ export function textoMotivoAviso(aviso: Pick<AvisoDetalle, 'motivo' | 'producto'
       return producto ? `Pidió el ${producto}` : 'Pidió un producto';
     case 'producto_no_funciono':
       return 'El producto no le funcionó';
+    case 'producto_mas_o_menos':
+      return producto ? `Dijo «Más o menos» del ${producto}` : 'Dijo «Más o menos» de un producto';
     case 'mala_experiencia': {
       const puntaje = aviso.puntuacion?.puntaje;
       const nivel = puntaje && puntaje >= 1 && puntaje <= 4 ? NIVEL_TEXTO[puntaje as NivelPuntaje] : null;
